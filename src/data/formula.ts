@@ -10,6 +10,8 @@ export type Formula = {
   /** 标准 WCA/SiGN 记法（规范化后） */
   moves: string;
   tags: string[];
+  /** 所属分类 id（单选；null = 未分类）。分类是客观可区分的归类，大流派用 tags */
+  categoryId: string | null;
 };
 
 export type FormulaLibrary = {
@@ -23,6 +25,7 @@ export type NewFormula = {
   name: string;
   moves: string;
   tags?: string[];
+  categoryId?: string | null;
   id?: string;
 };
 
@@ -35,6 +38,7 @@ export function createFormula(input: NewFormula): Formula {
     name: input.name.trim(),
     moves: normalizeMoves(input.moves),
     tags: [...(input.tags ?? [])],
+    categoryId: input.categoryId ?? null,
   };
 }
 
@@ -80,16 +84,32 @@ export function parseFormulaEntries(items: unknown[]): Formula[] {
   for (const item of items) {
     const f = item as Record<string, unknown> | null;
     if (!f || typeof f !== "object") throw new FormulaError("公式条目非法");
-    const { id, name, moves, tags } = f;
+    const { id, name, moves, tags, categoryId, categoryIds } = f;
     if (typeof id !== "string" || typeof name !== "string" || typeof moves !== "string") {
       throw new FormulaError("公式字段缺失：id/name/moves 必须为字符串");
     }
     if (!Array.isArray(tags) || !tags.every((t) => typeof t === "string")) {
       throw new FormulaError(`公式 ${name}：tags 必须为字符串数组`);
     }
+    if (categoryIds !== undefined && (!Array.isArray(categoryIds) || !categoryIds.every((c) => typeof c === "string"))) {
+      throw new FormulaError(`公式 ${name}：categoryIds 必须为字符串数组`);
+    }
+    if (categoryId !== undefined && categoryId !== null && typeof categoryId !== "string") {
+      throw new FormulaError(`公式 ${name}：categoryId 必须为字符串或 null`);
+    }
     const err = validateFormulaMoves(moves);
     if (err) throw new FormulaError(`公式 ${name}：${err}`);
-    formulas.push({ id, name, moves: normalizeMoves(moves), tags });
+    // 单选迁移：新字段 categoryId 优先；旧格式 categoryIds 数组取第一个
+    let catId: string | null = null;
+    if (typeof categoryId === "string") catId = categoryId;
+    else if (Array.isArray(categoryIds) && typeof categoryIds[0] === "string") catId = categoryIds[0];
+    formulas.push({
+      id,
+      name,
+      moves: normalizeMoves(moves),
+      tags,
+      categoryId: catId,
+    });
   }
   return formulas;
 }

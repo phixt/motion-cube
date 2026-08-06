@@ -1,7 +1,10 @@
 import { CubePlayer } from "../cube/CubePlayer";
+import { GrayOverlay } from "../cube/GrayOverlay";
+import { createGrayState, presetGrayState, type GrayPreset, type GrayState } from "../cube/stickering";
 import "../styles/game.css";
 import { KeymapController, type SpecialAction } from "../input/keymap";
 import { loadKeymap, loadSettings } from "../settings";
+import { renderGrayPanel } from "../ui/grayPanel";
 import { mountHud, type HudApi } from "../ui/hud";
 import { navBar } from "../ui/nav";
 import { t } from "../i18n";
@@ -28,9 +31,39 @@ export function mountGamePage(root: HTMLElement): () => void {
 
   const stage = root.querySelector<HTMLElement>("#stage")!;
   const hudRoot = root.querySelector<HTMLElement>("#hud")!;
-  const player = new CubePlayer(stage, { cameraDistance: 6.5 });
-  const hud: HudApi = mountHud(hudRoot, player);
   const settings = loadSettings();
+  const player = new CubePlayer(stage, { cameraDistance: 6.5, baseFace: settings.baseFace });
+  const hud: HudApi = mountHud(hudRoot, player);
+
+  // 标灰：状态 + 3D 覆盖层 + 面板
+  const gray: { state: GrayState } = { state: createGrayState() };
+  const overlay = new GrayOverlay(player);
+  void overlay.init().then(() => overlay.requestApply(gray.state));
+  const grayPanelBox = document.createElement("div");
+  grayPanelBox.id = "gray-panel";
+  grayPanelBox.hidden = true;
+  root.querySelector(".game-page")?.appendChild(grayPanelBox);
+  let grayPanelApi: ReturnType<typeof renderGrayPanel>;
+  overlay.setRenderListener(() => grayPanelApi?.refresh());
+  grayPanelApi = renderGrayPanel(grayPanelBox, {
+    getState: () => gray.state,
+    setState: (s) => {
+      gray.state = s;
+      overlay.requestApply(s);
+      grayPanelApi.refresh();
+    },
+    getBase: () => settings.baseFace,
+    getPositions: () => overlay.currentPositions(),
+    applyPreset: (p: GrayPreset | "clear") => {
+      gray.state = p === "clear" ? createGrayState() : presetGrayState(p, settings.baseFace);
+      overlay.requestApply(gray.state);
+      grayPanelApi.refresh();
+    },
+  });
+  hudRoot.querySelector<HTMLButtonElement>("#btn-gray")?.addEventListener("click", () => {
+    grayPanelBox.hidden = !grayPanelBox.hidden;
+  });
+
   const history: string[] = [];
   let playing = false;
 
@@ -77,6 +110,7 @@ export function mountGamePage(root: HTMLElement): () => void {
   window.__motionCube = { player, keymap };
 
   return () => {
+    overlay.dispose();
     keymap.detach();
     delete window.__motionCube;
     root.innerHTML = "";

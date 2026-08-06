@@ -21,6 +21,7 @@ export function mountHud(root: HTMLElement, player: CubePlayer): HudApi {
       <button id="btn-apply">${t("hud.apply")}</button>
       <button id="btn-play">${t("hud.play")}</button>
       <button id="btn-reset">${t("hud.reset")}</button>
+      <button id="btn-gray">${t("gray.btn")}</button>
       <label class="speed-label">${t("hud.speed")} <output id="speed-out">1.0x</output></label>
       <input id="speed" type="range" min="0.1" max="3" step="0.1" value="1" />
       <span id="hud-status"></span>

@@ -1,4 +1,5 @@
 import { t } from "../i18n";
+import { FACES, type Face } from "../cube/stickering";
 import "../styles/pages.css";
 import {
   DEFAULT_KEYMAP,
@@ -11,6 +12,15 @@ import {
 import { loadKeymap, loadSettings, saveKeymap, saveSettings, type AppSettings } from "../settings";
 import { navBar } from "../ui/nav";
 import { el } from "../ui/dom";
+
+const FACE_SWATCH: Record<Face, string> = {
+  U: "#f8f8f8",
+  D: "#ffd24d",
+  L: "#ff9d4d",
+  R: "#e05555",
+  F: "#5fbf6e",
+  B: "#4a6fd4",
+};
 
 const SPECIAL_LABEL_KEYS: Record<SpecialAction, string> = {
   undo: "keymap.special.undo",
@@ -145,6 +155,35 @@ export function renderKeymapPage(root: HTMLElement): void {
   const settingsBox = el("div", "", "settings-box");
   settingsBox.append(cooldownLabel, slider);
 
+  // 设置：全局底色（六色底适配）
+  const baseTitle = el("h2", t("keymap.baseTitle"));
+  const baseSwatches = el("div", "", "base-swatches");
+  function renderBaseSwatches() {
+    for (const btn of baseSwatches.querySelectorAll<HTMLElement>("[data-face]")) {
+      btn.classList.toggle("active", settings.baseFace === btn.dataset.face);
+    }
+  }
+  for (const f of FACES) {
+    const btn = el("button", f, "base-swatch") as HTMLButtonElement;
+    btn.dataset.face = f;
+    btn.style.background = FACE_SWATCH[f];
+    btn.title = f;
+    btn.addEventListener("click", () => {
+      settings.baseFace = f;
+      saveSettings(settings);
+      renderBaseSwatches();
+    });
+    baseSwatches.appendChild(btn);
+  }
+  const randomBtn = el("button", t("keymap.randomBase"), "random-base") as HTMLButtonElement;
+  randomBtn.addEventListener("click", () => {
+    const faces = [...FACES];
+    settings.baseFace = faces[Math.floor(Math.random() * faces.length)];
+    saveSettings(settings);
+    renderBaseSwatches();
+  });
+  const baseNote = el("p", t("keymap.baseNote"), "page-note");
+
   const resetBtn = el("button", t("keymap.reset"), "reset-btn");
   resetBtn.addEventListener("click", () => {
     cfg = structuredClone(DEFAULT_KEYMAP);
@@ -155,7 +194,21 @@ export function renderKeymapPage(root: HTMLElement): void {
   const note = el("p", t("keymap.note"), "page-note");
   const scopeNote = el("p", t("keymap.scopeNote"), "page-note");
 
-  page.append(title, status, conflictBox, table, settingsBox, resetBtn, note, scopeNote);
+  page.append(
+    title,
+    status,
+    conflictBox,
+    table,
+    settingsBox,
+    resetBtn,
+    baseTitle,
+    baseSwatches,
+    randomBtn,
+    baseNote,
+    note,
+    scopeNote,
+  );
   root.appendChild(page);
+  renderBaseSwatches();
   refresh();
 }

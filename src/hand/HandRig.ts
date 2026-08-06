@@ -141,3 +141,16 @@ export function createDefaultPose(rig: HandRig): Pose {
     contacts: [],
   };
 }
+
+/**
+ * 编辑器默认手位：手掌置于魔方前方（+Z），绕 Y 转 180° 使手指指向魔方。
+ * 用于新建手法/添加关键帧的默认姿态，避免默认位姿（原点）把手埋在魔方里。
+ */
+export function defaultHandPose(handType: HandType = "left"): Pose {
+  const pose = createDefaultPose(createDefaultRig(handType));
+  // 手掌置于魔方左前方稍远处（左手：拇指侧朝魔方，四指伸向前表面），
+  // 拉开距离避免遮挡魔方主体；放大后中指全长 ≈ 4.3 块，伸直时指尖离前表面约 1.5 块
+  pose.palm.transform.position = { x: -3.0, y: 0.5, z: 9.0 };
+  pose.palm.transform.quaternion = { w: 0, x: 0, y: 1, z: 0 }; // rotY 180°
+  return pose;
+}

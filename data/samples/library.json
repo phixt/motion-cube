@@ -1,0 +1,356 @@
+{
+  "version": 1,
+  "categories": [
+    {
+      "id": "cat-oll",
+      "name": "OLL",
+      "parentId": null
+    },
+    {
+      "id": "cat-pll",
+      "name": "PLL",
+      "parentId": null
+    },
+    {
+      "id": "cat-1lll",
+      "name": "1LLL",
+      "parentId": null
+    },
+    {
+      "id": "cat-cmll",
+      "name": "CMLL",
+      "parentId": null
+    },
+    {
+      "id": "cat-zbll",
+      "name": "ZBLL",
+      "parentId": "cat-1lll"
+    }
+  ],
+  "formulas": [
+    {
+      "id": "4e9e3125-155e-409f-be27-9b45289e2957",
+      "name": "V Perm",
+      "moves": "(R' U R' U') (R D' R' D) R' UD' (R2 U' R2' D R2)",
+      "tags": [
+        "CFOP"
+      ],
+      "categoryId": "cat-pll"
+    },
+    {
+      "id": "7f2ffac2-49f1-406e-9ba0-87c56bad59e8",
+      "name": "OLL 21",
+      "moves": "R U2 R' U' R U' R'",
+      "tags": [
+        "CFOP"
+      ],
+      "categoryId": "cat-oll"
+    },
+    {
+      "id": "bf84a6fc-fa54-40c3-b891-1cc7bd764fcb",
+      "name": "H Perm",
+      "moves": "M2 U M2 U2 M2 U M2",
+      "tags": [
+        "CFOP"
+      ],
+      "categoryId": "cat-pll"
+    },
+    {
+      "id": "0fd0ce79-75fb-4c4e-91b6-f08fad4f5c13",
+      "name": "ZBLL（示例）",
+      "moves": "R U R' U R U2 R'",
+      "tags": [
+        "CFOP",
+        "单手"
+      ],
+      "categoryId": "cat-zbll"
+    },
+    {
+      "id": "9a8f4962-8f28-4955-b331-f326f41bed2d",
+      "name": "OLL 1（速拧参考）",
+      "moves": "R U2 R2 F R F' U2 R' F R F'",
+      "tags": [
+        "CFOP",
+        "速拧参考"
+      ],
+      "categoryId": "cat-oll"
+    },
+    {
+      "id": "5d7ee084-6a33-4eae-a038-11cf5522d60a",
+      "name": "PLL Aa（速拧参考）",
+      "moves": "x (R' U R' D2) (R U' R' D2) R2 x'",
+      "tags": [
+        "CFOP",
+        "速拧参考"
+      ],
+      "categoryId": "cat-pll"
+    },
+    {
+      "id": "68719f11-2e5e-452c-9ba6-c3df349e6e05",
+      "name": "CMLL O Adjacent（速拧参考）",
+      "moves": "R U R' F' R U R' U' R' F R2 U' R'",
+      "tags": [
+        "Roux",
+        "速拧参考"
+      ],
+      "categoryId": "cat-cmll"
+    },
+    {
+      "id": "59393e32-f066-4ca6-bab3-1a0068cec035",
+      "name": "ZBLL U 1（速拧参考）",
+      "moves": "(R' U' R U' R' U2' R2) (U' L' U R' U' L)",
+      "tags": [
+        "CFOP",
+        "速拧参考"
+      ],
+      "categoryId": "cat-zbll"
+    },
+    {
+      "id": "a4924985-0cac-4969-a78f-b5e60abefeb7",
+      "name": "1LLL 1 1（速拧参考）",
+      "moves": "U' (F' U' L' U L F) (L' U' L U' L' U B' U B L)",
+      "tags": [
+        "CFOP",
+        "速拧参考"
+      ],
+      "categoryId": "cat-1lll"
+    },
+    {
+      "id": "a1d91ba9-c91f-4df0-a0bc-51a8724ba97b",
+      "name": "单拨 U",
+      "moves": "U",
+      "tags": [
+        "手法示例"
+      ],
+      "categoryId": null
+    }
+  ],
+  "techniques": [
+    {
+      "id": "b625b209-8fea-455a-a70c-e4ca0e5f6b0b",
+      "name": "单拨 U（示例）",
+      "formulaId": "a1d91ba9-c91f-4df0-a0bc-51a8724ba97b",
+      "frameRate": 60,
+      "keyframes": [
+        {
+          "frame": 0,
+          "pose": {
+            "palm": {
+              "transform": {
+                "position": {
+                  "x": 0,
+                  "y": 1.2,
+                  "z": 4
+                },
+                "quaternion": {
+                  "w": 0,
+                  "x": 0,
+                  "y": 1,
+                  "z": 0
+                }
+              },
+              "thumbBase": {
+                "position": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "quaternion": {
+                  "w": 1,
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                }
+              }
+            },
+            "bends": {
+              "thumb": [
+                160,
+                160,
+                165
+              ],
+              "index": [
+                168,
+                135,
+                175
+              ],
+              "middle": [
+                168,
+                135,
+                150
+              ],
+              "ring": [
+                168,
+                135,
+                150
+              ],
+              "pinky": [
+                168,
+                135,
+                150
+              ]
+            },
+            "thumbCMC": {
+              "abduction": 0,
+              "rotation": 0
+            },
+            "contacts": [
+              {
+                "finger": "index",
+                "segmentIndex": 2,
+                "side": "pad",
+                "t": 0.67,
+                "target": "UL 边"
+              }
+            ]
+          }
+        },
+        {
+          "frame": 30,
+          "pose": {
+            "palm": {
+              "transform": {
+                "position": {
+                  "x": 0,
+                  "y": 1.2,
+                  "z": 4
+                },
+                "quaternion": {
+                  "w": 0,
+                  "x": 0,
+                  "y": 1,
+                  "z": 0
+                }
+              },
+              "thumbBase": {
+                "position": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "quaternion": {
+                  "w": 1,
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                }
+              }
+            },
+            "bends": {
+              "thumb": [
+                160,
+                160,
+                165
+              ],
+              "index": [
+                168,
+                90,
+                155
+              ],
+              "middle": [
+                168,
+                135,
+                150
+              ],
+              "ring": [
+                168,
+                135,
+                150
+              ],
+              "pinky": [
+                168,
+                135,
+                150
+              ]
+            },
+            "thumbCMC": {
+              "abduction": 0,
+              "rotation": 0
+            },
+            "contacts": []
+          }
+        },
+        {
+          "frame": 60,
+          "pose": {
+            "palm": {
+              "transform": {
+                "position": {
+                  "x": 0,
+                  "y": 1.2,
+                  "z": 4
+                },
+                "quaternion": {
+                  "w": 0,
+                  "x": 0,
+                  "y": 1,
+                  "z": 0
+                }
+              },
+              "thumbBase": {
+                "position": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "quaternion": {
+                  "w": 1,
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                }
+              }
+            },
+            "bends": {
+              "thumb": [
+                160,
+                160,
+                165
+              ],
+              "index": [
+                168,
+                45,
+                135
+              ],
+              "middle": [
+                168,
+                135,
+                150
+              ],
+              "ring": [
+                168,
+                135,
+                150
+              ],
+              "pinky": [
+                168,
+                135,
+                150
+              ]
+            },
+            "thumbCMC": {
+              "abduction": 0,
+              "rotation": 0
+            },
+            "contacts": [
+              {
+                "finger": "index",
+                "segmentIndex": 0,
+                "side": "back",
+                "t": 0.45,
+                "target": "L 面"
+              }
+            ]
+          }
+        }
+      ],
+      "stepMapping": [
+        {
+          "stepIndex": 0,
+          "startFrame": 0,
+          "endFrame": 60
+        }
+      ]
+    }
+  ]
+}

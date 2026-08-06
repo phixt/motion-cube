@@ -1,19 +1,14 @@
-/** 示例数据（由 scripts/gen-samples.mjs 生成，读取时校验合法性）。 */
-import formulasJson from "../../data/samples/formulas.json";
-import techniquesJson from "../../data/samples/techniques.json";
-import { deserializeFormula } from "./formula";
+/** 示例数据（由 scripts/gen-samples.ts 生成，读取时校验合法性）。 */
+import libraryJson from "../../data/samples/library.json";
 import type { FormulaLibrary } from "./formula";
-import type { LibraryData } from "./libraryStore";
-import { deserializeTechnique } from "./technique";
+import { deserializeLibraryData, type LibraryData } from "./libraryStore";
 import type { Technique } from "./technique";
 
-export const SAMPLE_FORMULAS: FormulaLibrary = deserializeFormula(JSON.stringify(formulasJson));
-export const SAMPLE_TECHNIQUES: Technique[] = (techniquesJson as unknown[]).map((item) =>
-  deserializeTechnique(JSON.stringify(item)),
-);
+export const SAMPLE_LIBRARY: LibraryData = deserializeLibraryData(JSON.stringify(libraryJson));
 
-export const SAMPLE_LIBRARY: LibraryData = {
+export const SAMPLE_FORMULAS: FormulaLibrary = {
   version: 1,
-  formulas: SAMPLE_FORMULAS.formulas,
-  techniques: SAMPLE_TECHNIQUES,
+  formulas: SAMPLE_LIBRARY.formulas,
 };
+
+export const SAMPLE_TECHNIQUES: Technique[] = SAMPLE_LIBRARY.techniques;

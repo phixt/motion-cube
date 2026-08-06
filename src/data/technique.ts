@@ -24,8 +24,8 @@ export type StepMapping = {
 export type Technique = {
   id: string;
   name: string;
-  /** 关联公式 id（可为空） */
-  formulaId?: string;
+  /** 关联公式 id（必填；一个公式可绑定多个手法，手法不能单独存在） */
+  formulaId: string;
   frameRate: number;
   /** 稀疏控制点，按 frame 升序 */
   keyframes: TechniqueKeyframe[];
@@ -36,6 +36,7 @@ export class TechniqueError extends Error {}
 
 export function validateTechnique(t: Technique): void {
   if (!t.id || !t.name.trim()) throw new TechniqueError("id/name 不能为空");
+  if (!t.formulaId) throw new TechniqueError("手法必须关联一个公式（formulaId 不能为空）");
   if (!Number.isFinite(t.frameRate) || t.frameRate <= 0) throw new TechniqueError(`frameRate 必须 > 0：${t.frameRate}`);
   const kfErr = validateKeyframes(t.keyframes);
   if (kfErr) throw new TechniqueError(kfErr);
@@ -51,7 +52,7 @@ export function validateTechnique(t: Technique): void {
 export type NewTechnique = {
   id?: string;
   name: string;
-  formulaId?: string;
+  formulaId: string;
   frameRate?: number;
   keyframes?: TechniqueKeyframe[];
   stepMapping?: StepMapping[];
@@ -103,7 +104,7 @@ export function deserializeTechnique(text: string): Technique {
   const t: Technique = {
     id: typeof obj.id === "string" ? obj.id : crypto.randomUUID(),
     name: typeof obj.name === "string" ? obj.name : "",
-    formulaId: typeof obj.formulaId === "string" ? obj.formulaId : undefined,
+    formulaId: typeof obj.formulaId === "string" ? obj.formulaId : "",
     frameRate: typeof obj.frameRate === "number" ? obj.frameRate : DEFAULT_FRAME_RATE,
     keyframes: sortKeyframes(keyframes),
     stepMapping,

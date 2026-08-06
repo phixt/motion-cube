@@ -1,6 +1,7 @@
 /** 用户设置持久化（localStorage）：按键配置 + 通用设置 */
 import { DEFAULT_KEYMAP, deserializeKeymap, type KeymapConfig } from "./input/keymap";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "./i18n";
+import { FACES, type Face } from "./cube/stickering";
 
 const KEYMAP_KEY = "motion-cube.keymap";
 const SETTINGS_KEY = "motion-cube.settings";
@@ -10,9 +11,15 @@ export type AppSettings = {
   moveCooldownMs: number;
   /** 界面语言（i18n 预留） */
   locale: Locale;
+  /** 全局底色（预设标灰按此适配；六色底） */
+  baseFace: Face;
 };
 
-export const DEFAULT_SETTINGS: AppSettings = { moveCooldownMs: 120, locale: DEFAULT_LOCALE };
+export const DEFAULT_SETTINGS: AppSettings = {
+  moveCooldownMs: 120,
+  locale: DEFAULT_LOCALE,
+  baseFace: "D",
+};
 
 export function loadKeymap(): KeymapConfig {
   try {
@@ -34,12 +41,16 @@ export function loadSettings(): AppSettings {
     if (!raw) return DEFAULT_SETTINGS;
     const obj = JSON.parse(raw) as Partial<AppSettings> | null;
     const ms = obj?.moveCooldownMs;
+    const base = obj?.baseFace;
     return {
       moveCooldownMs:
         typeof ms === "number" && Number.isFinite(ms) && ms >= 0
           ? ms
           : DEFAULT_SETTINGS.moveCooldownMs,
       locale: isLocale(obj?.locale) ? obj.locale : DEFAULT_SETTINGS.locale,
+      baseFace: (FACES as readonly string[]).includes(base ?? "")
+        ? (base as Face)
+        : DEFAULT_SETTINGS.baseFace,
     };
   } catch {
     return DEFAULT_SETTINGS;

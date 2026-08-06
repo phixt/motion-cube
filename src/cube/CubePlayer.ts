@@ -1,4 +1,5 @@
 import { TwistyPlayer } from "cubing/twisty";
+import { baseFaceSetupAlg, type Face } from "./stickering";
 
 /**
  * 层 A/C 封装：基于 cubing.js TwistyPlayer 的 3D 魔方（3x3x3）。
@@ -8,6 +9,8 @@ export type CubePlayerOptions = {
   cameraLatitude?: number;
   cameraLongitude?: number;
   cameraDistance?: number;
+  /** 全局底色：游戏起始时旋转魔方使底色面朝下 */
+  baseFace?: Face;
 };
 
 export class CubePlayer {
@@ -25,6 +28,7 @@ export class CubePlayer {
       experimentalMovePressInput: "none",
       // 拖拽：保留内置视角拖拽，验证其行为后再决定自定义手势层
       experimentalDragInput: "auto",
+      experimentalSetupAlg: baseFaceSetupAlg(options.baseFace ?? "D"),
       cameraLatitude: options.cameraLatitude ?? 20,
       cameraLongitude: options.cameraLongitude ?? 30,
       cameraDistance: options.cameraDistance ?? 6.5,

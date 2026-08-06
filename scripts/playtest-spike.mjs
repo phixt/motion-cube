@@ -8,7 +8,7 @@ import puppeteer from "puppeteer-core";
 
 const EDGE = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
 const CHROME = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
-const URL = process.env.SPIKE_URL ?? "http://localhost:5173/";
+const URL = process.env.SPIKE_URL ?? "http://localhost:5174/";
 const SHOT_DIR = "spike-shots";
 
 if (!existsSync(SHOT_DIR)) mkdirSync(SHOT_DIR);
@@ -36,6 +36,7 @@ page.on("console", (m) => console.log(`[console] ${m.type()}: ${m.text()}`));
 page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));
 
 await page.goto(URL, { waitUntil: "networkidle0", timeout: 30000 });
+await page.reload({ waitUntil: "networkidle0", timeout: 30000 });
 await page.evaluate(() => {
   location.hash = "#/game";
 });

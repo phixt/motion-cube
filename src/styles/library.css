@@ -1,10 +1,17 @@
 /* 公式库/手法库页样式。由 src/pages/library.ts 引入。 */
 .lib-form {
   display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 0.45rem;
   margin: 0.6rem 0;
   max-width: 860px;
+}
+
+.lib-form-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 .lib-form input {
@@ -27,7 +34,43 @@
 }
 
 .lib-form #f-tags {
-  width: 180px;
+  width: 220px;
+}
+
+#tag-chips {
+  display: inline-flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.12rem 0.4rem;
+  background: #2a2a34;
+  border-radius: 999px;
+  font-size: 0.78rem;
+}
+
+.tag-x {
+  padding: 0 0.25rem;
+  border: none;
+  background: transparent;
+  color: #9aa0aa;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.tag-x:hover {
+  color: #e8e8ec;
+}
+
+.tag-count {
+  font-size: 0.75rem;
+  color: #6f7680;
 }
 
 .lib-actions {
@@ -70,4 +113,80 @@
 .empty-note {
   color: #6f7680;
   font-size: 0.82rem;
+}
+
+.cat-form {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0.5rem 0;
+  max-width: 860px;
+}
+
+.cat-form input,
+.cat-form select {
+  padding: 0.3rem 0.55rem;
+  border: 1px solid #3a3a44;
+  border-radius: 6px;
+  background: #101014;
+  color: #e8e8ec;
+  font-size: 0.85rem;
+}
+
+.cat-form #cat-name {
+  width: 180px;
+}
+
+.cat-form #cat-parent {
+  min-width: 220px;
+}
+
+.cat-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.22rem 0.4rem;
+  border-bottom: 1px solid #20202a;
+  max-width: 860px;
+  font-size: 0.85rem;
+}
+
+.cat-row .cat-name {
+  font-weight: 600;
+}
+
+.cat-row .cat-path {
+  color: #6f7680;
+  font-size: 0.72rem;
+}
+
+.cat-row button {
+  padding: 0.1rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.cat-cascade {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.cat-cascade-select {
+  padding: 0.28rem 0.75rem;
+  border: 1px solid #3a3a44;
+  border-radius: 999px;
+  background: #101014;
+  color: #e8e8ec;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.cat-cascade-select:focus {
+  outline: 2px solid #2f6fae;
+}
+
+.cat-path-label {
+  font-size: 0.78rem;
+  color: #9aa0aa;
 }

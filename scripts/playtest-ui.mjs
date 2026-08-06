@@ -7,7 +7,7 @@ import puppeteer from "puppeteer-core";
 
 const CHROME = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 const EDGE = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
-const URL = process.env.SPIKE_URL ?? "http://localhost:5173/";
+const URL = process.env.SPIKE_URL ?? "http://localhost:5174/";
 const OUT = "spike-shots";
 
 if (!existsSync(OUT)) mkdirSync(OUT);
@@ -55,12 +55,21 @@ async function clickNav(label) {
 
 const moveLogText = () => page.$eval("#move-log", (el) => el.textContent ?? "").then((s) => s.trim());
 const chipCount = () => page.$eval("#move-log", (el) => el.children.length).catch(() => 0);
+const clearAndType = async (selector, text) => {
+  await page.$eval(selector, (el) => {
+    el.value = "";
+  });
+  await page.type(selector, text);
+};
 
 // 1) 开始页
 await page.goto(URL, { waitUntil: "networkidle0", timeout: 30000 });
+await page.reload({ waitUntil: "networkidle0", timeout: 30000 }); // 预热 Vite 依赖优化，规避 Outdated Optimize Dep
 await page.waitForSelector(".page h1");
 const startTitle = await page.$eval(".page h1", (el) => el.textContent);
 if (startTitle !== "Motion Cube") throw new Error(`开始页标题异常：${startTitle}`);
+const hasLibBtn = (await page.$('.start-actions [data-route="library"]')) !== null;
+if (!hasLibBtn) throw new Error("开始页缺少公式库入口");
 console.log("start page ok");
 await shot("ui-01-start");
 
@@ -78,8 +87,8 @@ let log = await moveLogText();
 if (!log.includes("R")) throw new Error(`按键 R 未生效：${log}`);
 console.log(`game key ok: ${log}`);
 
-// 4) 按键设置页：把 R 改绑到 T
-await clickNav("按键设置");
+// 4) 设置页：把 R 改绑到 T + 底色选择
+await clickNav("设置");
 await page.waitForSelector('[data-action="R"] .rebind');
 await shot("ui-03-keymap");
 await page.click('[data-action="R"] .rebind');
@@ -89,6 +98,13 @@ await sleep(250);
 const bindingT = await page.$eval('[data-action="R"] .binding', (el) => el.textContent);
 if (bindingT !== "T") throw new Error(`R 应改绑为 T，实际：${bindingT}`);
 console.log(`rebind ok: R → ${bindingT}`);
+await page.click('.base-swatch[data-face="U"]');
+await sleep(150);
+const baseActive = await page.$eval('.base-swatch[data-face="U"]', (el) => el.classList.contains("active"));
+if (!baseActive) throw new Error("底色选择未生效");
+console.log("base face swatch ok");
+await page.click('.base-swatch[data-face="D"]'); // 恢复默认底，保证后续预设按 D 适配
+await sleep(150);
 await shot("ui-04-keymap-rebound");
 
 // 5) 改键生效：游戏页按 T 应执行 R
@@ -116,6 +132,62 @@ if (count < 1) throw new Error(`连击冷却过强：${count} 步`);
 console.log(`cooldown ok: 6 次连按 → ${count} 步`);
 await shot("ui-06-rapid");
 
+// 6b) 标灰：面板、预设、点选、清除
+await page.keyboard.press("Escape"); // 重置到求解态，保证视图与预设一致
+await sleep(300);
+await page.click("#btn-gray");
+await sleep(300);
+const panelVisible = await page.$eval("#gray-panel", (el) => !el.hidden);
+if (!panelVisible) throw new Error("标灰面板未显示");
+await page.click('.gray-preset[data-preset="cross"]');
+await sleep(400);
+let grayCount = await page.$$eval("#gray-panel [data-sticker]", (els) =>
+  els.filter((e) => e.getAttribute("fill") === "#8f959e").length,
+);
+if (grayCount !== 45) throw new Error(`初始十字灰数应为 45：${grayCount}`);
+await page.click('#gray-panel [data-sticker="D4"]');
+await sleep(250);
+grayCount = await page.$$eval("#gray-panel [data-sticker]", (els) =>
+  els.filter((e) => e.getAttribute("fill") === "#8f959e").length,
+);
+if (grayCount !== 46) throw new Error(`点选后应为 46：${grayCount}`);
+await page.click('.gray-preset[data-preset="clear"]');
+await sleep(300);
+grayCount = await page.$$eval("#gray-panel [data-sticker]", (els) =>
+  els.filter((e) => e.getAttribute("fill") === "#8f959e").length,
+);
+if (grayCount !== 0) throw new Error(`清除后应为 0：${grayCount}`);
+console.log("gray panel ok");
+await shot("ui-13-gray");
+
+// 6c) 伪3D：悬停不换面、按住拖拽换面、x 键换面且不转主魔方（用侧面小面坐标验证）
+const f4 = () => page.$eval('#gray-panel [data-sticker="F4"]', (el) => el.getAttribute("points"));
+const f4Before = await f4();
+const grayBox = await page.$eval("#gray-panel svg", (el) => {
+  const r = el.getBoundingClientRect();
+  return { x: r.x, y: r.y, w: r.width, h: r.height };
+});
+await page.mouse.move(grayBox.x + grayBox.w / 2 + 60, grayBox.y + grayBox.h / 2);
+await sleep(250);
+if ((await f4()) !== f4Before) throw new Error("悬停不应换面");
+await page.mouse.move(grayBox.x + grayBox.w / 2, grayBox.y + grayBox.h / 2);
+await page.mouse.down();
+for (let i = 1; i <= 6; i++) {
+  await page.mouse.move(grayBox.x + grayBox.w / 2 - i * 12, grayBox.y + grayBox.h / 2);
+  await sleep(15);
+}
+await page.mouse.up();
+await sleep(300);
+if ((await f4()) === f4Before) throw new Error("按住拖拽应换面");
+const logBeforeX = await moveLogText();
+await page.click('#gray-panel [data-sticker="F4"]');
+await sleep(200);
+await page.keyboard.press("x");
+await sleep(300);
+if ((await moveLogText()) !== logBeforeX) throw new Error("按 x 不应转动主魔方");
+console.log("pseudo3d hover/drag/keys ok");
+await shot("ui-14-pseudo3d-flip");
+
 // 7) 动画编辑占位页 + 说明页
 await clickNav("动画编辑");
 await page.waitForSelector(".page h1");
@@ -142,6 +214,73 @@ if (!techniqueText.includes("单拨 U")) throw new Error("示例手法未加载"
 console.log("library samples ok");
 await shot("ui-09-library");
 
+// 8b) 动画编辑器骨架：选手法、时间线、选中/移动/添加关键帧、补帧预览、保存
+await clickNav("动画编辑");
+await page.waitForSelector("#tec-select");
+const tecOptions = await page.$$eval("#tec-select option", (els) => els.map((o) => o.textContent));
+if (!tecOptions.includes("单拨 U（示例）")) throw new Error(`编辑器手法列表异常：${tecOptions}`);
+const flickTecId = await page.evaluate(() => {
+  const sel = document.querySelector("#tec-select");
+  for (const o of sel.options) if (o.textContent === "单拨 U（示例）") return o.value;
+  return "";
+});
+await page.select("#tec-select", flickTecId);
+await sleep(300);
+let kfFrames = await page.$$eval("#tl-track .tl-kf", (els) => els.map((e) => e.dataset.frame).sort());
+if (kfFrames.join() !== ["0", "30", "60"].join()) throw new Error(`示例手法关键帧应 0/30/60：${kfFrames}`);
+await page.click('#tl-track .tl-kf[data-frame="30"]');
+await sleep(200);
+if ((await page.$eval("#kf-frame", (el) => el.value)) !== "30") throw new Error("选中关键帧未回显帧号");
+const selPose = await page.$eval("#kf-pose", (el) => el.textContent ?? "");
+if (!selPose.includes("PIP")) throw new Error("选中关键帧姿态摘要缺失");
+await clearAndType("#kf-frame", "45");
+await page.$eval("#kf-frame", (el) => el.dispatchEvent(new Event("change")));
+await sleep(250);
+kfFrames = await page.$$eval("#tl-track .tl-kf", (els) => els.map((e) => e.dataset.frame).sort());
+if (!kfFrames.includes("45") || kfFrames.includes("30")) throw new Error(`移动关键帧失败：${kfFrames}`);
+await clearAndType("#kf-add-frame", "90");
+await page.click("#kf-add");
+await sleep(250);
+kfFrames = await page.$$eval("#tl-track .tl-kf", (els) => els.map((e) => e.dataset.frame).sort());
+if (!kfFrames.includes("90")) throw new Error(`添加关键帧失败：${kfFrames}`);
+await page.$eval("#pv-slider", (el) => {
+  el.value = "22";
+  el.dispatchEvent(new Event("input"));
+});
+await sleep(150);
+const pvText = await page.$eval("#pv-pose", (el) => el.textContent ?? "");
+if (!pvText.includes("PIP")) throw new Error("补帧插值读数缺失");
+if ((await page.$$eval("#pv-table tr", (els) => els.length)) < 3) throw new Error("补帧采样表行数异常");
+await page.click("#editor-save");
+await sleep(250);
+const edStatus = await page.$eval("#editor-status", (el) => el.textContent ?? "");
+if (!edStatus.includes("已保存")) throw new Error(`编辑器保存状态异常：${edStatus}`);
+console.log("editor skeleton ok");
+await shot("ui-15-editor");
+
+// 8c) 3D 视口：魔方 + 手注入、手型切换、滑块驱动
+if ((await page.$("#editor-view twisty-player")) === null) throw new Error("编辑器缺少 3D 视口魔方");
+const handApiOk = await page.evaluate(() => {
+  const h = globalThis.__motionCubeEditor?.handView;
+  return !!h && typeof h.setPose === "function" && typeof h.setHandType === "function";
+});
+if (!handApiOk) throw new Error("编辑器手视图 API 未暴露");
+await page.select("#view-hand", "right");
+await sleep(250);
+await page.select("#view-hand", "left");
+await sleep(250);
+await page.$eval("#pv-slider", (el) => {
+  el.value = "45";
+  el.dispatchEvent(new Event("input"));
+});
+await sleep(300);
+console.log("editor 3d viewport ok");
+await page.$eval("#editor-view", (el) => el.scrollIntoView({ block: "center" }));
+await sleep(400);
+await shot("ui-16-editor-view");
+
+await clickNav("公式库");
+await page.waitForSelector("#formula-rows");
 await page.type("#f-name", "测试 OLL");
 await page.type("#f-moves", "R U R' U R U2' R'");
 await page.click("#f-submit");
@@ -163,6 +302,102 @@ formulaText = await page.$eval("#formula-rows", (el) => el.textContent ?? "");
 if (formulaText.includes("测试 OLL")) throw new Error("删除公式失败");
 console.log("library add/error/delete ok");
 await shot("ui-10-library-edit");
+
+// 9) 分类：根分类 + 子分类 + 公式多归属 + 深度限制 + 删除清理
+await page.type("#cat-name", "OLL");
+await page.click("#cat-add");
+await sleep(200);
+const ollId = await page.$eval('#category-rows [data-name="OLL"]', (el) => el.dataset.id);
+await page.type("#cat-name", "ZBLL");
+await page.select("#cat-parent", ollId);
+await page.click("#cat-add");
+await sleep(200);
+const zbllId = await page.$eval('#category-rows [data-name="ZBLL"]', (el) => el.dataset.id);
+const zbllIndent = await page.$eval('#category-rows [data-name="ZBLL"]', (el) => el.style.marginLeft);
+if (!zbllIndent) throw new Error("子分类应有缩进");
+console.log("category add ok");
+
+await clearAndType("#f-name", "分类测试");
+await clearAndType("#f-moves", "R U R'");
+// 级联分类下拉：1LLL → ZBLL（示例分类）
+const oneLookId = await page.$eval('#category-rows [data-name="1LLL"]', (el) => el.dataset.id);
+await page.select("#cat-cascade select:nth-child(1)", oneLookId);
+await sleep(200);
+await page.select("#cat-cascade select:nth-child(2)", zbllId);
+await sleep(200);
+// 标签：加号添加，最多 4 个
+for (const tg of ["CFOP", "Roux", "ZZ", "单手"]) {
+  await clearAndType("#f-tags", tg);
+  await page.click("#tag-add");
+  await sleep(120);
+}
+if ((await page.$eval("#tag-chips", (el) => el.children.length)) !== 4) throw new Error("标签应 4 个");
+await clearAndType("#f-tags", "第五个");
+await page.click("#tag-add");
+await sleep(150);
+const tagErr = await page.$eval("#lib-status", (el) => el.textContent ?? "");
+if (!tagErr.includes("最多 4 个标签")) throw new Error(`标签上限未生效：${tagErr}`);
+await page.click("#f-submit");
+await sleep(250);
+let catRowText = await page.$eval('#formula-rows [data-name="分类测试"]', (el) => el.textContent ?? "");
+if (!catRowText.includes("ZBLL")) throw new Error("公式未显示分类");
+if (!catRowText.includes("CFOP")) throw new Error("公式未显示标签");
+
+// 9b) 分类级联改选（回归：选择之后应能更改）
+await page.click('#formula-rows [data-name="分类测试"] .edit');
+await sleep(250);
+let cascadeSelCount = await page.$$eval("#cat-cascade select", (els) => els.length);
+if (cascadeSelCount !== 2) throw new Error(`编辑回显级联应为 2 级：${cascadeSelCount}`);
+// 用户新建的 ZBLL 挂在示例 OLL 下（重名按 DOM 顺序取最后一个）
+const userZbllId = (await page.$$eval('#category-rows [data-name="ZBLL"]', (els) => els.map((e) => e.dataset.id))).at(-1);
+await page.select("#cat-cascade select:nth-child(1)", ollId); // 1LLL → 示例 OLL
+await sleep(250);
+const firstSelVal = await page.$eval("#cat-cascade select:nth-child(1)", (s) => s.value);
+if (firstSelVal !== ollId) throw new Error(`级联第一级改选未生效（旧 bug：改选后回弹）：${firstSelVal}`);
+// 改选第一级应清空深层选择（回到"（到此为止）"）
+const secondVal = await page.$eval("#cat-cascade select:nth-child(2)", (s) => s.value);
+if (secondVal !== "") throw new Error(`深层选择应清空回到（到此为止）：${secondVal}`);
+await page.select("#cat-cascade select:nth-child(2)", userZbllId); // 再选用户 ZBLL
+await sleep(250);
+await page.click("#f-submit");
+await sleep(250);
+catRowText = await page.$eval('#formula-rows [data-name="分类测试"]', (el) => el.textContent ?? "");
+if (!catRowText.includes("ZBLL")) throw new Error("改选分类未保存");
+console.log("category cascade change ok");
+
+let parentId = zbllId;
+for (const name of ["L1", "L2"]) {
+  await page.type("#cat-name", name);
+  await page.select("#cat-parent", parentId);
+  await page.click("#cat-add");
+  await sleep(150);
+  parentId = await page.$eval(`#category-rows [data-name="${name}"]`, (el) => el.dataset.id);
+}
+await page.type("#cat-name", "L5");
+await page.select("#cat-parent", parentId);
+await page.click("#cat-add");
+await sleep(250);
+const catErr = await page.$eval("#lib-status", (el) => el.textContent ?? "");
+if (!catErr.includes("超出最大嵌套深度")) throw new Error(`深度限制未生效：${catErr}`);
+console.log("category depth limit ok");
+
+// 9b 把公式改挂到用户 ZBLL（重名行中的最后一个），删除它验证级联清理
+const zbllRows = await page.$$('#category-rows [data-name="ZBLL"]');
+const delBtn = await zbllRows.at(-1).$(".cat-del");
+await delBtn.click();
+await sleep(250);
+catRowText = await page.$eval('#formula-rows [data-name="分类测试"]', (el) => el.textContent ?? "");
+if (catRowText.includes("ZBLL")) throw new Error("删分类后公式未清理");
+console.log("category delete cleanup ok");
+await shot("ui-11-categories");
+
+// 10) 删除公式连带删除其手法（手法不能单独存在）
+await page.click('#formula-rows [data-name="单拨 U"] .del');
+await sleep(250);
+const techAfter = await page.$eval("#technique-rows", (el) => el.textContent ?? "");
+if (techAfter.includes("单拨 U（示例）")) throw new Error("删公式未连带删手法");
+console.log("formula delete cascades to techniques ok");
+await shot("ui-12-cascade");
 
 await browser.close();
 console.log(`\nSHOTS: ${shots.join(", ")}`);

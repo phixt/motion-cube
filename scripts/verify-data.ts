@@ -9,7 +9,36 @@ import {
   serializeFormula,
   upsertFormula,
 } from "../src/data/formula.ts";
-import { EMPTY_LIBRARY, mergeLibrary, serializeLibraryData, deserializeLibraryData } from "../src/data/libraryStore.ts";
+import {
+  CategoryError,
+  categoryDepth,
+  createCategory,
+  removeCategory,
+  validateCategoryTree,
+} from "../src/data/category.ts";
+import {
+  allStickerIds,
+  baseFaceSetupAlg,
+  clearGray,
+  createGrayState,
+  graySet,
+  presetGrayState,
+  presetGrayStickers,
+  stickerIdFromWorld,
+  stickerWorldPos,
+  toggleSticker,
+  type Face,
+} from "../src/cube/stickering.ts";
+import { parseMoves } from "../src/notation/alg.ts";
+import {
+  EMPTY_LIBRARY,
+  mergeLibrary,
+  serializeLibraryData,
+  deserializeLibraryData,
+  removeCategoryFromLib,
+  removeFormulaFromLib,
+  type LibraryData,
+} from "../src/data/libraryStore.ts";
 import { SAMPLE_FORMULAS, SAMPLE_LIBRARY, SAMPLE_TECHNIQUES } from "../src/data/samples.ts";
 import {
   createTechnique,
@@ -78,6 +107,7 @@ check("technique: 默认 60fps、关键帧排序", () => {
   p1.bends.index[1] = 45;
   const t = createTechnique({
     name: "单拨 U",
+    formulaId: "f-u",
     keyframes: [
       { frame: 60, pose: p1 },
       { frame: 0, pose: p0 },
@@ -92,7 +122,7 @@ check("technique: 重复帧号抛错", () => {
   const p = createDefaultPose(rig);
   let threw = false;
   try {
-    createTechnique({ name: "bad", keyframes: [{ frame: 10, pose: p }, { frame: 10, pose: p }] });
+    createTechnique({ name: "bad", formulaId: "f-1", keyframes: [{ frame: 10, pose: p }, { frame: 10, pose: p }] });
   } catch (e) {
     threw = e instanceof TechniqueError;
   }
@@ -102,7 +132,7 @@ check("technique: 重复帧号抛错", () => {
 check("technique: stepMapping 区间非法抛错", () => {
   let threw = false;
   try {
-    createTechnique({ name: "bad", stepMapping: [{ stepIndex: 0, startFrame: 30, endFrame: 20 }] });
+    createTechnique({ name: "bad", formulaId: "f-1", stepMapping: [{ stepIndex: 0, startFrame: 30, endFrame: 20 }] });
   } catch (e) {
     threw = e instanceof TechniqueError;
   }
@@ -113,6 +143,7 @@ check("technique: JSON 往返 + upsertKeyframe", () => {
   const rig = createDefaultRig();
   const t = createTechnique({
     name: "双指连拨",
+    formulaId: "f-2",
     keyframes: [
       { frame: 0, pose: createDefaultPose(rig) },
       { frame: 30, pose: createDefaultPose(rig) },
@@ -188,6 +219,7 @@ check("samples: 示例手法可加载（60fps/三关键帧/终态 PIP 45）", ()
   expect(tec.keyframes.length === 3, "关键帧应为 3");
   expect(tec.keyframes[2].pose.bends.index[1] === 45, "终态 PIP 应为 45");
   expect(tec.stepMapping.length === 1, "stepMapping 应为 1");
+  expect(tec.formulaId.length > 0, "手法应关联公式");
 });
 
 check("library: 合并与序列化往返", () => {
@@ -197,6 +229,162 @@ check("library: 合并与序列化往返", () => {
     back.formulas.length === merged.formulas.length && back.techniques.length === merged.techniques.length,
     "往返数量不一致",
   );
+});
+
+// ---------- 分类系统 ----------
+check("category: 深度限制（最多 4 层）", () => {
+  let cats = [createCategory({ id: "a", name: "A" }, [])];
+  cats.push(createCategory({ id: "b", name: "B", parentId: "a" }, cats));
+  cats.push(createCategory({ id: "c", name: "C", parentId: "b" }, cats));
+  cats.push(createCategory({ id: "d", name: "D", parentId: "c" }, cats));
+  expect(categoryDepth(cats[3], cats) === 3, "第 4 层深度应为 3");
+  validateCategoryTree(cats);
+  let threw = false;
+  try {
+    createCategory({ id: "e", name: "E", parentId: "d" }, cats);
+  } catch (e) {
+    threw = e instanceof CategoryError;
+  }
+  expect(threw, "第 5 层应被拒绝");
+});
+
+check("category: 缺父与环检测", () => {
+  let threw = false;
+  try {
+    categoryDepth({ id: "x", name: "X", parentId: "missing" }, [
+      { id: "x", name: "X", parentId: "missing" },
+    ]);
+  } catch (e) {
+    threw = e instanceof CategoryError;
+  }
+  expect(threw, "缺父应抛错");
+  const cyclic = [
+    { id: "a", name: "A", parentId: "b" },
+    { id: "b", name: "B", parentId: "a" },
+  ];
+  threw = false;
+  try {
+    categoryDepth(cyclic[0], cyclic);
+  } catch (e) {
+    threw = e instanceof CategoryError;
+  }
+  expect(threw, "环应抛错");
+});
+
+check("category: 删除上提子分类", () => {
+  const cats = [
+    { id: "a", name: "A", parentId: null },
+    { id: "b", name: "B", parentId: "a" },
+    { id: "c", name: "C", parentId: "b" },
+  ];
+  const after = removeCategory("b", cats);
+  expect(after.length === 2, "删除后应剩 2 个");
+  expect(after.find((x) => x.id === "c")?.parentId === "a", "C 应上提到 A 下");
+});
+
+check("library: 分类随库往返、删分类清理公式", () => {
+  const cat = createCategory({ id: "c1", name: "OLL" }, []);
+  const f = createFormula({ name: "O", moves: "R U R'", categoryId: "c1", tags: ["CFOP"] });
+  expect(f.categoryId === "c1", "公式应带分类");
+  const lib: LibraryData = { version: 1, categories: [cat], formulas: [f], techniques: [] };
+  const back = deserializeLibraryData(serializeLibraryData(lib));
+  expect(back.categories.length === 1 && back.formulas[0].categoryId === "c1", "往返后分类应保留");
+  const cleaned = removeCategoryFromLib(lib, "c1");
+  expect(cleaned.categories.length === 0 && cleaned.formulas[0].categoryId === null, "删分类后公式应清理");
+});
+
+check("formula: 旧 categoryIds 数组迁移为单选", () => {
+  const back = deserializeFormula(
+    JSON.stringify({
+      formulas: [{ id: "m1", name: "M", moves: "R U R'", tags: [], categoryIds: ["a", "b"] }],
+    }),
+  );
+  expect(back.formulas[0].categoryId === "a", "迁移应取第一个分类");
+});
+
+check("technique: formulaId 必填", () => {
+  let threw = false;
+  try {
+    createTechnique({ name: "x", formulaId: "" });
+  } catch (e) {
+    threw = e instanceof TechniqueError;
+  }
+  expect(threw, "缺少 formulaId 应抛错");
+});
+
+check("library: 删除公式连带删除手法", () => {
+  const f = createFormula({ name: "F", moves: "R U R'" });
+  const tec = createTechnique({ name: "T", formulaId: f.id });
+  const lib: LibraryData = { version: 1, categories: [], formulas: [f], techniques: [tec] };
+  const after = removeFormulaFromLib(lib, f.id);
+  expect(after.formulas.length === 0 && after.techniques.length === 0, "删除公式应连带删除手法");
+});
+
+// ---------- 标灰系统 ----------
+check("stickering: 54 个小面与坐标往返", () => {
+  const ids = allStickerIds();
+  expect(ids.length === 54, `应为 54：${ids.length}`);
+  expect(new Set(ids).size === 54, "小面 id 应唯一");
+  for (const id of ids) {
+    const p = stickerWorldPos(id);
+    expect(stickerIdFromWorld(p.x, p.y, p.z) === id, `坐标往返失败：${id}`);
+  }
+});
+
+check("stickering: 状态操作", () => {
+  let s = createGrayState();
+  s = toggleSticker(s, "U0", "mutable");
+  expect(graySet(s).has("U0"), "U0 应被灰选");
+  s = toggleSticker(s, "U0", "mutable");
+  expect(graySet(s).size === 0, "再点应取消");
+  s = toggleSticker(s, "F4", "immutable");
+  expect(s.immutable.length === 1, "不可变灰");
+  const c = clearGray(s);
+  expect(c.mutable.length === 0 && c.immutable.length === 0, "清除应清空");
+});
+
+check("stickering: 初始十字预设（六色底）", () => {
+  const d = presetGrayState("cross", "D");
+  expect(d.mutable.length === 45, `十字(D) 应灰 45：${d.mutable.length}`);
+  const keepD = new Set(allStickerIds().filter((id) => !graySet(d).has(id)));
+  for (const id of ["D4", "D3", "D1", "D5", "D7", "L7", "F7", "R7", "B7"]) {
+    expect(keepD.has(id as never), `十字(D) 应保留 ${id}`);
+  }
+  const u = presetGrayState("cross", "U");
+  expect(u.mutable.length === 45, `十字(U) 应灰 45：${u.mutable.length}`);
+  const keepU = new Set(allStickerIds().filter((id) => !graySet(u).has(id)));
+  for (const id of ["U4", "U3", "U1", "U5", "U7", "L1", "F1", "R1", "B1"]) {
+    expect(keepU.has(id as never), `十字(U) 应保留 ${id}`);
+  }
+  for (const face of ["D", "U", "F", "B", "L", "R"] as Face[]) {
+    expect(presetGrayStickers("cross", face).length === 45, `十字(${face}) 应灰 45`);
+  }
+});
+
+check("stickering: 桥式左右桥预设", () => {
+  const left = presetGrayState("roux-left", "D");
+  expect(left.mutable.length === 41, `左桥(D) 应灰 41：${left.mutable.length}`);
+  const keepL = new Set(allStickerIds().filter((id) => !graySet(left).has(id)));
+  for (const id of ["L3", "L4", "L5", "L6", "L7", "L8", "F3", "F6", "B5", "B8", "D3", "D0", "D6"]) {
+    expect(keepL.has(id as never), `左桥(D) 应保留 ${id}`);
+  }
+  const right = presetGrayState("roux-right", "D");
+  expect(right.mutable.length === 41, `右桥(D) 应灰 41：${right.mutable.length}`);
+  const keepR = new Set(allStickerIds().filter((id) => !graySet(right).has(id)));
+  for (const id of ["R3", "R4", "R5", "R6", "R7", "R8", "F5", "F8", "B3", "B6", "D5", "D2", "D8"]) {
+    expect(keepR.has(id as never), `右桥(D) 应保留 ${id}`);
+  }
+  for (const face of ["D", "U", "F", "B", "L", "R"] as Face[]) {
+    expect(presetGrayStickers("roux-left", face).length === 41, `左桥(${face}) 应灰 41`);
+    expect(presetGrayStickers("roux-right", face).length === 41, `右桥(${face}) 应灰 41`);
+  }
+});
+
+check("stickering: 底色旋转设置均为合法记法", () => {
+  for (const face of ["D", "U", "F", "B", "R", "L"] as Face[]) {
+    const alg = baseFaceSetupAlg(face);
+    expect(parseMoves(alg || "U U'").ok, `底色 ${face} 的旋转 ${alg} 应合法`);
+  }
 });
 
 if (failures) {
