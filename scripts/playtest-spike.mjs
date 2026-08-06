@@ -36,6 +36,9 @@ page.on("console", (m) => console.log(`[console] ${m.type()}: ${m.text()}`));
 page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));
 
 await page.goto(URL, { waitUntil: "networkidle0", timeout: 30000 });
+await page.evaluate(() => {
+  location.hash = "#/game";
+});
 await page.waitForFunction(() => !!document.querySelector("twisty-player"), { timeout: 15000 });
 await sleep(1500);
 

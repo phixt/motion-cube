@@ -2,8 +2,8 @@ import type { CubePlayer } from "../cube/CubePlayer";
 import { notationSelfTest, parseMoves } from "../notation/alg";
 
 /**
- * DOM HUD 层（Spike 版）：公式输入/播放控制/速度/记法自检 + 移动日志。
- * 后续替换为正式工具栏与库面板。
+ * 游戏页 DOM HUD：公式输入/播放控制/速度/记法自检 + 移动日志。
+ * 挂载到 #hud（root）；底部日志面板挂到同层容器（路由切换时随页面一起清理）。
  */
 export type HudApi = {
   logMove: (move: string) => void;
@@ -27,8 +27,8 @@ export function mountHud(root: HTMLElement, player: CubePlayer): HudApi {
       <span id="hud-status"></span>
     </div>
     <div class="key-help">
-      面 U D L R F B ｜ 中层 M E S ｜ 旋转 X Y Z ｜ 反转 Shift ｜ 双层 Space+面键 ｜
-      撤销 Backspace ｜ 重置 Esc ｜ 播放/暂停 P ｜ 拖拽=转视角
+      拖拽 = 转视角 ｜ 撤销 Backspace ｜ 重置 Esc ｜ 播放/暂停 P ｜
+      其余按键见「按键设置」页
     </div>
   `;
 
@@ -48,7 +48,7 @@ export function mountHud(root: HTMLElement, player: CubePlayer): HudApi {
     <div id="move-log"></div>
     <pre id="self-test" hidden></pre>
   `;
-  document.body.appendChild(bottom);
+  (root.parentElement ?? root).appendChild(bottom);
   const moveLog = bottom.querySelector<HTMLDivElement>("#move-log")!;
   const selfTest = bottom.querySelector<HTMLPreElement>("#self-test")!;
 
