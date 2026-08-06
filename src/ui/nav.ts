@@ -8,6 +8,7 @@ export function navBar(current: Route): HTMLElement {
     { route: "game", label: t("nav.game") },
     { route: "library", label: t("nav.library") },
     { route: "editor", label: t("nav.editor") },
+    { route: "hand", label: t("nav.hand") },
     { route: "keymap", label: t("nav.keymap") },
     { route: "help", label: t("nav.help") },
   ];

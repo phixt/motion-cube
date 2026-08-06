@@ -2,6 +2,7 @@ import "./styles/base.css";
 import { setLocale } from "./i18n";
 import { renderEditorPage } from "./pages/editor";
 import { mountGamePage } from "./pages/game";
+import { renderHandCalibPage } from "./pages/handCalib";
 import { renderHelpPage } from "./pages/help";
 import { renderKeymapPage } from "./pages/keymap";
 import { renderLibraryPage } from "./pages/library";
@@ -32,6 +33,9 @@ function render(route: Route): void {
       break;
     case "editor":
       renderEditorPage(app);
+      break;
+    case "hand":
+      cleanup = renderHandCalibPage(app);
       break;
     case "keymap":
       renderKeymapPage(app);

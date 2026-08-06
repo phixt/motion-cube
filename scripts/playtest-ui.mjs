@@ -399,5 +399,36 @@ if (techAfter.includes("单拨 U（示例）")) throw new Error("删公式未连
 console.log("formula delete cascades to techniques ok");
 await shot("ui-12-cascade");
 
+// 11) 手部标定页：平铺手掌 + 标尺 + 参数编辑 + 固化落库
+await clickNav("手部");
+await page.waitForSelector("#hand-calib-view", { timeout: 15000 });
+await sleep(1500);
+const calibBox = await page.$eval("#hand-calib-view", (el) => {
+  const r = el.getBoundingClientRect();
+  return { w: Math.round(r.width), h: Math.round(r.height) };
+});
+if (calibBox.w < 300 || calibBox.h < 300) throw new Error(`标定视口过小：${JSON.stringify(calibBox)}`);
+const ruler = await page.$eval("#hand-calib-view svg", (el) => ({
+  lines: el.querySelectorAll("line").length,
+  texts: [...el.querySelectorAll("text")].map((t) => t.textContent),
+}));
+if (ruler.lines < 10 || ruler.texts.length < 4) throw new Error(`标尺异常：${JSON.stringify(ruler)}`);
+console.log(`hand calib ruler ok: ${ruler.texts.slice(0, 6).join(",")} …`);
+await page.$eval("#len-middle-0", (el) => {
+  el.value = "1.00";
+  el.dispatchEvent(new Event("input"));
+});
+await sleep(300);
+const middleLen = await page.$eval("#len-middle-0", (el) => el.value);
+if (middleLen !== "1.00") throw new Error(`段长输入未生效：${middleLen}`);
+await page.click("#hand-save");
+await sleep(250);
+const savedRig = await page.evaluate(() => JSON.parse(localStorage.getItem("motion-cube.handRig") ?? "null"));
+if (!savedRig || savedRig.fingers.middle[0].length !== 1) throw new Error("固化数据未写入 localStorage");
+console.log("hand calib save ok");
+await page.click("#hand-reset");
+await sleep(250);
+await shot("ui-17-hand-calib");
+
 await browser.close();
 console.log(`\nSHOTS: ${shots.join(", ")}`);

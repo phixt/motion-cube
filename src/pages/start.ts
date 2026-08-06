@@ -14,6 +14,7 @@ export function renderStartPage(root: HTMLElement): void {
       <button data-route="game" class="primary">${t("start.play")}</button>
       <button data-route="library">${t("start.library")}</button>
       <button data-route="editor">${t("start.editor")}</button>
+      <button data-route="hand">${t("start.hand")}</button>
       <button data-route="keymap">${t("start.keymap")}</button>
       <button data-route="help">${t("start.help")}</button>
     </div>

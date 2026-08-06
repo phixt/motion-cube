@@ -321,7 +321,8 @@ export function renderEditorPage(root: HTMLElement): void {
     // 插值姿态：读数 + 3D 手驱动
     const pose = previewPose();
     pvPose.textContent = pose ? poseSummary(pose) : t("editor.needKf");
-    handView.setPose(pose);
+    // 无手法时也显示默认手位（避免视口空手），选中手法后跟随预览帧
+    handView.setPose(pose ?? defaultHandPose(handTypeSelect.value as HandType));
     renderPreviewTable(total);
   }
 

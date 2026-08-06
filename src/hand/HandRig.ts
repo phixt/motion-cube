@@ -100,7 +100,20 @@ function standardFinger(name: FingerName, lengths: number[], widths: number[]): 
   };
 }
 
-/** 默认手骨架（长度按真实比例折算为魔方单位；拇指为特例） */
+/**
+ * 默认手骨架（指节长度/粗细按开源人体测量数据折算为魔方单位；拇指为特例）。
+ *
+ * 数据来源（2026-08-06 校准，见 docs/params.md §手部比例）：
+ * - 各指总长比（以中指为 1）：acbjournal 2024（51 名 18–30 岁青年，指节之和 mm）
+ *   thumb 49.5 / index 63.9 / middle 70.7 / ring 65.5 / little 53.3
+ *   → 0.700 / 0.904 / 1.000 / 0.926 / 0.754
+ * - 指节长度占比（JSSM 久坐男性，指骨长度 %）：thumb 近/远 57.3/42.7；
+ *   index 49.5/28.8/21.7；middle 48.5/31.8/19.6；ring 46.8/31.2/22.0；little 47.0/27.9/25.1
+ * - 指粗比（儿童 3–10 岁指径 mm，thumb 16 / index,middle 15 / ring 14 / little 13）：
+ *   相对小指 1.23 / 1.15 / 1.15 / 1.08 / 1.00；指节 taper 取 JSSM 体积比折算并略保守化
+ * - 锚点：小指总长保持 1.33（对应 HAND_SCALE = 2.1/1.33，小指 ≈ 2.1 块边长；
+ *   2026-08-06 目测回调：3.1 渲染后整体过大，中指 4.1 块超出魔方面）
+ */
 export function createDefaultRig(handType: HandType = "left"): HandRig {
   return {
     handType,
@@ -108,8 +121,8 @@ export function createDefaultRig(handType: HandType = "left"): HandRig {
       thumb: {
         name: "thumb",
         segments: [
-          { length: 0.6, width: 0.32 },
-          { length: 0.46, width: 0.27 },
+          { length: 0.71, width: 0.28 },
+          { length: 0.53, width: 0.21 },
         ],
         joints: [
           { name: "CMC", bend: 160, range: { min: 60, max: 180 }, abduction: 0, rotation: 0 },
@@ -117,10 +130,10 @@ export function createDefaultRig(handType: HandType = "left"): HandRig {
           { name: "IP", bend: 165 },
         ],
       },
-      index: standardFinger("index", [0.72, 0.56, 0.46], [0.26, 0.23, 0.2]),
-      middle: standardFinger("middle", [0.78, 0.6, 0.48], [0.27, 0.24, 0.21]),
-      ring: standardFinger("ring", [0.72, 0.56, 0.46], [0.26, 0.23, 0.2]),
-      pinky: standardFinger("pinky", [0.55, 0.42, 0.36], [0.23, 0.2, 0.18]),
+      index: standardFinger("index", [0.79, 0.46, 0.35], [0.26, 0.21, 0.16]),
+      middle: standardFinger("middle", [0.86, 0.56, 0.35], [0.27, 0.21, 0.16]),
+      ring: standardFinger("ring", [0.76, 0.51, 0.36], [0.25, 0.22, 0.16]),
+      pinky: standardFinger("pinky", [0.63, 0.37, 0.33], [0.23, 0.19, 0.14]),
     },
   };
 }
@@ -149,7 +162,7 @@ export function createDefaultPose(rig: HandRig): Pose {
 export function defaultHandPose(handType: HandType = "left"): Pose {
   const pose = createDefaultPose(createDefaultRig(handType));
   // 手掌置于魔方左前方稍远处（左手：拇指侧朝魔方，四指伸向前表面），
-  // 拉开距离避免遮挡魔方主体；放大后中指全长 ≈ 4.3 块，伸直时指尖离前表面约 1.5 块
+  // 拉开距离避免遮挡魔方主体；放大后中指全长 ≈ 2.8 块（用户后续自行调整位姿）
   pose.palm.transform.position = { x: -3.0, y: 0.5, z: 9.0 };
   pose.palm.transform.quaternion = { w: 0, x: 0, y: 1, z: 0 }; // rotY 180°
   return pose;

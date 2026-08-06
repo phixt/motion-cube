@@ -47,7 +47,18 @@ import {
   TechniqueError,
   upsertKeyframe,
 } from "../src/data/technique.ts";
-import { clampBend, createDefaultPose, createDefaultRig } from "../src/hand/HandRig.ts";
+import {
+  FINGER_ORDER,
+  clampBend,
+  createDefaultPose,
+  createDefaultRig,
+  type FingerName,
+} from "../src/hand/HandRig.ts";
+import {
+  DEFAULT_HAND_CONFIG,
+  createRigFromConfig,
+  normalizeHandRigConfig,
+} from "../src/hand/handRigStore.ts";
 import {
   applyEasing,
   DEFAULT_FRAME_RATE,
@@ -177,6 +188,71 @@ check("rig: clampBend 范围", () => {
   expect(clampBend(pip, 30) === 90, "下限应 90");
   const cmc = rig.fingers.thumb.joints[0];
   expect(clampBend(cmc, 50) === 60, "拇指 CMC 下限应为其自定义 60");
+});
+
+check("rig: 指节比例按人体测量数据（小指 1.33 锚点）", () => {
+  const rig = createDefaultRig();
+  const total = (n: FingerName) => rig.fingers[n].segments.reduce((s, seg) => s + seg.length, 0);
+  expect(Math.abs(total("pinky") - 1.33) < 1e-9, "小指总长应为锚点 1.33");
+  // 各指总长比（以中指为 1，指节之和）：acbjournal 2024 → 0.700 / 0.904 / 0.926 / 0.754
+  const m = total("middle");
+  const expLen = { thumb: 0.700, index: 0.904, ring: 0.926, pinky: 0.754 } as const;
+  for (const [n, r] of Object.entries(expLen)) {
+    const got = total(n as FingerName) / m;
+    expect(Math.abs(got - r) < 0.012, `${n} 总长比 ${got.toFixed(3)} 应≈${r}`);
+  }
+  // 指节长度占比（JSSM 久坐男性）：中指近节 48.5%、拇指近节 57.3%
+  const mid = rig.fingers.middle.segments;
+  expect(Math.abs(mid[0].length / m - 0.485) < 0.01, "中指近节占比应≈48.5%");
+  const th = rig.fingers.thumb.segments;
+  expect(Math.abs(th[0].length / total("thumb") - 0.573) < 0.01, "拇指近节占比应≈57.3%");
+  // 手指粗细相对小指（儿童指径 16/15/15/14/13 → 1.23/1.15/1.15/1.08/1.00）
+  const w = (n: FingerName) => rig.fingers[n].segments[0].width;
+  const pw = w("pinky");
+  const expW = { thumb: 1.23, index: 1.15, middle: 1.15, ring: 1.08 } as const;
+  for (const [n, r] of Object.entries(expW)) {
+    const got = w(n as FingerName) / pw;
+    expect(Math.abs(got - r) < 0.03, `${n} 粗细比 ${got.toFixed(3)} 应≈${r}`);
+  }
+});
+
+check("handRigStore: 默认配置与骨架一致、覆盖生效", () => {
+  const def = createDefaultRig("left");
+  const fromCfg = createRigFromConfig(DEFAULT_HAND_CONFIG, "left");
+  for (const name of FINGER_ORDER) {
+    const a = def.fingers[name].segments;
+    const b = fromCfg.fingers[name].segments;
+    expect(a.length === b.length, `${name} 段数应一致`);
+    for (let i = 0; i < a.length; i++) {
+      expect(
+        a[i].length === b[i].length && a[i].width === b[i].width,
+        `${name}[${i}] 默认段应与骨架一致`,
+      );
+    }
+  }
+  const cfg = structuredClone(DEFAULT_HAND_CONFIG);
+  cfg.fingers.index[0].length = 1.2;
+  const rig2 = createRigFromConfig(cfg);
+  expect(rig2.fingers.index.segments[0].length === 1.2, "覆盖段长应生效");
+  expect(
+    rig2.fingers.middle.segments[0].length === def.fingers.middle.segments[0].length,
+    "未覆盖指应保持默认",
+  );
+});
+
+check("handRigStore: 非法配置拒绝 / 越界截断", () => {
+  expect(normalizeHandRigConfig(null) === null, "null 应拒绝");
+  expect(normalizeHandRigConfig({ version: 1, fingers: {} }) === null, "缺指段应拒绝");
+  const badVer = structuredClone(DEFAULT_HAND_CONFIG) as { version: number; fingers: unknown };
+  badVer.version = 2;
+  expect(normalizeHandRigConfig(badVer) === null, "版本不符应拒绝");
+  const bad = structuredClone(DEFAULT_HAND_CONFIG);
+  bad.fingers.pinky[0].length = 999;
+  bad.handScale = -3;
+  const n = normalizeHandRigConfig(bad);
+  expect(n !== null, "越界值应规范化而非拒绝");
+  expect(n!.fingers.pinky[0].length <= 5, "超长段应截断到上限");
+  expect(n!.handScale >= 0.3, "负放大系数应截断到下限");
 });
 
 // ---------- 时间线 ----------
