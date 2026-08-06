@@ -1,0 +1,36 @@
+/* 全局基础：变量 / 重置 / 通用控件（按钮）。由 main.ts 引入。 */
+:root {
+  color-scheme: dark;
+  font-family: system-ui, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+button {
+  padding: 0.35rem 0.8rem;
+  border: 1px solid #3a3a44;
+  border-radius: 6px;
+  background: #23232b;
+  color: #e8e8ec;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #2e2e38;
+}
+
+button.primary {
+  background: #2f6fae;
+  border-color: #2f6fae;
+}

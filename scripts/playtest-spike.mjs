@@ -119,15 +119,5 @@ if (!/解析失败/.test(st)) throw new Error(`期望解析失败状态，实际
 console.log(`invalid input rejected: ${st}`);
 await shot("05-invalid-input");
 
-// 7) 记法自检（浏览器内）
-await page.click("#btn-verify");
-await sleep(300);
-const selfTest = await page.$eval("#self-test", (el) => el.textContent ?? "");
-const failed = (selfTest.match(/FAIL/g) ?? []).length;
-console.log(`self-test: ${failed} FAIL / ${(selfTest.match(/OK/g) ?? []).length} OK`);
-if (failed > 0) console.log(selfTest.split("\n").filter((l) => l.startsWith("FAIL")).join("\n"));
-await shot("06-self-test");
-
 await browser.close();
 console.log(`\nSHOTS: ${shots.join(", ")}`);
-process.exit(failed > 0 ? 1 : 0);

@@ -9,6 +9,8 @@ import {
   serializeFormula,
   upsertFormula,
 } from "../src/data/formula.ts";
+import { EMPTY_LIBRARY, mergeLibrary, serializeLibraryData, deserializeLibraryData } from "../src/data/libraryStore.ts";
+import { SAMPLE_FORMULAS, SAMPLE_LIBRARY, SAMPLE_TECHNIQUES } from "../src/data/samples.ts";
 import {
   createTechnique,
   deserializeTechnique,
@@ -171,6 +173,30 @@ check("timeline: 缓动与姿态插值", () => {
   const q = mid.palm.transform.quaternion;
   const len = Math.hypot(q.w, q.x, q.y, q.z);
   expect(Math.abs(len - 1) < 1e-9, `四元数应单位化：${len}`);
+});
+
+// ---------- 示例数据与库 ----------
+check("samples: 示例公式库可加载", () => {
+  expect(SAMPLE_FORMULAS.formulas.length >= 3, `示例公式数量异常：${SAMPLE_FORMULAS.formulas.length}`);
+  expect(SAMPLE_FORMULAS.formulas.some((f) => f.name === "V Perm"), "缺少 V Perm");
+});
+
+check("samples: 示例手法可加载（60fps/三关键帧/终态 PIP 45）", () => {
+  expect(SAMPLE_TECHNIQUES.length === 1, "示例手法应为 1 条");
+  const tec = SAMPLE_TECHNIQUES[0];
+  expect(tec.frameRate === 60, "frameRate 应为 60");
+  expect(tec.keyframes.length === 3, "关键帧应为 3");
+  expect(tec.keyframes[2].pose.bends.index[1] === 45, "终态 PIP 应为 45");
+  expect(tec.stepMapping.length === 1, "stepMapping 应为 1");
+});
+
+check("library: 合并与序列化往返", () => {
+  const merged = mergeLibrary(EMPTY_LIBRARY, SAMPLE_LIBRARY);
+  const back = deserializeLibraryData(serializeLibraryData(merged));
+  expect(
+    back.formulas.length === merged.formulas.length && back.techniques.length === merged.techniques.length,
+    "往返数量不一致",
+  );
 });
 
 if (failures) {

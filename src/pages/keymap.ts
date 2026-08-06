@@ -1,3 +1,5 @@
+import { t } from "../i18n";
+import "../styles/pages.css";
 import {
   DEFAULT_KEYMAP,
   findConflicts,
@@ -8,19 +10,13 @@ import {
 } from "../input/keymap";
 import { loadKeymap, loadSettings, saveKeymap, saveSettings, type AppSettings } from "../settings";
 import { navBar } from "../ui/nav";
+import { el } from "../ui/dom";
 
-const SPECIAL_LABELS: Record<SpecialAction, string> = {
-  undo: "撤销一步",
-  reset: "重置",
-  "toggle-play": "播放/暂停",
+const SPECIAL_LABEL_KEYS: Record<SpecialAction, string> = {
+  undo: "keymap.special.undo",
+  reset: "keymap.special.reset",
+  "toggle-play": "keymap.special.play",
 };
-
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, text = "", cls = ""): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag);
-  if (text) node.textContent = text;
-  if (cls) node.className = cls;
-  return node;
-}
 
 export function renderKeymapPage(root: HTMLElement): void {
   root.innerHTML = "";
@@ -31,20 +27,20 @@ export function renderKeymapPage(root: HTMLElement): void {
   const page = el("div", "", "page");
   page.prepend(navBar("keymap"));
 
-  const title = el("h1", "按键设置");
+  const title = el("h1", t("keymap.title"));
   const status = el("span", "", "save-status");
   const conflictBox = el("div", "", "conflict-box");
   conflictBox.hidden = true;
 
   const table = el("table", "", "keymap-table");
   const thead = el("thead");
-  thead.innerHTML = "<tr><th>动作</th><th>按键</th><th></th></tr>";
+  thead.innerHTML = `<tr><th>${t("keymap.action")}</th><th>${t("keymap.binding")}</th><th></th></tr>`;
   const tbody = el("tbody");
   table.append(thead, tbody);
 
   function persist() {
     saveKeymap(cfg);
-    status.textContent = "已保存";
+    status.textContent = t("keymap.saved");
     window.setTimeout(() => {
       status.textContent = "";
     }, 1200);
@@ -56,7 +52,7 @@ export function renderKeymapPage(root: HTMLElement): void {
       tbody.appendChild(actionRow(action, b, false));
     }
     const sep = el("tr", "", "sep");
-    sep.innerHTML = "<td colspan='3'>特殊动作</td>";
+    sep.innerHTML = `<td colspan='3'>${t("keymap.special")}</td>`;
     tbody.appendChild(sep);
     for (const [action, b] of Object.entries(cfg.specials)) {
       tbody.appendChild(actionRow(action, b, true));
@@ -65,9 +61,12 @@ export function renderKeymapPage(root: HTMLElement): void {
     if (conflicts.length > 0) {
       conflictBox.hidden = false;
       conflictBox.textContent =
-        "⚠ 按键冲突：" +
+        t("keymap.conflictPrefix") +
         conflicts
-          .map((c) => `${c.actions.join(" 与 ")} 共用 ${prettyBinding(c.binding)}`)
+          .map(
+            (c) =>
+              `${c.actions.join(` ${t("keymap.conflictAnd")} `)} ${t("keymap.conflictShare")} ${prettyBinding(c.binding)}`,
+          )
           .join("；");
     } else {
       conflictBox.hidden = true;
@@ -77,11 +76,11 @@ export function renderKeymapPage(root: HTMLElement): void {
   function actionRow(action: string, b: KeyBinding, isSpecial: boolean): HTMLTableRowElement {
     const tr = el("tr");
     tr.dataset.action = action;
-    const tdAction = el("td", isSpecial ? SPECIAL_LABELS[action as SpecialAction] : action);
+    const tdAction = el("td", isSpecial ? t(SPECIAL_LABEL_KEYS[action as SpecialAction]) : action);
     const tdBind = el("td");
     const span = el("span", prettyBinding(b), "binding");
     const tdBtn = el("td");
-    const btn = el("button", "修改", "rebind");
+    const btn = el("button", t("keymap.modify"), "rebind");
     btn.addEventListener("click", () => startCapture(tr, action, isSpecial));
     tdBind.appendChild(span);
     tdBtn.appendChild(btn);
@@ -93,7 +92,7 @@ export function renderKeymapPage(root: HTMLElement): void {
     cancelCapture();
     capturing = action;
     const bindCell = tr.querySelector<HTMLElement>(".binding");
-    if (bindCell) bindCell.textContent = "按下新按键组合…（Esc 取消）";
+    if (bindCell) bindCell.textContent = t("keymap.captureHint");
     status.textContent = "";
     let spaceHeld = false;
     const onKeyUp = (e: KeyboardEvent) => {
@@ -131,7 +130,7 @@ export function renderKeymapPage(root: HTMLElement): void {
   }
 
   // 设置：连击冷却
-  const cooldownLabel = el("span", `连击冷却：${settings.moveCooldownMs} ms`, "cooldown-label");
+  const cooldownLabel = el("span", t("keymap.cooldown", { ms: settings.moveCooldownMs }), "cooldown-label");
   const slider = el("input");
   slider.type = "range";
   slider.min = "0";
@@ -141,25 +140,22 @@ export function renderKeymapPage(root: HTMLElement): void {
   slider.addEventListener("input", () => {
     settings.moveCooldownMs = Number(slider.value);
     saveSettings(settings);
-    cooldownLabel.textContent = `连击冷却：${settings.moveCooldownMs} ms`;
+    cooldownLabel.textContent = t("keymap.cooldown", { ms: settings.moveCooldownMs });
   });
   const settingsBox = el("div", "", "settings-box");
   settingsBox.append(cooldownLabel, slider);
 
-  const resetBtn = el("button", "恢复默认", "reset-btn");
+  const resetBtn = el("button", t("keymap.reset"), "reset-btn");
   resetBtn.addEventListener("click", () => {
     cfg = structuredClone(DEFAULT_KEYMAP);
     persist();
     refresh();
   });
 
-  const note = el(
-    "p",
-    "提示：Space 保留为“双层(wide)修饰键”，不能单独绑定；Shift 常作为反转修饰。连击冷却用于缓解快速按键导致的动画抽搐（体验问题 #1）。",
-    "page-note",
-  );
+  const note = el("p", t("keymap.note"), "page-note");
+  const scopeNote = el("p", t("keymap.scopeNote"), "page-note");
 
-  page.append(title, status, conflictBox, table, settingsBox, resetBtn, note);
+  page.append(title, status, conflictBox, table, settingsBox, resetBtn, note, scopeNote);
   root.appendChild(page);
   refresh();
 }

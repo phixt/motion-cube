@@ -1,0 +1,228 @@
+[
+  {
+    "id": "e16b4058-e1ed-46fc-a73a-cf8152fdce27",
+    "name": "单拨 U（示例）",
+    "formulaId": "e5872275-d61c-4871-8ae5-f9b18e01531b",
+    "frameRate": 60,
+    "keyframes": [
+      {
+        "frame": 0,
+        "pose": {
+          "palm": {
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "quaternion": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              }
+            },
+            "thumbBase": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "quaternion": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              }
+            }
+          },
+          "bends": {
+            "thumb": [
+              160,
+              160,
+              165
+            ],
+            "index": [
+              168,
+              135,
+              175
+            ],
+            "middle": [
+              168,
+              135,
+              150
+            ],
+            "ring": [
+              168,
+              135,
+              150
+            ],
+            "pinky": [
+              168,
+              135,
+              150
+            ]
+          },
+          "thumbCMC": {
+            "abduction": 0,
+            "rotation": 0
+          },
+          "contacts": [
+            {
+              "finger": "index",
+              "segmentIndex": 2,
+              "side": "pad",
+              "t": 0.67,
+              "target": "UL 边"
+            }
+          ]
+        }
+      },
+      {
+        "frame": 30,
+        "pose": {
+          "palm": {
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "quaternion": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              }
+            },
+            "thumbBase": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "quaternion": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              }
+            }
+          },
+          "bends": {
+            "thumb": [
+              160,
+              160,
+              165
+            ],
+            "index": [
+              168,
+              90,
+              155
+            ],
+            "middle": [
+              168,
+              135,
+              150
+            ],
+            "ring": [
+              168,
+              135,
+              150
+            ],
+            "pinky": [
+              168,
+              135,
+              150
+            ]
+          },
+          "thumbCMC": {
+            "abduction": 0,
+            "rotation": 0
+          },
+          "contacts": []
+        }
+      },
+      {
+        "frame": 60,
+        "pose": {
+          "palm": {
+            "transform": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "quaternion": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              }
+            },
+            "thumbBase": {
+              "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+              },
+              "quaternion": {
+                "w": 1,
+                "x": 0,
+                "y": 0,
+                "z": 0
+              }
+            }
+          },
+          "bends": {
+            "thumb": [
+              160,
+              160,
+              165
+            ],
+            "index": [
+              168,
+              45,
+              135
+            ],
+            "middle": [
+              168,
+              135,
+              150
+            ],
+            "ring": [
+              168,
+              135,
+              150
+            ],
+            "pinky": [
+              168,
+              135,
+              150
+            ]
+          },
+          "thumbCMC": {
+            "abduction": 0,
+            "rotation": 0
+          },
+          "contacts": [
+            {
+              "finger": "index",
+              "segmentIndex": 0,
+              "side": "back",
+              "t": 0.45,
+              "target": "L 面"
+            }
+          ]
+        }
+      }
+    ],
+    "stepMapping": [
+      {
+        "stepIndex": 0,
+        "startFrame": 0,
+        "endFrame": 60
+      }
+    ]
+  }
+]

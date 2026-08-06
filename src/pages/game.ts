@@ -1,8 +1,10 @@
 import { CubePlayer } from "../cube/CubePlayer";
+import "../styles/game.css";
 import { KeymapController, type SpecialAction } from "../input/keymap";
 import { loadKeymap, loadSettings } from "../settings";
 import { mountHud, type HudApi } from "../ui/hud";
 import { navBar } from "../ui/nav";
+import { t } from "../i18n";
 
 declare global {
   interface Window {
@@ -15,7 +17,7 @@ export function mountGamePage(root: HTMLElement): () => void {
   root.innerHTML = `
     <div class="game-page">
       <header class="game-top">
-        <h1>Motion Cube <span class="hud-sub">game</span></h1>
+        <h1>Motion Cube <span class="hud-sub">${t("game.sub")}</span></h1>
       </header>
       <main class="stage" id="stage"></main>
       <div id="hud"></div>

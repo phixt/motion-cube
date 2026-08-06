@@ -39,11 +39,14 @@ async function shot(name) {
 }
 
 async function clickNav(label) {
+  console.log(`clickNav: ${label} (hash=${await page.evaluate(() => location.hash)})`);
   const handles = await page.$$(".nav-link");
   for (const h of handles) {
     const t = await h.evaluate((n) => n.textContent);
     if (t === label) {
       await h.click();
+      await sleep(250);
+      console.log(`  -> clicked, hash=${await page.evaluate(() => location.hash)}`);
       return;
     }
   }
@@ -121,9 +124,45 @@ await shot("ui-07-editor");
 await clickNav("说明");
 await page.waitForSelector(".page h1");
 const helpHas = await page.$eval(".page", (el) => el.textContent);
-if (!helpHas.includes("当前按键配置")) throw new Error("说明页缺少按键配置");
+if (!helpHas.includes("游戏页操作")) throw new Error("说明页缺少操作说明");
+if (helpHas.includes(" → ")) throw new Error("说明页不应再包含键位列表");
+if (helpHas.includes("连击冷却")) throw new Error("说明页不应再包含冷却时间");
 console.log("help page ok");
 await shot("ui-08-help");
+
+// 8) 公式库页：示例加载 / 添加 / 非法报错 / 删除
+await clickNav("公式库");
+await page.waitForSelector("#formula-rows");
+await page.click("#btn-samples");
+await sleep(300);
+let formulaText = await page.$eval("#formula-rows", (el) => el.textContent ?? "");
+if (!formulaText.includes("V Perm")) throw new Error("示例公式未加载");
+const techniqueText = await page.$eval("#technique-rows", (el) => el.textContent ?? "");
+if (!techniqueText.includes("单拨 U")) throw new Error("示例手法未加载");
+console.log("library samples ok");
+await shot("ui-09-library");
+
+await page.type("#f-name", "测试 OLL");
+await page.type("#f-moves", "R U R' U R U2' R'");
+await page.click("#f-submit");
+await sleep(250);
+formulaText = await page.$eval("#formula-rows", (el) => el.textContent ?? "");
+if (!formulaText.includes("测试 OLL")) throw new Error("添加公式失败");
+
+await page.type("#f-name", "bad");
+await page.type("#f-moves", "R U ???");
+await page.click("#f-submit");
+await sleep(250);
+const libErr = await page.$eval("#lib-status", (el) => el.textContent ?? "");
+if (!libErr.includes("添加失败")) throw new Error(`非法公式未报错：${libErr}`);
+console.log("library invalid rejected");
+
+await page.click('[data-name="测试 OLL"] .del');
+await sleep(200);
+formulaText = await page.$eval("#formula-rows", (el) => el.textContent ?? "");
+if (formulaText.includes("测试 OLL")) throw new Error("删除公式失败");
+console.log("library add/error/delete ok");
+await shot("ui-10-library-edit");
 
 await browser.close();
 console.log(`\nSHOTS: ${shots.join(", ")}`);

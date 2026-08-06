@@ -71,8 +71,13 @@ export function deserializeFormula(text: string): FormulaLibrary {
   if (!obj || !Array.isArray(obj.formulas)) {
     throw new FormulaError("结构非法：缺少 formulas 数组");
   }
+  return { version: 1, formulas: parseFormulaEntries(obj.formulas) };
+}
+
+/** 校验任意结构的公式条目数组（供导入/合并复用） */
+export function parseFormulaEntries(items: unknown[]): Formula[] {
   const formulas: Formula[] = [];
-  for (const item of obj.formulas) {
+  for (const item of items) {
     const f = item as Record<string, unknown> | null;
     if (!f || typeof f !== "object") throw new FormulaError("公式条目非法");
     const { id, name, moves, tags } = f;
@@ -86,5 +91,5 @@ export function deserializeFormula(text: string): FormulaLibrary {
     if (err) throw new FormulaError(`公式 ${name}：${err}`);
     formulas.push({ id, name, moves: normalizeMoves(moves), tags });
   }
-  return { version: 1, formulas };
+  return formulas;
 }

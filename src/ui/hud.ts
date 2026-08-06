@@ -1,8 +1,9 @@
 import type { CubePlayer } from "../cube/CubePlayer";
-import { notationSelfTest, parseMoves } from "../notation/alg";
+import { t } from "../i18n";
+import { parseMoves } from "../notation/alg";
 
 /**
- * 游戏页 DOM HUD：公式输入/播放控制/速度/记法自检 + 移动日志。
+ * 游戏页 DOM HUD：公式输入/播放控制/速度 + 移动日志。
  * 挂载到 #hud（root）；底部日志面板挂到同层容器（路由切换时随页面一起清理）。
  */
 export type HudApi = {
@@ -16,27 +17,21 @@ export type HudApi = {
 export function mountHud(root: HTMLElement, player: CubePlayer): HudApi {
   root.innerHTML = `
     <div class="controls-row">
-      <input id="alg-input" type="text" spellcheck="false"
-        placeholder="公式，如 R U R' U R U2' R'（支持 M/E/S、r/u 双层、x/y/z、交换子）" />
-      <button id="btn-apply">应用</button>
-      <button id="btn-play">播放</button>
-      <button id="btn-reset">重置</button>
-      <label class="speed-label">速度 <output id="speed-out">1.0x</output></label>
+      <input id="alg-input" type="text" spellcheck="false" placeholder="${t("hud.algPlaceholder")}" />
+      <button id="btn-apply">${t("hud.apply")}</button>
+      <button id="btn-play">${t("hud.play")}</button>
+      <button id="btn-reset">${t("hud.reset")}</button>
+      <label class="speed-label">${t("hud.speed")} <output id="speed-out">1.0x</output></label>
       <input id="speed" type="range" min="0.1" max="3" step="0.1" value="1" />
-      <button id="btn-verify">记法自检</button>
       <span id="hud-status"></span>
     </div>
-    <div class="key-help">
-      拖拽 = 转视角 ｜ 撤销 Backspace ｜ 重置 Esc ｜ 播放/暂停 P ｜
-      其余按键见「按键设置」页
-    </div>
+    <div class="key-help">${t("hud.keyHelp")}</div>
   `;
 
   const input = root.querySelector<HTMLInputElement>("#alg-input")!;
   const btnApply = root.querySelector<HTMLButtonElement>("#btn-apply")!;
   const btnPlay = root.querySelector<HTMLButtonElement>("#btn-play")!;
   const btnReset = root.querySelector<HTMLButtonElement>("#btn-reset")!;
-  const btnVerify = root.querySelector<HTMLButtonElement>("#btn-verify")!;
   const speed = root.querySelector<HTMLInputElement>("#speed")!;
   const speedOut = root.querySelector<HTMLOutputElement>("#speed-out")!;
   const status = root.querySelector<HTMLSpanElement>("#hud-status")!;
@@ -44,13 +39,11 @@ export function mountHud(root: HTMLElement, player: CubePlayer): HudApi {
   const bottom = document.createElement("div");
   bottom.id = "bottom-panel";
   bottom.innerHTML = `
-    <div class="panel-title">移动日志 <span class="panel-muted">（键盘/按钮产生的逐步动作）</span></div>
+    <div class="panel-title">${t("hud.logTitle")} <span class="panel-muted">${t("hud.logMuted")}</span></div>
     <div id="move-log"></div>
-    <pre id="self-test" hidden></pre>
   `;
   (root.parentElement ?? root).appendChild(bottom);
   const moveLog = bottom.querySelector<HTMLDivElement>("#move-log")!;
-  const selfTest = bottom.querySelector<HTMLPreElement>("#self-test")!;
 
   let playing = false;
 
@@ -74,25 +67,25 @@ export function mountHud(root: HTMLElement, player: CubePlayer): HudApi {
     },
     setPlaying(value) {
       playing = value;
-      btnPlay.textContent = value ? "暂停" : "播放";
+      btnPlay.textContent = value ? t("hud.pause") : t("hud.play");
     },
   };
 
   btnApply.addEventListener("click", () => {
     const moves = input.value.trim();
     if (!moves) {
-      api.setStatus("请输入公式");
+      api.setStatus(t("hud.statusEmpty"));
       return;
     }
     const parsed = parseMoves(moves);
     if (!parsed.ok) {
-      api.setStatus(`解析失败：${parsed.error}`);
+      api.setStatus(t("hud.statusParseFail", { error: parsed.error }));
       return;
     }
     player.setMoves(parsed.normalized);
     input.value = parsed.normalized;
     api.clearLog();
-    api.setStatus("已应用");
+    api.setStatus(t("hud.statusApplied"));
   });
 
   btnPlay.addEventListener("click", () => {
@@ -114,14 +107,6 @@ export function mountHud(root: HTMLElement, player: CubePlayer): HudApi {
     const v = Number(speed.value);
     player.setSpeed(v);
     speedOut.textContent = `${v.toFixed(1)}x`;
-  });
-
-  btnVerify.addEventListener("click", () => {
-    const lines = notationSelfTest();
-    selfTest.textContent = lines.join("\n");
-    selfTest.hidden = false;
-    const failed = lines.filter((l) => l.startsWith("FAIL")).length;
-    api.setStatus(`记法自检完成：${lines.length - failed}/${lines.length} 通过`);
   });
 
   return api;

@@ -1,0 +1,103 @@
+/** 简体中文文案（默认语言）。 */
+export const zhCN: Record<string, string> = {
+  // 导航
+  "nav.back": "返回",
+  "nav.game": "游戏",
+  "nav.library": "公式库",
+  "nav.editor": "动画编辑",
+  "nav.keymap": "按键设置",
+  "nav.help": "说明",
+
+  // 开始页
+  "start.title": "Motion Cube",
+  "start.sub": "魔方动作播放 / 编辑 / 查看 · 手法动画编辑器",
+  "start.play": "进入游戏",
+  "start.editor": "动画编辑器",
+  "start.keymap": "按键设置",
+  "start.help": "说明",
+
+  // 游戏页
+  "game.sub": "game",
+  "hud.algPlaceholder": "公式，如 R U R' U R U2' R'（支持 M/E/S、r/u 双层、x/y/z、交换子）",
+  "hud.apply": "应用",
+  "hud.play": "播放",
+  "hud.pause": "暂停",
+  "hud.reset": "重置",
+  "hud.speed": "速度",
+  "hud.keyHelp": "拖拽 = 转视角 ｜ 撤销 Backspace ｜ 重置 Esc ｜ 播放/暂停 P ｜ 其余按键见「按键设置」页",
+  "hud.logTitle": "移动日志",
+  "hud.logMuted": "（键盘/按钮产生的逐步动作）",
+  "hud.statusEmpty": "请输入公式",
+  "hud.statusParseFail": "解析失败：{error}",
+  "hud.statusApplied": "已应用",
+  "hud.statusNoUndo": "没有可撤销的步骤",
+  "hud.statusUndo": "已撤销一步",
+  "hud.statusCleared": "已清空",
+  "hud.statusReset": "已重置",
+
+  // 按键设置页
+  "keymap.title": "按键设置",
+  "keymap.action": "动作",
+  "keymap.binding": "按键",
+  "keymap.special": "特殊动作",
+  "keymap.modify": "修改",
+  "keymap.captureHint": "按下新按键组合…（Esc 取消）",
+  "keymap.saved": "已保存",
+  "keymap.conflictPrefix": "⚠ 按键冲突：",
+  "keymap.conflictAnd": "与",
+  "keymap.conflictShare": "共用",
+  "keymap.cooldown": "连击冷却：{ms} ms",
+  "keymap.reset": "恢复默认",
+  "keymap.note":
+    "提示：Space 保留为“双层(wide)修饰键”，不能单独绑定；Shift 常作为反转修饰。连击冷却用于缓解快速按键导致的动画抽搐。",
+  "keymap.scopeNote":
+    "当前键位作用于游戏页。编辑器键位待实现：计划与游戏分开配置、默认与公式保持一致，并提供“连带设置”开关或批量同步提示。",
+  "keymap.special.undo": "撤销一步",
+  "keymap.special.reset": "重置",
+  "keymap.special.play": "播放/暂停",
+
+  // 公式库页
+  "library.title": "公式库 / 手法库",
+  "library.formulas": "公式库",
+  "library.techniques": "手法库",
+  "library.name": "名称",
+  "library.moves": "公式（标准 R L 记法）",
+  "library.tags": "标签（逗号分隔）",
+  "library.add": "添加",
+  "library.update": "更新",
+  "library.cancel": "取消",
+  "library.edit": "编辑",
+  "library.delete": "删除",
+  "library.addOk": "已保存",
+  "library.addFail": "添加失败：{error}",
+  "library.empty": "暂无公式",
+  "library.techniqueEmpty": "暂无手法",
+  "library.kfCount": "关键帧 {n}",
+  "library.steps": "步骤映射 {n}",
+  "library.import": "导入 JSON",
+  "library.export": "导出 JSON",
+  "library.loadSamples": "加载示例",
+  "library.importOk": "已导入 {n} 条公式 / {m} 条手法",
+  "library.importFail": "导入失败：{error}",
+  "library.exportOk": "已导出",
+
+  // 说明页
+  "help.title": "说明",
+  "help.project": "项目",
+  "help.projectDesc":
+    "Motion Cube：魔方动作播放 / 编辑 / 查看游戏。基底为 cubing.js 3D 魔方，核心是手法动画编辑器（手/手指参数模型见 docs/params.md）。",
+  "help.gameOps": "游戏页操作",
+  "help.opDrag": "拖拽魔方区域：旋转视角",
+  "help.opKeys": "按键：按当前按键配置执行魔方动作（可在「按键设置」中修改）",
+  "help.opFormula": "公式输入框：标准记法（支持 M/E/S、r/u 双层、x/y/z、交换子），点“应用”",
+  "help.opSpeed": "速度滑块：动画播放速度",
+  "help.editorOps": "动画编辑器说明",
+  "help.editorPlaceholder": "待编辑器实现后补充",
+
+  // 动画编辑器页
+  "editor.title": "动画编辑器",
+  "editor.pending": "待实现（路线见 docs/todo.md）",
+  "editor.f1": "稀疏关键帧 → 60fps 补帧（Timeline 数据层已就绪）",
+  "editor.f2": "手指/手掌 3D 模型与魔方同场景渲染",
+  "editor.f3": "坐标高度、吸附、起终自动路径、函数路径",
+};
