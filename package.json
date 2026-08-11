@@ -5,18 +5,22 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "cubing": "^0.63.3"
+    "cubing": "^0.63.3",
+    "vue": "^3.5.41",
+    "vue-router": "^4.6.4"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
+    "@vitejs/plugin-vue": "^6.0.8",
     "puppeteer-core": "^25.5.0",
     "tsx": "^4.23.8",
-    "typescript": "^7.0.2",
-    "vite": "^8.2.0"
+    "typescript": "~6.0.3",
+    "vite": "^8.2.0",
+    "vue-tsc": "^3.3.9"
   }
 }

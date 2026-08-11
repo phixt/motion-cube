@@ -1,5 +1,11 @@
 /** 简体中文文案（默认语言）。 */
 export const zhCN: Record<string, string> = {
+  // WinUI 预览页（src/preview，阶段 3 壳验证载体）
+  "placeholder.hint": "这是 WinUIonWeb 控件预览：控件由 Vue 3 渲染，主题走 WinUI 风格。",
+  "placeholder.on": "开",
+  "placeholder.off": "关",
+  "placeholder.clicks": "点击次数",
+
   // 导航
   "nav.back": "返回",
   "nav.game": "游戏",
