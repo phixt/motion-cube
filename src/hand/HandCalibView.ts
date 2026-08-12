@@ -28,11 +28,13 @@ const L_RULE_LEFT = { yMin: -1.4, yMax: 1.4, zMin: -1.4, zMax: 2.6 };
 const RULER_COLOR = "#8fa3b8";
 const GRID_COLOR = "#66707f";
 const LABEL_COLOR = "#9aa0aa";
+const RULER_LENGTH = 5; // 标尺长度（块边长）
+const RULER_WIDTH = 0.35; // 标尺带宽度（块边长）
+const RULER_RADIUS = 1.6; // 旋转指示圆半径（块边长）
 
 export type HandCalibViewKind = "top" | "left";
-export type RulerAxis = "horizontal" | "vertical";
-export type RulerState = { enabled: boolean; axis: RulerAxis; offset: number };
-export type RulerOptions = { enabled: boolean; axis: RulerAxis };
+export type RulerState = { enabled: boolean; angle: number; centerU: number; centerV: number };
+export type RulerOptions = { enabled: boolean; angle: number };
 
 export class HandCalibView {
   private readonly renderer: WebGLRenderer;
@@ -45,7 +47,12 @@ export class HandCalibView {
   private readonly disposables: { obj: Object3D }[] = [];
   private readonly resizeObserver: ResizeObserver;
   private handBox: Box3 | null = null;
-  private ruler: RulerState = { enabled: true, axis: "vertical", offset: 1.55 };
+  private ruler: RulerState = { enabled: true, angle: 0, centerU: 0, centerV: -1.25 };
+  private rulerChangeHandler: ((angle: number) => void) | null = null;
+  private dragging: "move" | "rotate" | null = null;
+  private dragGrabU = 0;
+  private dragGrabV = 0;
+  private ctrlActive = false;
 
   constructor(
     container: HTMLElement,
@@ -54,8 +61,8 @@ export class HandCalibView {
   ) {
     this.wrapper = container;
     this.cfg = cfg;
-    // 初始标尺位置：俯视图竖直=右侧（x=1.55），左视图=左侧（-1.25）
-    this.ruler.offset = view === "left" ? -1.25 : 1.55;
+    // 初始标尺位置：视图平面 (u,v) = (0, -1.25)（下方）
+    this.ruler.centerV = -1.25;
 
     // preserveDrawingBuffer：静态测量视图按需渲染，保留缓冲便于像素级 QA/截图
     this.renderer = new WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
@@ -81,7 +88,7 @@ export class HandCalibView {
 
     this.overlay = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     this.overlay.style.cssText =
-      "position:absolute;inset:0;pointer-events:none;overflow:hidden;";
+      "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:hidden;";
     container.appendChild(this.overlay);
 
     this.resizeObserver = new ResizeObserver(() => this.fit());
@@ -98,85 +105,77 @@ export class HandCalibView {
   }
 
   /** 标尺显示与方向（可拖拽移动、十等分刻度；方向切换不持久化，由页面按钮/Shift 控制） */
+  /** 标尺显示与角度（带宽度、任意角度；角度与手部数值一同固化） */
   setRuler(opts: RulerOptions): void {
-    this.switchAxis(opts.axis);
     this.ruler.enabled = opts.enabled;
+    this.ruler.angle = ((opts.angle % 360) + 360) % 360;
     this.drawRuler();
   }
 
-  /** 拖拽移动标尺（连续无极；offset 为固定坐标，单位 = 块边长） */
-  moveRuler(offset: number): void {
+  /** 移动标尺中心（视图平面 u/v，块边长；连续无极，二维自由拖拽） */
+  moveRuler(u: number, v: number): void {
     const box = this.contentBox();
     const EDGE = CUBE_UNIT_WORLD;
-    let min: number;
-    let max: number;
+    const clamp = (val: number, min: number, max: number) => Math.min(max, Math.max(min, val));
     if (this.view === "left") {
-      if (this.ruler.axis === "horizontal") {
-        min = box.min.y / EDGE;
-        max = box.max.y / EDGE;
-      } else {
-        min = box.min.z / EDGE;
-        max = box.max.z / EDGE;
-      }
-    } else if (this.ruler.axis === "horizontal") {
-      min = box.min.z / EDGE;
-      max = box.max.z / EDGE;
+      this.ruler.centerU = clamp(u, box.min.z / EDGE, box.max.z / EDGE);
+      this.ruler.centerV = clamp(v, box.min.y / EDGE, box.max.y / EDGE);
     } else {
-      min = box.min.x / EDGE;
-      max = box.max.x / EDGE;
+      this.ruler.centerU = clamp(u, box.min.x / EDGE, box.max.x / EDGE);
+      this.ruler.centerV = clamp(v, box.min.z / EDGE, box.max.z / EDGE);
     }
-    this.ruler.offset = Math.min(max + 0.5, Math.max(min - 0.5, offset));
     this.drawRuler();
   }
 
-  /** 方向切换：保持标尺屏幕中心位置不变（原地旋转 90°），不重置到默认位置 */
-  private switchAxis(newAxis: RulerAxis): void {
-    if (newAxis === this.ruler.axis) return;
-    const oldAxis = this.ruler.axis;
-    const { min, max } = this.rulerRangeFor(oldAxis);
-    const center = this.pointAt(oldAxis, (min + max) / 2);
-    // pointAt 返回画布布局坐标，screenToNormal 按视口坐标归一，需乘缩放比
-    const zoom =
-      this.renderer.domElement.getBoundingClientRect().width /
-      this.renderer.domElement.clientWidth;
-    this.ruler.axis = newAxis;
-    this.ruler.offset = this.screenToNormal(center.x * zoom, center.y * zoom, newAxis);
-  }
-
-  /** 标尺上某刻度 t（沿标尺方向）的屏幕位置（块边长坐标投影） */
-  private pointAt(axis: RulerAxis, t: number): { x: number; y: number } {
-    const EDGE = CUBE_UNIT_WORLD;
-    if (this.view === "left") {
-      return axis === "horizontal"
-        ? this.project(0, this.ruler.offset * EDGE, t * EDGE)
-        : this.project(0, t * EDGE, this.ruler.offset * EDGE);
-    }
-    return axis === "horizontal"
-      ? this.project(t * EDGE, 0, this.ruler.offset * EDGE)
-      : this.project(this.ruler.offset * EDGE, 0, t * EDGE);
-  }
-
-  /** 屏幕坐标 → 标尺法向坐标（块边长）；用容器 rect 尺寸归一，兼容全局 zoom */
-  private screenToNormal(sx: number, sy: number, axis: RulerAxis): number {
-    const rect = this.renderer.domElement.getBoundingClientRect();
-    const ndcX = (sx / rect.width) * 2 - 1;
-    const ndcY = 1 - (sy / rect.height) * 2;
-    const v = new Vector3(ndcX, ndcY, 0).unproject(this.camera);
-    const EDGE = CUBE_UNIT_WORLD;
-    if (this.view === "left") return (axis === "horizontal" ? v.y : v.z) / EDGE;
-    return (axis === "horizontal" ? v.z : v.x) / EDGE;
+  /** 旋转标尺到指定角度（度，0=水平/90=竖直；任意角度） */
+  rotateRuler(angle: number): void {
+    this.ruler.angle = ((angle % 360) + 360) % 360;
+    this.drawRuler();
+    this.rulerChangeHandler?.(this.ruler.angle);
   }
 
   getRuler(): RulerState {
     return { ...this.ruler };
   }
 
-  /** 标尺刻度范围（沿标尺方向，整数起点/终点，块边长） */
-  private rulerRangeFor(axis: RulerAxis): { min: number; max: number } {
+  /** 标尺角度变化回调（页面同步数值栏） */
+  setRulerChangeHandler(fn: ((angle: number) => void) | null): void {
+    this.rulerChangeHandler = fn;
+  }
+
+  /** 指针 → 视图平面坐标（u=屏幕横向，v=屏幕纵向；块边长） */
+  private screenToPlane(sx: number, sy: number): { u: number; v: number } {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const ndcX = (sx / rect.width) * 2 - 1;
+    const ndcY = 1 - (sy / rect.height) * 2;
+    const w = new Vector3(ndcX, ndcY, 0).unproject(this.camera);
+    const EDGE = CUBE_UNIT_WORLD;
+    if (this.view === "left") return { u: w.z / EDGE, v: w.y / EDGE };
+    return { u: w.x / EDGE, v: w.z / EDGE };
+  }
+
+  /** 标尺中心屏幕位置 */
+  private rulerCenterScreen(): { x: number; y: number } {
+    const EDGE = CUBE_UNIT_WORLD;
     if (this.view === "left") {
-      return axis === "horizontal" ? { min: -1, max: 3 } : { min: -1, max: 1 };
+      return this.project(0, this.ruler.centerV * EDGE, this.ruler.centerU * EDGE);
     }
-    return axis === "horizontal" ? { min: -2, max: 2 } : { min: -1, max: 4 };
+    return this.project(this.ruler.centerU * EDGE, 0, this.ruler.centerV * EDGE);
+  }
+
+  /** 指针是否靠近标尺（标尺局部坐标 ± 边距，块边长） */
+  private pointerNearRuler(sx: number, sy: number): boolean {
+    const pxPerUnit = this.renderer.domElement.clientWidth / (2 * this.camera.right);
+    const center = this.rulerCenterScreen();
+    const dx = sx - center.x;
+    const dy = sy - center.y;
+    const rad = (this.ruler.angle * Math.PI) / 180;
+    const localX = (dx * Math.cos(rad) + dy * Math.sin(rad)) / pxPerUnit;
+    const localY = (-dx * Math.sin(rad) + dy * Math.cos(rad)) / pxPerUnit;
+    return (
+      Math.abs(localX) < RULER_LENGTH / 2 + 1 &&
+      Math.abs(localY) < RULER_WIDTH / 2 + 0.8
+    );
   }
 
   dispose(): void {
@@ -204,10 +203,8 @@ export class HandCalibView {
     const hand = this.handBox;
     const center = hand && !hand.isEmpty() ? hand.getCenter(new Vector3()) : all.getCenter(new Vector3());
     const margin = 0.45 * CUBE_UNIT_WORLD; // 约半格边距
-    // 统一缩放：halfV 覆盖纵向内容，halfH = halfV * aspect 保证横纵 px/单位一致（不拉伸），
-    // 同时 halfV >= 横向内容/aspect 确保横向也完整覆盖（窄窗口时纵向留白而非变形）
+    // 统一缩放：halfV 覆盖纵向内容，halfH = halfV * aspect 保证横纵 px/单位一致（不拉伸）
     if (this.view === "left") {
-      // 屏幕横向 = 世界 Z（指尖方向），屏幕纵向 = 世界 Y（指背方向）
       const zHalf = (all.max.z - all.min.z) / 2 + margin;
       const yHalf = (all.max.y - all.min.y) / 2 + margin;
       const halfV = Math.max(yHalf, zHalf / aspect);
@@ -305,20 +302,6 @@ export class HandCalibView {
       l.setAttribute("opacity", String(opacity));
       parent.appendChild(l);
     };
-    const text = (parent: Element, x: number, y: number, s: string, anchor = "middle") => {
-      const t = document.createElementNS(svgNS, "text");
-      t.setAttribute("x", String(x));
-      t.setAttribute("y", String(y));
-      t.setAttribute("text-anchor", anchor);
-      t.setAttribute("fill", LABEL_COLOR);
-      t.setAttribute("font-size", "13");
-      t.setAttribute("font-weight", "600");
-      t.setAttribute("opacity", "0.7");
-      t.setAttribute("font-family", "ui-monospace, Consolas, monospace");
-      t.textContent = s;
-      parent.appendChild(t);
-    };
-
     const EDGE = CUBE_UNIT_WORLD; // 1 块边长（场景单位）
     const box = this.contentBox();
 
@@ -347,86 +330,179 @@ export class HandCalibView {
       }
     }
 
-    // ---- 标尺：可拖拽的独立标尺条（大格 1 块边长 + 十等分小格） ----
+    // ---- 标尺：带宽度的真实尺子（任意角度、0..L 刻度、Ctrl 旋转） ----
     if (!this.ruler.enabled) return;
 
-    const { min, max } = this.rulerRangeFor(this.ruler.axis);
-    const horizontal = this.ruler.axis === "horizontal"; // 屏幕方向
+    // 每块边长对应的屏幕像素（世界单位 → 块边长 需乘 CUBE_UNIT_WORLD）
+    const pxPerUnit =
+      (this.renderer.domElement.clientWidth / (2 * this.camera.right)) * CUBE_UNIT_WORLD;
+    const L = RULER_LENGTH;
+    const W = RULER_WIDTH;
+    const center = this.rulerCenterScreen();
     const g = document.createElementNS(svgNS, "g");
     g.setAttribute("class", "calib-ruler");
-    g.style.cursor = "move";
+    g.setAttribute("transform", `translate(${center.x} ${center.y}) rotate(${this.ruler.angle})`);
+    g.style.cursor = this.ctrlActive ? "grab" : "move";
     g.style.touchAction = "none";
     g.style.pointerEvents = "auto";
 
-    const pointAt = (t: number): { x: number; y: number } =>
-      this.pointAt(this.ruler.axis, t);
-
-    const a = pointAt(min);
-    const b = pointAt(max);
-    // 透明命中条：加宽可拖拽区域（点击标尺附近即可拖动）
-    const hit = document.createElementNS(svgNS, "line");
-    hit.setAttribute("x1", String(a.x));
-    hit.setAttribute("y1", String(a.y));
-    hit.setAttribute("x2", String(b.x));
-    hit.setAttribute("y2", String(b.y));
-    hit.setAttribute("stroke", "transparent");
-    hit.setAttribute("stroke-width", "16");
-    hit.setAttribute("pointer-events", "stroke");
+    // 透明命中条（加宽拖拽区）
+    const hit = document.createElementNS(svgNS, "rect");
+    hit.setAttribute("x", String((-L / 2 - 1) * pxPerUnit));
+    hit.setAttribute("y", String((-W / 2 - 0.8) * pxPerUnit));
+    hit.setAttribute("width", String((L + 2) * pxPerUnit));
+    hit.setAttribute("height", String((W + 1.6) * pxPerUnit));
+    hit.setAttribute("fill", "transparent");
+    hit.setAttribute("pointer-events", "all");
     g.appendChild(hit);
-    line(g, a.x, a.y, b.x, b.y, RULER_COLOR, 1.4, 0.7);
-    // 十等分刻度：0.1 小格 / 0.5 中格 / 1.0 大格 + 数字
-    // 十等分：按整数 k/10 遍历，避免 0.1 步进浮点漂移
-    for (let k = Math.ceil(min * 10); k <= Math.floor(max * 10) + 1e-9; k++) {
-      const t = k / 10;
-      const major = Math.abs(t - Math.round(t)) < 1e-6;
-      const half = Math.abs(t - (Math.round(t) + 0.5)) < 1e-6;
-      const len = major ? 14 : half ? 9 : 4;
-      const p = pointAt(t);
-      if (horizontal) line(g, p.x, p.y - len / 2, p.x, p.y + len / 2, RULER_COLOR, major ? 1.4 : 0.7, 0.55);
-      else line(g, p.x - len / 2, p.y, p.x + len / 2, p.y, RULER_COLOR, major ? 1.4 : 0.7, 0.55);
+    // 尺身带
+    const band = document.createElementNS(svgNS, "rect");
+    band.setAttribute("x", String((-L / 2) * pxPerUnit));
+    band.setAttribute("y", String((-W / 2) * pxPerUnit));
+    band.setAttribute("width", String(L * pxPerUnit));
+    band.setAttribute("height", String(W * pxPerUnit));
+    band.setAttribute("fill", RULER_COLOR);
+    band.setAttribute("fill-opacity", "0.25");
+    band.setAttribute("stroke", RULER_COLOR);
+    band.setAttribute("stroke-width", "1");
+    band.setAttribute("stroke-opacity", "0.6");
+    g.appendChild(band);
+    // 刻度：0..L，0.1 小格 / 0.5 中格 / 整数大格 + 数字（数字在带上方）
+    for (let k = 0; k <= Math.floor(L * 10); k++) {
+      const s = k / 10;
+      const x = (s - L / 2) * pxPerUnit;
+      const major = Math.abs(s - Math.round(s)) < 1e-6;
+      const half = Math.abs(s - (Math.round(s) + 0.5)) < 1e-6;
+      const len = major ? 12 : half ? 8 : 3;
+      const tl = document.createElementNS(svgNS, "line");
+      tl.setAttribute("x1", String(x));
+      tl.setAttribute("y1", String(-W / 2 * pxPerUnit - len));
+      tl.setAttribute("x2", String(x));
+      tl.setAttribute("y2", String((-W / 2) * pxPerUnit));
+      tl.setAttribute("stroke", RULER_COLOR);
+      tl.setAttribute("stroke-width", major ? "1.4" : "0.7");
+      tl.setAttribute("opacity", "0.7");
+      g.appendChild(tl);
       if (major) {
-        if (horizontal) text(g, p.x + 5, p.y + 18, String(Math.round(t)), "start");
-        else text(g, p.x + 7, p.y + 4, String(Math.round(t)), "start");
+        const t = document.createElementNS(svgNS, "text");
+        t.setAttribute("x", String(x));
+        t.setAttribute("y", String(-W * pxPerUnit));
+        t.setAttribute("text-anchor", "middle");
+        t.setAttribute("fill", LABEL_COLOR);
+        t.setAttribute("font-size", "11");
+        t.setAttribute("font-weight", "600");
+        t.setAttribute("opacity", "0.8");
+        t.setAttribute("font-family", "ui-monospace, Consolas, monospace");
+        t.textContent = String(Math.round(s));
+        g.appendChild(t);
       }
     }
-    // 拖拽手柄（端点圆点）
-    const grip = document.createElementNS(svgNS, "circle");
-    grip.setAttribute("cx", String(b.x));
-    grip.setAttribute("cy", String(b.y));
-    grip.setAttribute("r", "5");
-    grip.setAttribute("fill", RULER_COLOR);
-    grip.setAttribute("opacity", "0.8");
-    g.appendChild(grip);
     this.overlay.appendChild(g);
 
-    // 拖拽：window 级监听（避免 headless 下 setPointerCapture 不可靠），
-    // 按指针位置连续移动标尺固定坐标（offset，块边长；无极不吸附）；
-    // 记录抓取偏移，拖动不跳变
-    let dragging = false;
+    // 手势：普通拖拽移动（二维无极）｜Ctrl 旋转（弧线双向箭头指示）
     const rect = this.renderer.domElement.getBoundingClientRect();
-    let grabDelta = 0;
     const onMove = (e: PointerEvent): void => {
-      if (!dragging) return;
-      this.moveRuler(
-        this.screenToNormal(e.clientX - rect.left, e.clientY - rect.top, this.ruler.axis) - grabDelta,
-      );
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      if (this.dragging === "rotate") {
+        const c = this.rulerCenterScreen();
+        this.rotateRuler((Math.atan2(sy - c.y, sx - c.x) * 180) / Math.PI);
+      } else if (this.dragging === "move") {
+        const p = this.screenToPlane(sx, sy);
+        this.moveRuler(p.u - this.dragGrabU, p.v - this.dragGrabV);
+      } else if (e.ctrlKey) {
+        const near = this.pointerNearRuler(sx, sy);
+        if (near !== this.ctrlActive) {
+          this.ctrlActive = near;
+          this.drawRuler();
+        }
+      }
     };
     const onUp = (): void => {
-      dragging = false;
+      this.dragging = null;
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
     };
     g.addEventListener("pointerdown", (e) => {
       e.preventDefault();
-      dragging = true;
-      grabDelta =
-        this.screenToNormal(e.clientX - rect.left, e.clientY - rect.top, this.ruler.axis) -
-        this.ruler.offset;
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      if (e.ctrlKey) {
+        this.dragging = "rotate";
+        const c = this.rulerCenterScreen();
+        this.rotateRuler((Math.atan2(sy - c.y, sx - c.x) * 180) / Math.PI);
+      } else {
+        this.dragging = "move";
+        const p = this.screenToPlane(sx, sy);
+        this.dragGrabU = p.u - this.ruler.centerU;
+        this.dragGrabV = p.v - this.ruler.centerV;
+      }
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
       window.addEventListener("pointercancel", onUp);
     });
+    // 悬停（非拖拽）：Ctrl 接近标尺时显示旋转指示
+    g.addEventListener("pointermove", (e) => {
+      if (this.dragging) return;
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      const near = e.ctrlKey && this.pointerNearRuler(sx, sy);
+      if (near !== this.ctrlActive) {
+        this.ctrlActive = near;
+        this.drawRuler();
+      }
+    });
+
+    // Ctrl 悬停旋转指示：固定半径圆 + 0..angle 弧线 + 双向箭头
+    if (this.ctrlActive) {
+      const R = RULER_RADIUS * pxPerUnit;
+      const ind = document.createElementNS(svgNS, "g");
+      ind.setAttribute("class", "calib-ruler-rotate");
+      const defs = document.createElementNS(svgNS, "defs");
+      const marker = document.createElementNS(svgNS, "marker");
+      marker.setAttribute("id", "ruler-rotate-arrow");
+      marker.setAttribute("viewBox", "0 0 10 10");
+      marker.setAttribute("refX", "5");
+      marker.setAttribute("refY", "5");
+      marker.setAttribute("markerWidth", "6");
+      marker.setAttribute("markerHeight", "6");
+      marker.setAttribute("orient", "auto");
+      const arrow = document.createElementNS(svgNS, "path");
+      arrow.setAttribute("d", "M 0 1 L 9 5 L 0 9 z");
+      arrow.setAttribute("fill", RULER_COLOR);
+      marker.appendChild(arrow);
+      defs.appendChild(marker);
+      ind.appendChild(defs);
+      const circle = document.createElementNS(svgNS, "circle");
+      circle.setAttribute("cx", String(center.x));
+      circle.setAttribute("cy", String(center.y));
+      circle.setAttribute("r", String(R));
+      circle.setAttribute("fill", "none");
+      circle.setAttribute("stroke", GRID_COLOR);
+      circle.setAttribute("stroke-width", "1");
+      circle.setAttribute("stroke-dasharray", "4 4");
+      circle.setAttribute("opacity", "0.6");
+      ind.appendChild(circle);
+      const rad = (this.ruler.angle * Math.PI) / 180;
+      if (Math.abs(rad) > 1e-3) {
+        const x2 = center.x + R * Math.cos(rad);
+        const y2 = center.y + R * Math.sin(rad);
+        const large = Math.abs(rad) > Math.PI ? 1 : 0;
+        const arc = document.createElementNS(svgNS, "path");
+        arc.setAttribute(
+          "d",
+          `M ${center.x + R} ${center.y} A ${R} ${R} 0 ${large} 1 ${x2} ${y2}`,
+        );
+        arc.setAttribute("fill", "none");
+        arc.setAttribute("stroke", RULER_COLOR);
+        arc.setAttribute("stroke-width", "1.4");
+        arc.setAttribute("marker-start", "url(#ruler-rotate-arrow)");
+        arc.setAttribute("marker-end", "url(#ruler-rotate-arrow)");
+        ind.appendChild(arc);
+      }
+      this.overlay.appendChild(ind);
+    }
   }
 }
 

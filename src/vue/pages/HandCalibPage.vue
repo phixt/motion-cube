@@ -16,7 +16,7 @@ import {
   saveHandRigConfig,
   type HandRigConfig,
 } from "../../hand/handRigStore";
-import { loadSettings, type RulerAxis } from "../../settings";
+import { loadSettings } from "../../settings";
 import { useI18n } from "../i18n";
 
 const { t } = useI18n();
@@ -43,21 +43,26 @@ const scaleReadout = ref("");
 const previewRef = ref<HTMLElement | null>(null);
 const sidePreviewRef = ref<HTMLElement | null>(null);
 const rulerEnabled = ref(loadSettings().rulerEnabled);
-const rulerAxis = ref<RulerAxis>(loadSettings().rulerAxis);
 let calib: HandCalibView | null = null;
 let calibSide: HandCalibView | null = null;
 
 const applyRuler = (): void => {
-  calib?.setRuler({ enabled: rulerEnabled.value, axis: rulerAxis.value });
-  calibSide?.setRuler({ enabled: rulerEnabled.value, axis: rulerAxis.value });
+  calib?.setRuler({ enabled: rulerEnabled.value, angle: cfg.value.rulerAngle });
+  calibSide?.setRuler({ enabled: rulerEnabled.value, angle: cfg.value.rulerAngle });
 };
 
 const onKeyDown = (e: KeyboardEvent): void => {
-  // Shift 切换标尺方向（不持久化；再次点击标尺开关/刷新页面回到设置默认值）
+  // Shift 快速切换水平(0°)/竖直(90°)
   if (e.key === "Shift") {
-    rulerAxis.value = rulerAxis.value === "horizontal" ? "vertical" : "horizontal";
+    cfg.value.rulerAngle = cfg.value.rulerAngle === 0 ? 90 : 0;
+    syncInputs();
     applyRuler();
   }
+};
+
+const onRulerAngleChange = (angle: number): void => {
+  cfg.value.rulerAngle = angle;
+  syncInputs();
 };
 
 const setStatus = (s: string): void => {
@@ -105,6 +110,10 @@ for (const f of inlineFields) {
     refresh();
   });
 }
+fieldSetters.set("ruler-angle", (v) => {
+  cfg.value.rulerAngle = v;
+  applyRuler();
+});
 
 const onFieldInput = (e: Event): void => {
   const el = e.target as HTMLInputElement;
@@ -127,6 +136,8 @@ const syncInputs = (): void => {
     const input = document.getElementById(f.id) as HTMLInputElement | null;
     if (input) input.value = f.get().toFixed(2);
   }
+  const ra = document.getElementById("ruler-angle") as HTMLInputElement | null;
+  if (ra) ra.value = cfg.value.rulerAngle.toFixed(0);
 };
 
 const save = (): void => {
@@ -145,6 +156,8 @@ onMounted(() => {
   if (!previewRef.value || !sidePreviewRef.value) return;
   calib = new HandCalibView(previewRef.value, cfg.value, "top");
   calibSide = new HandCalibView(sidePreviewRef.value, cfg.value, "left");
+  calib.setRulerChangeHandler(onRulerAngleChange);
+  calibSide.setRulerChangeHandler(onRulerAngleChange);
   (globalThis as { __motionCubeHandCalib?: unknown }).__motionCubeHandCalib = { calib, calibSide };
   syncInputs();
   refresh();
@@ -263,6 +276,17 @@ onBeforeUnmount(() => {
               <input id="hand-scale" type="number" step="0.01" min="0.3" class="native-num" @input="onFieldInput" />
             </label>
             <span id="hand-scale-readout" class="hand-scale-readout">{{ scaleReadout }}</span>
+          </div>
+        </section>
+
+        <!-- 标尺角度 -->
+        <section class="hand-section">
+          <WinTextBlock class="hand-h3" :Text="t('hand.ruler')" FontSize="16" FontWeight="SemiBold" />
+          <div class="hand-inline">
+            <label class="hand-inline-item">
+              {{ t("hand.rulerAngle") }}°
+              <input id="ruler-angle" type="number" step="1" min="0" max="360" class="native-num" @input="onFieldInput" />
+            </label>
           </div>
         </section>
 

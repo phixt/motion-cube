@@ -22,6 +22,8 @@ export type HandRigConfig = {
   thumbCorner: { x: number; y: number; z: number };
   /** 大鱼际（thenar eminence）凸块：椭球尺寸与位置（相对手掌中心，数据单位） */
   thenar: { width: number; height: number; length: number; x: number; y: number; z: number };
+  /** 标尺角度（度，0=水平，90=竖直；标定视图可 Ctrl+拖拽旋转，与其他数值一同固化） */
+  rulerAngle: number;
   /** 各指段（拇指 2 段，其余 3 段）：长度 / 粗细（数据单位，1 = 块边长） */
   fingers: Record<FingerName, SegmentCalib[]>;
 };
@@ -50,6 +52,7 @@ export const DEFAULT_HAND_CONFIG: HandRigConfig = {
   thumbCorner: { x: 0.55, y: -0.05, z: -0.45 },
   // 大鱼际：拇指根处椭球凸块，尺寸覆盖掌根拇指侧并与圆角手掌融合
   thenar: { width: 0.9, height: 0.42, length: 1.05, x: 0.48, y: -0.03, z: -0.45 },
+  rulerAngle: 0,
   fingers: defaultFingers(),
 };
 
@@ -124,6 +127,7 @@ export function normalizeHandRigConfig(input: unknown): HandRigConfig | null {
           y: clampNum(th.y, -1, 1, DEFAULT_HAND_CONFIG.thenar.y),
           z: clampNum(th.z, -2, 3, DEFAULT_HAND_CONFIG.thenar.z),
         },
+    rulerAngle: clampNum(obj.rulerAngle, 0, 360, DEFAULT_HAND_CONFIG.rulerAngle),
     fingers,
   };
 }

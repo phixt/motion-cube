@@ -153,11 +153,6 @@ const rulerEnabled = computed({
   },
 });
 
-const toggleRulerAxis = (): void => {
-  settings.value.rulerAxis = settings.value.rulerAxis === "vertical" ? "horizontal" : "vertical";
-  saveSettings(settings.value);
-};
-
 onBeforeUnmount(stopCapture);
 </script>
 
@@ -231,15 +226,6 @@ onBeforeUnmount(stopCapture);
       <WinTextBlock class="cooldown-label" :Text="t('keymap.rulerEnabled')" FontSize="14" />
       <WinToggleSwitch v-model:IsOn="rulerEnabled" :OnContent="t('hand.rulerOn')" :OffContent="t('hand.rulerOff')" />
     </div>
-    <div class="settings-box">
-      <WinTextBlock class="cooldown-label" :Text="t('keymap.rulerAxis')" FontSize="14" />
-      <WinToggleSwitch
-        :IsOn="settings.rulerAxis === 'vertical'"
-        :OnContent="t('keymap.rulerVertical')"
-        :OffContent="t('keymap.rulerHorizontal')"
-        @Toggled="toggleRulerAxis" />
-    </div>
-
     <WinTextBlock class="page-note" :Text="t('keymap.note')" />
     <WinTextBlock class="page-note" :Text="t('keymap.scopeNote')" />
   </div>

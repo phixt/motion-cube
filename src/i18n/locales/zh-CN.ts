@@ -14,9 +14,10 @@ export const zhCN: Record<string, string> = {
   "hand.viewTop": "俯视图（掌背）",
   "hand.viewLeft": "左视图（拇指侧）",
   "hand.ruler": "标尺",
+  "hand.rulerAngle": "标尺角度",
   "hand.rulerOn": "开",
   "hand.rulerOff": "关",
-  "hand.rulerHint": "拖拽移动标尺；按住 Shift 切换水平/竖直（不持久化）",
+  "hand.rulerHint": "拖拽移动；Ctrl+拖拽旋转（角度见下方数值）",
 
   // WinUI 预览页（src/preview，阶段 3 壳验证载体）
   "placeholder.hint": "这是 WinUIonWeb 控件预览：控件由 Vue 3 渲染，主题走 WinUI 风格。",
@@ -116,9 +117,6 @@ export const zhCN: Record<string, string> = {
   "keymap.randomBase": "随机底",
   "keymap.rulerTitle": "标尺",
   "keymap.rulerEnabled": "标尺默认显示",
-  "keymap.rulerAxis": "标尺默认方向",
-  "keymap.rulerVertical": "竖直",
-  "keymap.rulerHorizontal": "水平",
 
   // 标灰
   "gray.title": "标灰",

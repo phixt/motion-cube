@@ -15,22 +15,13 @@ export type AppSettings = {
   baseFace: Face;
   /** 标尺默认显示 */
   rulerEnabled: boolean;
-  /** 标尺默认方向（水平/竖直） */
-  rulerAxis: "horizontal" | "vertical";
 };
-
-export type RulerAxis = "horizontal" | "vertical";
-
-export function isRulerAxis(v: unknown): v is RulerAxis {
-  return v === "horizontal" || v === "vertical";
-}
 
 export const DEFAULT_SETTINGS: AppSettings = {
   moveCooldownMs: 120,
   locale: DEFAULT_LOCALE,
   baseFace: "D",
   rulerEnabled: true,
-  rulerAxis: "vertical",
 };
 
 export function loadKeymap(): KeymapConfig {
@@ -67,7 +58,6 @@ export function loadSettings(): AppSettings {
         typeof obj?.rulerEnabled === "boolean"
           ? obj.rulerEnabled
           : DEFAULT_SETTINGS.rulerEnabled,
-      rulerAxis: isRulerAxis(obj?.rulerAxis) ? obj.rulerAxis : DEFAULT_SETTINGS.rulerAxis,
     };
   } catch {
     return DEFAULT_SETTINGS;
