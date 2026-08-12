@@ -2,7 +2,6 @@
 import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import WinButton from "../vendor/winui-on-web/components/WinButton.vue";
-import WinComboBox from "../vendor/winui-on-web/components/WinComboBox.vue";
 import WinNavigationView from "../vendor/winui-on-web/components/WinNavigationView.vue";
 import WinTitleBar from "../vendor/winui-on-web/components/WinTitleBar.vue";
 import WinToolTipService from "../vendor/winui-on-web/components/WinToolTipService.vue";
@@ -36,12 +35,8 @@ const materialMode = ref<MaterialMode>(loadMaterial());
 const uiScale = ref<UiScale>(loadUiScale());
 const locale = localeRef;
 
-const langOptions = [
-  { label: "中文", value: "zh-CN" },
-  { label: "English", value: "en" },
-];
-
-const onLocaleChange = (v: unknown): void => {
+const onLocaleChange = (e: Event): void => {
+  const v = (e.target as HTMLSelectElement).value;
   if (!isLocale(v)) return;
   setMotionCubeLocale(v);
   saveSettings({ ...loadSettings(), locale: v });
@@ -117,14 +112,10 @@ const uiScaleLabel = computed(() => `${t("uiScale.label")}: ${Math.round(uiScale
     TitleBarContentHorizontalAlignment="Stretch"
     @PaneToggleRequested="onPaneToggle">
     <div class="titlebar-actions">
-      <WinComboBox
-        class="lang-combo"
-        :ItemsSource="langOptions"
-        DisplayMemberPath="label"
-        SelectedValuePath="value"
-        :SelectedValue="locale"
-        Width="96"
-        @update:SelectedValue="onLocaleChange" />
+      <select class="lang-select" :value="locale" @change="onLocaleChange">
+        <option value="zh-CN">中文</option>
+        <option value="en">English</option>
+      </select>
       <WinButton :Content="`${t('theme.label')}: ${themeLabel}`" @Click="cycleTheme" />
       <WinButton :Content="`${t('material.label')}: ${materialLabel}`" @Click="cycleMaterial" />
       <WinButton :Content="uiScaleLabel" @Click="cycleUiScale" />
@@ -181,13 +172,28 @@ const uiScaleLabel = computed(() => `${t("uiScale.label")}: ${Math.round(uiScale
 
 .titlebar-actions {
   display: flex;
+  justify-content: flex-end;
   gap: 8px;
   margin-left: auto;
   align-items: center;
 }
 
-.lang-combo {
-  min-width: 96px;
+.lang-select {
+  box-sizing: border-box;
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 1px solid var(--ctrl-border);
+  border-radius: var(--ControlCornerRadius, 4px);
+  background: var(--ctrl-fill-input-active, var(--ctrl-solid-fill));
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.lang-select:focus {
+  outline: 2px solid var(--accent-base);
+  outline-offset: 1px;
 }
 
 /* 材质：mica = 实色背景；acrylic = 半透明 + 磨砂 */

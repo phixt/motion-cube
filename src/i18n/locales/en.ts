@@ -130,7 +130,7 @@ export const en: Record<string, string> = {
   "gray.kind.mutable": "Mutable",
   "gray.kind.immutable": "Immutable",
   "gray.note":
-    "Graying binds to absolute positions: gray stickers follow the cube as it rotates. Click/drag stickers to paint; drag the ring outside the cube (or click a direction dot) to flip faces, or press X/Y/Z when the view has focus. Game uses mutable gray; immutable gray is handled in the animation editor.",
+    "Graying binds to absolute positions: gray stickers follow the cube as it rotates. Click/drag stickers to paint; drag the hexagonal ring outside the cube to flip faces, or click one of its 6 direction dots (bottom-right/top-left = X, top/bottom = Y, top-right/bottom-left = Z) for a single flip; X/Y/Z keys also work when the view has focus. Game uses mutable gray; immutable gray is handled in the animation editor.",
   "gray.btn": "Gray",
 
   // Library page
