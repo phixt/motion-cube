@@ -1,7 +1,7 @@
 # motion-cube 迁移评估与实施计划：Vue 3 + WinUIonWeb
 
 > 来源：agent-bridge 任务 `84bd26ed78fa45719aa4739adc233da9`（迁移评估与实施：Vue 3 + WinUIonWeb）
-> 状态：评估完成；阶段 1、2、3 已完成（功能等价验证通过），等待阶段 4 逐页迁移
+> 状态：评估完成；阶段 1、2、3 已完成；阶段 4 进行中（4/7 页已迁移：start/help/keymap/game），剩余 library/editor/handCalib
 > 日期：2026-08-11（初稿）/ 2026-08-12（决策与阶段 1-2 + 阶段 3 准备）
 
 ## 0.1 已确认决策（2026-08-12）
@@ -40,6 +40,17 @@
     - `scripts/playtest-ui.mjs`（完整 UI 流程：改键/冷却/标灰/伪 3D/编辑器关键帧/公式库增删改/分类级联/手法级联/手部标定固化）**全量通过**；`verify-notation.mjs` 全 PASS
     - 主题/材质切换实测生效（html class 正确、浅色主题标题栏/导航变浅、截图见 spike-shots/shell-*.png）
   - `scripts/shot-shell.mjs`：新增壳回归截图脚本（7 路由 + 主题/材质切换）。
+- **阶段 4（逐页迁移）🚧 4/7 完成（2026-08-12）**
+  - 已迁移（`src/vue/pages/`，路由替换为真实组件）：
+    - **StartPage.vue**：WinTextBlock 标题 + 6 个 WinButton（主按钮 AccentButtonStyle），保留 `.start-actions [data-route]` 结构（playtest 兼容）。
+    - **HelpPage.vue**：WinTextBlock 分节排版（项目/操作/编辑器说明），主题变量配色。
+    - **KeymapPage.vue**：Vue 响应式重写（cfg/settings refs）；保留 `[data-action] .rebind/.binding` 表格结构与 `.base-swatch` 色块（playtest 兼容）；改键捕获/冲突检测/WinSlider 冷却/WinInfoBar 冲突提示/随机底色均迁移；监听器在 unmount 时清理。
+    - **GamePage.vue**：WinUI 标题壳 + 保留 `mountGamePage` 会话逻辑（CubePlayer/KeymapController/GrayOverlay/HUD 原样挂载，onMounted/onBeforeUnmount 管理生命周期）；旧内嵌标题栏隐藏。
+  - 已删除旧模块：`src/pages/start.ts`、`help.ts`、`keymap.ts`；LegacyPage 仅剩 library/editor/hand。
+  - playtest-ui.mjs 选择器同步：start/help 断言改到新页锚点（`.start-page`/`.start-title`/`.help-page`），其余断言未动。
+  - App.vue 路由视图加 `.mc-page-view` 定位包装（旧 .page absolute 与新页 flow 布局共存）。
+  - 验证：typecheck/build ✅；playtest-ui 全量通过（改键/冷却/标灰/伪 3D/编辑器/公式库/分类/手部标定）；视觉抽查 start/keymap/game/help 无渲染问题（spike-shots/ui-*.png）。
+  - 剩余：library（457 行 CRUD）、editor（536 行时间线/关键帧）、handCalib（244 行标定）——下一轮迁移。
 
 ## 0. 结论摘要
 

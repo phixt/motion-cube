@@ -9,6 +9,7 @@ export const zhCN: Record<string, string> = {
   "material.label": "材质",
   "material.mica": "Mica",
   "material.acrylic": "Acrylic",
+  "game.title": "Motion Cube",
 
   // WinUI 预览页（src/preview，阶段 3 壳验证载体）
   "placeholder.hint": "这是 WinUIonWeb 控件预览：控件由 Vue 3 渲染，主题走 WinUI 风格。",
@@ -91,6 +92,7 @@ export const zhCN: Record<string, string> = {
   "keymap.captureHint": "按下新按键组合…（Esc 取消）",
   "keymap.saved": "已保存",
   "keymap.conflictPrefix": "⚠ 按键冲突：",
+  "keymap.conflictTitle": "按键冲突",
   "keymap.conflictAnd": "与",
   "keymap.conflictShare": "共用",
   "keymap.cooldown": "连击冷却：{ms} ms",

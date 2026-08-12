@@ -76,8 +76,8 @@ const clearAndType = async (selector, text) => {
 // 1) 开始页
 await page.goto(URL, { waitUntil: "networkidle0", timeout: 30000 });
 await page.reload({ waitUntil: "networkidle0", timeout: 30000 }); // 预热 Vite 依赖优化，规避 Outdated Optimize Dep
-await page.waitForSelector(".page h1");
-const startTitle = await page.$eval(".page h1", (el) => el.textContent);
+await page.waitForSelector(".start-page");
+const startTitle = await page.$eval(".start-title", (el) => el.textContent);
 if (startTitle !== "Motion Cube") throw new Error(`开始页标题异常：${startTitle}`);
 const hasLibBtn = (await page.$('.start-actions [data-route="library"]')) !== null;
 if (!hasLibBtn) throw new Error("开始页缺少公式库入口");
@@ -205,8 +205,8 @@ await page.waitForSelector(".page h1");
 console.log("editor page ok");
 await shot("ui-07-editor");
 await clickNav("说明");
-await page.waitForSelector(".page h1");
-const helpHas = await page.$eval(".page", (el) => el.textContent);
+await page.waitForSelector(".help-page");
+const helpHas = await page.$eval(".help-page", (el) => el.textContent);
 if (!helpHas.includes("游戏页操作")) throw new Error("说明页缺少操作说明");
 if (helpHas.includes(" → ")) throw new Error("说明页不应再包含键位列表");
 if (helpHas.includes("连击冷却")) throw new Error("说明页不应再包含冷却时间");

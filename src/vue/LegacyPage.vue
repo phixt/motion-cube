@@ -5,12 +5,8 @@
  */
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { renderEditorPage } from "../pages/editor";
-import { mountGamePage } from "../pages/game";
 import { renderHandCalibPage } from "../pages/handCalib";
-import { renderHelpPage } from "../pages/help";
-import { renderKeymapPage } from "../pages/keymap";
 import { renderLibraryPage } from "../pages/library";
-import { renderStartPage } from "../pages/start";
 import type { Route } from "../router";
 
 const props = defineProps<{ route: Route }>();
@@ -23,12 +19,6 @@ const render = (route: Route): void => {
   cleanup?.();
   cleanup = null;
   switch (route) {
-    case "start":
-      renderStartPage(host.value);
-      break;
-    case "game":
-      cleanup = mountGamePage(host.value);
-      break;
     case "library":
       renderLibraryPage(host.value);
       break;
@@ -37,12 +27,6 @@ const render = (route: Route): void => {
       break;
     case "hand":
       cleanup = renderHandCalibPage(host.value);
-      break;
-    case "keymap":
-      renderKeymapPage(host.value);
-      break;
-    case "help":
-      renderHelpPage(host.value);
       break;
   }
 };

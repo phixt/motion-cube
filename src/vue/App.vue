@@ -102,7 +102,9 @@ const materialLabel = computed(() => t(`material.${materialMode.value}`));
       @ItemInvoked="onItemInvoked">
       <router-view v-slot="{ Component }">
         <Transition name="page-fade" mode="out-in">
-          <component :is="Component" :key="route.fullPath" />
+          <div class="mc-page-view" :key="route.fullPath">
+            <component :is="Component" />
+          </div>
         </Transition>
       </router-view>
     </WinNavigationView>
@@ -117,6 +119,14 @@ const materialLabel = computed(() => t(`material.${materialMode.value}`));
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+.mc-page-view {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
 }
 
 .app-content.wco-titlebar {
