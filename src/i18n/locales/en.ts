@@ -144,6 +144,10 @@ export const en: Record<string, string> = {
   "library.name": "Name",
   "library.moves": "Algorithm (standard R L notation)",
   "library.tags": "Tags (max 4)",
+  "library.search": "Search formulas (name / alg)",
+  "library.pageInfo": "{n} / {total} shown",
+  "library.prev": "Prev",
+  "library.next": "Next",
   "library.add": "Add",
   "library.update": "Update",
   "library.cancel": "Cancel",
@@ -213,6 +217,7 @@ export const en: Record<string, string> = {
   "editor.empty":
     "No techniques yet: load samples in “Library”, or create one in the panel below.",
   "editor.timeline": "Timeline (1 frame = 1/60 s; Ctrl+wheel to zoom)",
+  "editor.timelineHide": "Hide timeline",
   "editor.selected": "Selected keyframe",
   "editor.frame": "Frame (1/60 s)",
   "editor.easing": "Easing",

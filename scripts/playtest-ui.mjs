@@ -488,6 +488,7 @@ console.log(`auto step mapping + complex play ok (${vSteps} steps)`);
 
 await clickNav("公式库");
 await page.waitForSelector("#formula-rows");
+await page.select("#f-page-size", "50"); // 分页：调大每页避免后续断言跨页
 await page.type("#f-name", "测试 OLL");
 await page.type("#f-moves", "R U R' U R U2' R'");
 await page.click("#f-submit");

@@ -97,6 +97,8 @@ const grayState = ref<GrayState>(createGrayState());
 const grayKind = ref<"mutable" | "immutable">("mutable");
 const grayPanelOpen = ref(false);
 const grayPanelEl = ref<HTMLElement | null>(null);
+/** 时间线展开（3D 视口下方显示，侧边栏按钮切换） */
+const timelineOpen = ref(false);
 let grayOverlay: GrayOverlay | null = null;
 let grayPanelApi: ReturnType<typeof renderGrayPanel> | null = null;
 const maskVisible = ref(false);
@@ -901,203 +903,215 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="editor-page">
-    <WinTextBlock class="page-title" :Text="t('editor.title')" FontSize="28" FontWeight="SemiBold" />
     <div id="editor-status" class="save-status">{{ statusText }}</div>
 
-    <div class="editor-picker">
-      <WinTextBlock class="editor-label" :Text="t('editor.technique')" />
-      <select id="tec-select" ref="tecSelectEl" class="native-select" @change="onTecChange">
-        <option v-for="opt in techniqueOptions" :key="opt.id" :value="opt.id">{{ opt.name }}</option>
-      </select>
-      <span id="tec-formula" ref="formulaLabelEl" class="meta"></span>
-    </div>
-    <p id="editor-empty" ref="emptyHintEl" class="page-note" hidden>{{ t("editor.empty") }}</p>
-
-    <section class="editor-section">
-      <WinTextBlock class="section-title" :Text="t('editor.view')" FontSize="20" FontWeight="SemiBold" />
-      <div class="editor-view-tools">
-        <WinTextBlock class="editor-label" :Text="t('editor.handType')" />
-        <select id="view-hand" ref="handTypeSelectEl" class="native-select" @change="onHandTypeChange">
-          <option v-for="opt in handTypeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-        </select>
-        <WinButton id="editor-gray-toggle" :Content="t('gray.btn')" @Click="toggleGrayPanel" />
-      </div>
-      <div v-show="grayPanelOpen" class="editor-gray-panel">
-        <div class="editor-gray-kind-row">
-          <WinTextBlock class="editor-label" :Text="t('gray.title')" FontSize="13" />
-          <WinToggleSwitch
-            class="editor-gray-kind-toggle"
-            :IsOn="grayKind === 'immutable'"
-            :OnContent="t('gray.kind.immutable')"
-            :OffContent="t('gray.kind.mutable')"
-            @Toggled="toggleGrayKind" />
+    <div class="editor-layout">
+      <!-- 左侧侧边栏（PS 风格）：手法 / 手 / 标灰 / 时间线 -->
+      <aside class="editor-sidebar">
+        <div class="sb-group">
+          <WinTextBlock class="editor-label" :Text="t('editor.technique')" FontSize="13" />
+          <select id="tec-select" ref="tecSelectEl" class="native-select" @change="onTecChange">
+            <option v-for="opt in techniqueOptions" :key="opt.id" :value="opt.id">{{ opt.name }}</option>
+          </select>
+          <span id="tec-formula" ref="formulaLabelEl" class="meta"></span>
+          <p id="editor-empty" ref="emptyHintEl" class="page-note" hidden>{{ t("editor.empty") }}</p>
         </div>
-        <div ref="grayPanelEl" id="gray-panel" class="editor-gray-panel-box"></div>
-      </div>
-      <div ref="editorViewEl" id="editor-view" class="editor-view">
-        <button
-          id="editor-big-play"
-          class="editor-big-play"
-          :class="{ playing }"
-          :title="t(playing ? 'editor.pause' : 'editor.play')"
-          @click="onPvPlay">
-          <span class="editor-big-play-icon" aria-hidden="true">{{ playing ? "\uE769" : "\uE768" }}</span>
-        </button>
-        <div v-show="maskVisible" id="editor-play-mask" class="editor-play-mask">{{ t("editor.playHint") }}</div>
-      </div>
-      <WinTextBlock class="page-note" :Text="t('editor.viewHint')" />
-    </section>
 
-    <div class="editor-new">
-      <input id="tec-new-name" ref="newNameEl" class="native-input" :placeholder="t('editor.newName')" />
-      <select id="tec-new-formula" ref="newFormulaEl" class="native-select">
-        <option v-for="opt in formulaOptions" :key="opt.id" :value="opt.id">{{ opt.name }}</option>
-      </select>
-      <WinButton id="tec-new-add" :Content="t('editor.newAdd')" Style="AccentButtonStyle" @Click="onNewAdd" />
-    </div>
+        <div class="sb-group">
+          <WinTextBlock class="editor-label" :Text="t('editor.newAdd')" FontSize="13" />
+          <input id="tec-new-name" ref="newNameEl" class="native-input" :placeholder="t('editor.newName')" />
+          <select id="tec-new-formula" ref="newFormulaEl" class="native-select">
+            <option v-for="opt in formulaOptions" :key="opt.id" :value="opt.id">{{ opt.name }}</option>
+          </select>
+          <WinButton id="tec-new-add" :Content="t('editor.newAdd')" Style="AccentButtonStyle" @Click="onNewAdd" />
+        </div>
 
-    <section class="editor-section">
-      <WinTextBlock class="section-title" :Text="t('editor.timeline')" FontSize="20" FontWeight="SemiBold" />
-      <div class="tl-playback-controls">
-        <WinToggleSwitch v-model:IsOn="loopPlay" :OnContent="t('editor.loopOn')" :OffContent="t('editor.loopOff')" />
-        <WinToggleSwitch v-model:IsOn="reversePlay" :OnContent="t('editor.reverseOn')" :OffContent="t('editor.reverseOff')" />
-      </div>
-      <div class="tl-wrap" @wheel="onTlWheel">
-        <div id="tl-ruler" class="tl-ruler" :style="{ width: tlWidth }">
+        <div class="sb-group">
+          <WinTextBlock class="editor-label" :Text="t('editor.handType')" FontSize="13" />
+          <select id="view-hand" ref="handTypeSelectEl" class="native-select" @change="onHandTypeChange">
+            <option v-for="opt in handTypeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          </select>
+        </div>
+
+        <div class="sb-group">
+          <WinButton id="editor-gray-toggle" :Content="t('gray.btn')" @Click="toggleGrayPanel" />
+          <div v-show="grayPanelOpen" class="editor-gray-panel">
+            <div class="editor-gray-kind-row">
+              <WinTextBlock class="editor-label" :Text="t('gray.title')" FontSize="12" />
+              <WinToggleSwitch
+                class="editor-gray-kind-toggle"
+                :IsOn="grayKind === 'immutable'"
+                :OnContent="t('gray.kind.immutable')"
+                :OffContent="t('gray.kind.mutable')"
+                @Toggled="toggleGrayKind" />
+            </div>
+            <div ref="grayPanelEl" id="gray-panel" class="editor-gray-panel-box"></div>
+          </div>
+        </div>
+
+        <div class="sb-group">
+          <WinButton
+            id="editor-timeline-toggle"
+            :Content="timelineOpen ? t('editor.timelineHide') : t('editor.timeline')"
+            @Click="timelineOpen = !timelineOpen" />
+        </div>
+      </aside>
+
+      <!-- 主区：3D 视图为中心 -->
+      <main class="editor-main">
+        <div ref="editorViewEl" id="editor-view" class="editor-view">
           <button
-            v-for="kf in sortedKeyframes"
-            :key="kf.frame"
-            class="tl-kf"
-            :class="{ selected: selectedFrame === kf.frame }"
-            :data-frame="kf.frame"
-            :style="{ left: `${kf.frame * pxPerFrame - 5}px` }"
-            :title="`${kf.frame} (${(kf.frame / (tech?.frameRate ?? 60)).toFixed(2)}s)`"
-            @click="selectKf(kf.frame)"></button>
-          <span
-            v-for="tick in rulerTicks"
-            :key="tick.frame"
-            :class="tick.major ? 'tl-tick-major' : 'tl-tick-minor'"
-            :style="{ left: `${tick.frame * pxPerFrame}px` }">
-            {{ tick.major ? `${(tick.frame / 60).toFixed(1)}s` : "" }}
-          </span>
+            id="editor-big-play"
+            class="editor-big-play"
+            :class="{ playing }"
+            :title="t(playing ? 'editor.pause' : 'editor.play')"
+            @click="onPvPlay">
+            <span class="editor-big-play-icon" aria-hidden="true">{{ playing ? "\uE769" : "\uE768" }}</span>
+          </button>
+          <div v-show="maskVisible" id="editor-play-mask" class="editor-play-mask">{{ t("editor.playHint") }}</div>
         </div>
-        <div id="tl-track" class="tl-track" :style="{ width: tlWidth }">
-          <span
-            v-for="band in stepBands"
-            :key="band.stepIndex"
-            class="tl-step-band"
-            :style="{ left: `${band.startFrame * pxPerFrame}px`, width: `${Math.max((band.endFrame - band.startFrame) * pxPerFrame, 8)}px` }">
-            S{{ band.stepIndex + 1 }}
-          </span>
+
+        <!-- 时间线（侧边栏按钮展开，显示在 3D 视图下方） -->
+        <div v-show="timelineOpen" class="editor-timeline-panel">
+          <div class="tl-playback-controls">
+            <WinToggleSwitch v-model:IsOn="loopPlay" :OnContent="t('editor.loopOn')" :OffContent="t('editor.loopOff')" />
+            <WinToggleSwitch v-model:IsOn="reversePlay" :OnContent="t('editor.reverseOn')" :OffContent="t('editor.reverseOff')" />
+          </div>
+          <div class="tl-wrap" @wheel="onTlWheel">
+            <div id="tl-ruler" class="tl-ruler" :style="{ width: tlWidth }">
+              <button
+                v-for="kf in sortedKeyframes"
+                :key="kf.frame"
+                class="tl-kf"
+                :class="{ selected: selectedFrame === kf.frame }"
+                :data-frame="kf.frame"
+                :style="{ left: `${kf.frame * pxPerFrame - 5}px` }"
+                :title="`${kf.frame} (${(kf.frame / (tech?.frameRate ?? 60)).toFixed(2)}s)`"
+                @click="selectKf(kf.frame)"></button>
+              <span
+                v-for="tick in rulerTicks"
+                :key="tick.frame"
+                :class="tick.major ? 'tl-tick-major' : 'tl-tick-minor'"
+                :style="{ left: `${tick.frame * pxPerFrame}px` }">
+                {{ tick.major ? `${(tick.frame / 60).toFixed(1)}s` : "" }}
+              </span>
+            </div>
+            <div id="tl-track" class="tl-track" :style="{ width: tlWidth }">
+              <span
+                v-for="band in stepBands"
+                :key="band.stepIndex"
+                class="tl-step-band"
+                :style="{ left: `${band.startFrame * pxPerFrame}px`, width: `${Math.max((band.endFrame - band.startFrame) * pxPerFrame, 8)}px` }">
+                S{{ band.stepIndex + 1 }}
+              </span>
+            </div>
+          </div>
+          <div v-if="tech && stepBands.length" class="step-durations">
+            <WinTextBlock class="editor-label" :Text="t('editor.stepDuration')" FontSize="14" />
+            <label v-for="(band, i) in stepBands" :key="i" class="step-dur">
+              <span class="step-dur-name">S{{ i + 1 }}</span>
+              <input
+                :id="`step-dur-${i}`"
+                type="number"
+                min="0.1"
+                step="0.1"
+                class="native-input num-input"
+                :value="((band.endFrame - band.startFrame) / (tech?.frameRate ?? 60)).toFixed(1)"
+                @change="onStepDurationChange($event, i)" />
+              <span>s</span>
+            </label>
+          </div>
+          <p id="tl-meta" ref="tlMetaEl" class="page-note"></p>
         </div>
-      </div>
-      <div v-if="tech && stepBands.length" class="step-durations">
-        <WinTextBlock class="editor-label" :Text="t('editor.stepDuration')" FontSize="14" />
-        <label v-for="(band, i) in stepBands" :key="i" class="step-dur">
-          <span class="step-dur-name">S{{ i + 1 }}</span>
-          <input
-            :id="`step-dur-${i}`"
-            type="number"
-            min="0.1"
-            step="0.1"
-            class="native-input num-input"
-            :value="((band.endFrame - band.startFrame) / (tech?.frameRate ?? 60)).toFixed(1)"
-            @change="onStepDurationChange($event, i)" />
-          <span>s</span>
-        </label>
-      </div>
-      <p id="tl-meta" ref="tlMetaEl" class="page-note"></p>
-    </section>
 
-    <section class="editor-section">
-      <WinTextBlock class="section-title" :Text="t('editor.selected')" FontSize="20" FontWeight="SemiBold" />
-      <div class="editor-kf-row">
-        <WinTextBlock class="editor-label" :Text="t('editor.frame')" />
-        <input id="kf-frame" ref="kfFrameEl" type="number" min="0" step="1" class="native-input num-input" @change="onKfFrameChange" />
-        <WinTextBlock class="editor-label" :Text="t('editor.easing')" />
-        <select id="kf-easing" ref="kfEasingEl" class="native-select" @change="onKfEasingChange">
-          <option value="linear">linear</option>
-          <option value="easeIn">easeIn</option>
-          <option value="easeOut">easeOut</option>
-          <option value="easeInOut">easeInOut</option>
-        </select>
-        <WinButton id="kf-delete" ref="kfDeleteEl" class="del" :Content="t('editor.deleteKf')" :IsEnabled="kfDeleteEnabled" @Click="onKfDelete" />
-      </div>
-      <div class="editor-kf-row pose-row">
-        <WinToggleSwitch v-model:IsOn="snapOn" :OnContent="t('editor.snapOn')" :OffContent="t('editor.snapOff')" />
-        <WinTextBlock class="editor-label" :Text="t('editor.pose')" FontSize="14" />
-        <label class="pose-axis">
-          {{ t("editor.posX") }}
-          <input id="kf-pose-x" ref="kfPoseXEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'x')" />
-        </label>
-        <label class="pose-axis">
-          {{ t("editor.posY") }}
-          <input id="kf-pose-y" ref="kfPoseYEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'y')" />
-        </label>
-        <label class="pose-axis">
-          {{ t("editor.posZ") }}
-          <input id="kf-pose-z" ref="kfPoseZEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'z')" />
-        </label>
-      </div>
-      <div class="editor-kf-row pose-row">
-        <WinTextBlock class="editor-label" :Text="t('editor.poseRot')" FontSize="14" />
-        <label class="pose-axis">
-          {{ t("editor.posRx") }}
-          <input id="kf-pose-rx" ref="kfPoseRxEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
-        </label>
-        <label class="pose-axis">
-          {{ t("editor.posRy") }}
-          <input id="kf-pose-ry" ref="kfPoseRyEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
-        </label>
-        <label class="pose-axis">
-          {{ t("editor.posRz") }}
-          <input id="kf-pose-rz" ref="kfPoseRzEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
-        </label>
-      </div>
-      <pre id="kf-pose" ref="kfPoseEl" class="kf-pose"></pre>
-    </section>
+        <!-- 其余编辑功能（选中关键帧 / 添加 / 补帧预览 / 保存），去标题精简 -->
+        <div class="editor-details">
+          <div class="editor-kf-row">
+            <WinTextBlock class="editor-label" :Text="t('editor.frame')" />
+            <input id="kf-frame" ref="kfFrameEl" type="number" min="0" step="1" class="native-input num-input" @change="onKfFrameChange" />
+            <WinTextBlock class="editor-label" :Text="t('editor.easing')" />
+            <select id="kf-easing" ref="kfEasingEl" class="native-select" @change="onKfEasingChange">
+              <option value="linear">linear</option>
+              <option value="easeIn">easeIn</option>
+              <option value="easeOut">easeOut</option>
+              <option value="easeInOut">easeInOut</option>
+            </select>
+            <WinButton id="kf-delete" ref="kfDeleteEl" class="del" :Content="t('editor.deleteKf')" :IsEnabled="kfDeleteEnabled" @Click="onKfDelete" />
+          </div>
+          <div class="editor-kf-row pose-row">
+            <WinToggleSwitch v-model:IsOn="snapOn" :OnContent="t('editor.snapOn')" :OffContent="t('editor.snapOff')" />
+            <WinTextBlock class="editor-label" :Text="t('editor.pose')" FontSize="14" />
+            <label class="pose-axis">
+              {{ t("editor.posX") }}
+              <input id="kf-pose-x" ref="kfPoseXEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'x')" />
+            </label>
+            <label class="pose-axis">
+              {{ t("editor.posY") }}
+              <input id="kf-pose-y" ref="kfPoseYEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'y')" />
+            </label>
+            <label class="pose-axis">
+              {{ t("editor.posZ") }}
+              <input id="kf-pose-z" ref="kfPoseZEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'z')" />
+            </label>
+          </div>
+          <div class="editor-kf-row pose-row">
+            <WinTextBlock class="editor-label" :Text="t('editor.poseRot')" FontSize="14" />
+            <label class="pose-axis">
+              {{ t("editor.posRx") }}
+              <input id="kf-pose-rx" ref="kfPoseRxEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
+            </label>
+            <label class="pose-axis">
+              {{ t("editor.posRy") }}
+              <input id="kf-pose-ry" ref="kfPoseRyEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
+            </label>
+            <label class="pose-axis">
+              {{ t("editor.posRz") }}
+              <input id="kf-pose-rz" ref="kfPoseRzEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
+            </label>
+          </div>
+          <pre id="kf-pose" ref="kfPoseEl" class="kf-pose"></pre>
 
-    <div class="editor-add">
-      <WinTextBlock class="editor-label" :Text="t('editor.frame')" />
-      <input id="kf-add-frame" ref="addFrameEl" type="number" min="0" step="1" class="native-input num-input" value="30" />
-      <WinButton id="kf-add" :Content="t('editor.addKf')" Style="AccentButtonStyle" @Click="onKfAdd" />
-      <WinButton id="auto-path" :Content="t('editor.autoPath')" @Click="onAutoPath" />
-      <WinButton id="kf-insert-mid" :Content="t('editor.insertMid')" @Click="onInsertMid" />
-      <WinButton id="sine-path" :Content="t('editor.sinePath')" @Click="onSinePath" />
+          <div class="editor-add">
+            <WinTextBlock class="editor-label" :Text="t('editor.frame')" />
+            <input id="kf-add-frame" ref="addFrameEl" type="number" min="0" step="1" class="native-input num-input" value="30" />
+            <WinButton id="kf-add" :Content="t('editor.addKf')" Style="AccentButtonStyle" @Click="onKfAdd" />
+            <WinButton id="auto-path" :Content="t('editor.autoPath')" @Click="onAutoPath" />
+            <WinButton id="kf-insert-mid" :Content="t('editor.insertMid')" @Click="onInsertMid" />
+            <WinButton id="sine-path" :Content="t('editor.sinePath')" @Click="onSinePath" />
+          </div>
+          <WinTextBlock class="page-note" :Text="t('editor.addKfHint')" />
+
+          <div class="editor-pv-controls">
+            <input id="pv-slider" ref="pvSliderEl" type="range" min="0" step="1" class="pv-slider" @input="onPvInput" />
+            <span id="pv-readout" ref="pvReadoutEl" class="meta"></span>
+          </div>
+          <pre id="pv-pose" ref="pvPoseEl" class="kf-pose"></pre>
+          <div class="pv-table-wrap">
+            <table id="pv-table" class="pv-table">
+              <template v-if="previewTableRows === null">
+                <tr>
+                  <td>{{ t("editor.needKf") }}</td>
+                </tr>
+              </template>
+              <template v-else>
+                <tr>
+                  <th v-for="h in pvHeaders" :key="h">{{ h }}</th>
+                </tr>
+                <tr v-for="row in previewTableRows" :key="row.frame">
+                  <td>{{ row.frame }}</td>
+                  <td>{{ row.sec }}</td>
+                  <td>{{ row.ip }}</td>
+                  <td>{{ row.dip }}</td>
+                  <td>{{ row.contact }}</td>
+                </tr>
+              </template>
+            </table>
+          </div>
+
+          <WinButton id="editor-save" class="editor-save" :Content="t('editor.save')" Style="AccentButtonStyle" @Click="onSave" />
+        </div>
+      </main>
     </div>
-    <WinTextBlock class="page-note" :Text="t('editor.addKfHint')" />
-
-    <section class="editor-section">
-      <WinTextBlock class="section-title" :Text="t('editor.preview')" FontSize="20" FontWeight="SemiBold" />
-      <div class="editor-pv-controls">
-        <input id="pv-slider" ref="pvSliderEl" type="range" min="0" step="1" class="pv-slider" @input="onPvInput" />
-        <span id="pv-readout" ref="pvReadoutEl" class="meta"></span>
-      </div>
-      <pre id="pv-pose" ref="pvPoseEl" class="kf-pose"></pre>
-      <div class="pv-table-wrap">
-        <table id="pv-table" class="pv-table">
-          <template v-if="previewTableRows === null">
-            <tr>
-              <td>{{ t("editor.needKf") }}</td>
-            </tr>
-          </template>
-          <template v-else>
-            <tr>
-              <th v-for="h in pvHeaders" :key="h">{{ h }}</th>
-            </tr>
-            <tr v-for="row in previewTableRows" :key="row.frame">
-              <td>{{ row.frame }}</td>
-              <td>{{ row.sec }}</td>
-              <td>{{ row.ip }}</td>
-              <td>{{ row.dip }}</td>
-              <td>{{ row.contact }}</td>
-            </tr>
-          </template>
-        </table>
-      </div>
-    </section>
-
-    <WinButton id="editor-save" class="editor-save" :Content="t('editor.save')" Style="AccentButtonStyle" @Click="onSave" />
   </div>
 </template>
 
@@ -1108,6 +1122,57 @@ onBeforeUnmount(() => {
   overflow: auto;
   padding: 24px 28px;
   color: var(--text-primary);
+}
+
+.editor-layout {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.editor-sidebar {
+  width: 248px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sb-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--stroke-divider);
+  border-radius: var(--ControlCornerRadius, 6px);
+  background: var(--ctrl-fill-default);
+}
+
+.sb-group .native-select,
+.sb-group .native-input {
+  width: 100%;
+}
+
+.editor-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.editor-timeline-panel {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--stroke-divider);
+  border-radius: var(--ControlCornerRadius, 6px);
+  background: var(--ctrl-fill-default);
+}
+
+.editor-details {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .save-status {
@@ -1181,7 +1246,8 @@ onBeforeUnmount(() => {
 .editor-view {
   position: relative;
   width: 100%;
-  height: 340px;
+  height: 56vh;
+  min-height: 320px;
   margin-top: 8px;
   border: 1px solid var(--stroke-divider);
   border-radius: var(--ControlCornerRadius, 6px);

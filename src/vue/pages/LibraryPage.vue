@@ -4,7 +4,7 @@
  * 保留 playtest 依赖的结构：所有输入/选择控件为原生元素（page.type/page.select），
  * 按钮为 WinButton（id/class 透传），列表行结构与 data-* 属性不变。
  */
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import WinButton from "../../vendor/winui-on-web/components/WinButton.vue";
 import WinTextBlock from "../../vendor/winui-on-web/components/WinTextBlock.vue";
 import {
@@ -46,6 +46,9 @@ const fName = ref("");
 const fTags = ref("");
 const fMoves = ref("");
 const tagList = ref<string[]>([]);
+const fSearch = ref("");
+const pageSize = ref(10);
+const page = ref(1);
 const cascadeChain = ref<string[]>([]);
 const catName = ref("");
 const catParent = ref("");
@@ -236,6 +239,25 @@ const formulaRows = computed(() => {
   }));
 });
 
+/** 搜索过滤：名称或公式串包含（大小写不敏感）；模糊/标签/分类搜索留待优化 */
+const filteredFormulas = computed(() => {
+  const q = fSearch.value.trim().toLowerCase();
+  if (!q) return formulaRows.value;
+  return formulaRows.value.filter(
+    (r) => r.f.name.toLowerCase().includes(q) || r.f.moves.toLowerCase().includes(q),
+  );
+});
+
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredFormulas.value.length / pageSize.value)));
+const pagedFormulas = computed(() => {
+  const start = (page.value - 1) * pageSize.value;
+  return filteredFormulas.value.slice(start, start + pageSize.value);
+});
+
+watch([fSearch, pageSize], () => {
+  page.value = 1;
+});
+
 const techniqueRows = computed(() => {
   const formulaName = (id?: string) => lib.value.formulas.find((f) => f.id === id)?.name ?? "-";
   return lib.value.techniques.map((tec) => ({
@@ -324,9 +346,23 @@ const techniqueRows = computed(() => {
     </div>
     <WinTextBlock class="page-note" :Text="t('library.tagHint')" />
 
+    <div class="lib-toolbar">
+      <input
+        id="f-search"
+        v-model="fSearch"
+        class="native-input search-input"
+        :placeholder="t('library.search')" />
+      <select id="f-page-size" v-model.number="pageSize" class="native-select">
+        <option :value="5">5</option>
+        <option :value="10">10</option>
+        <option :value="20">20</option>
+        <option :value="50">50</option>
+      </select>
+      <span class="meta">{{ t("library.pageInfo", { n: pagedFormulas.length, total: filteredFormulas.length }) }}</span>
+    </div>
     <div id="formula-rows" class="list-rows">
-      <p v-if="formulaRows.length === 0" class="empty-note">{{ t("library.empty") }}</p>
-      <div v-for="{ f, catText, tagsText, techCount } in formulaRows" :key="f.id" class="lib-row" :data-name="f.name">
+      <p v-if="filteredFormulas.length === 0" class="empty-note">{{ t("library.empty") }}</p>
+      <div v-for="{ f, catText, tagsText, techCount } in pagedFormulas" :key="f.id" class="lib-row" :data-name="f.name">
         <span class="lib-name">{{ f.name }}</span>
         <span class="moves">{{ f.moves }}</span>
         <span class="tags">{{ catText }}</span>
@@ -335,6 +371,11 @@ const techniqueRows = computed(() => {
         <WinButton class="edit" :Content="t('library.edit')" @Click="startEdit(f.id)" />
         <WinButton class="del" :Content="t('library.delete')" @Click="removeFormula(f.id)" />
       </div>
+    </div>
+    <div v-if="totalPages > 1" class="pager">
+      <WinButton :Content="t('library.prev')" :IsEnabled="page > 1" @Click="page--" />
+      <span class="meta">{{ page }} / {{ totalPages }}</span>
+      <WinButton :Content="t('library.next')" :IsEnabled="page < totalPages" @Click="page++" />
     </div>
 
     <div class="lib-actions">
@@ -472,6 +513,26 @@ const techniqueRows = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.lib-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.search-input {
+  flex: 1 1 220px;
+  min-width: 180px;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
 }
 
 .lib-row {
