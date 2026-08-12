@@ -21,6 +21,10 @@ export type FormulaLibrary = {
 
 export class FormulaError extends Error {}
 
+/** 名称/标签长度上限：防止导入的超长字符串撑爆 UI */
+export const MAX_FORMULA_NAME_LENGTH = 64;
+export const MAX_TAG_LENGTH = 32;
+
 export type NewFormula = {
   name: string;
   moves: string;
@@ -33,9 +37,16 @@ export type NewFormula = {
 export function createFormula(input: NewFormula): Formula {
   const err = validateFormulaMoves(input.moves);
   if (err) throw new FormulaError(err);
+  const name = input.name.trim();
+  if (name.length > MAX_FORMULA_NAME_LENGTH) {
+    throw new FormulaError(`公式名称过长（最多 ${MAX_FORMULA_NAME_LENGTH} 字符）`);
+  }
+  for (const tag of input.tags ?? []) {
+    if (tag.length > MAX_TAG_LENGTH) throw new FormulaError(`标签过长（最多 ${MAX_TAG_LENGTH} 字符）：${tag}`);
+  }
   return {
     id: input.id ?? crypto.randomUUID(),
-    name: input.name.trim(),
+    name,
     moves: normalizeMoves(input.moves),
     tags: [...(input.tags ?? [])],
     categoryId: input.categoryId ?? null,
@@ -88,8 +99,14 @@ export function parseFormulaEntries(items: unknown[]): Formula[] {
     if (typeof id !== "string" || typeof name !== "string" || typeof moves !== "string") {
       throw new FormulaError("公式字段缺失：id/name/moves 必须为字符串");
     }
+    if (name.length > MAX_FORMULA_NAME_LENGTH) {
+      throw new FormulaError(`公式名称过长（最多 ${MAX_FORMULA_NAME_LENGTH} 字符）：${name.slice(0, 32)}…`);
+    }
     if (!Array.isArray(tags) || !tags.every((t) => typeof t === "string")) {
       throw new FormulaError(`公式 ${name}：tags 必须为字符串数组`);
+    }
+    if (tags.some((t) => t.length > MAX_TAG_LENGTH)) {
+      throw new FormulaError(`公式 ${name}：单个标签过长（最多 ${MAX_TAG_LENGTH} 字符）`);
     }
     if (categoryIds !== undefined && (!Array.isArray(categoryIds) || !categoryIds.every((c) => typeof c === "string"))) {
       throw new FormulaError(`公式 ${name}：categoryIds 必须为字符串数组`);

@@ -1,5 +1,5 @@
 /** 公式库/手法库的持久化与导入导出（localStorage + JSON）。 */
-import { Category, CategoryError, removeCategory as removeCategoryNode, validateCategoryTree } from "./category";
+import { Category, CategoryError, MAX_CATEGORY_NAME_LENGTH, removeCategory as removeCategoryNode, validateCategoryTree } from "./category";
 import { deserializeFormula, parseFormulaEntries, type Formula } from "./formula";
 import { deserializeTechnique, type Technique } from "./technique";
 
@@ -49,6 +49,9 @@ export function deserializeLibraryData(text: string): LibraryData {
       const c = item as Record<string, unknown> | null;
       if (!c || typeof c !== "object" || typeof c.id !== "string" || typeof c.name !== "string") {
         throw new Error("分类条目非法");
+      }
+      if (c.name.length > MAX_CATEGORY_NAME_LENGTH) {
+        throw new Error(`分类名过长（最多 ${MAX_CATEGORY_NAME_LENGTH} 字符）：${c.name.slice(0, 32)}…`);
       }
       if (c.parentId !== null && typeof c.parentId !== "string") throw new Error("分类 parentId 非法");
       categories.push({ id: c.id, name: c.name, parentId: (c.parentId as string | null) ?? null });

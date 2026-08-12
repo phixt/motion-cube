@@ -6,6 +6,12 @@ import type { Pose } from "../hand/HandRig";
 
 export const DEFAULT_FRAME_RATE = 60;
 
+/**
+ * 关键帧帧号上限（60fps 基准下 10 分钟）：时间线/预览表按帧生成 DOM 与采样行，
+ * 无上限时误输入或恶意导入超大帧号（如 1e8）会导致页面渲染卡死。
+ */
+export const MAX_KEYFRAME_FRAME = 36_000;
+
 export function frameToSecond(frame: number, frameRate: number = DEFAULT_FRAME_RATE): number {
   return frame / frameRate;
 }
@@ -19,11 +25,14 @@ export function sortKeyframes<T extends { frame: number }>(keyframes: readonly T
   return [...keyframes].sort((a, b) => a.frame - b.frame);
 }
 
-/** 校验：帧号非负整数、升序、无重复；通过返回 null */
+/** 校验：帧号非负整数、不超过上限、升序、无重复；通过返回 null */
 export function validateKeyframes<T extends { frame: number }>(keyframes: readonly T[]): string | null {
   let prev = -1;
   for (const k of keyframes) {
     if (!Number.isInteger(k.frame) || k.frame < 0) return `帧号非法：${k.frame}`;
+    if (k.frame > MAX_KEYFRAME_FRAME) {
+      return `帧号超出上限（${MAX_KEYFRAME_FRAME}）：${k.frame}`;
+    }
     if (k.frame <= prev) return `关键帧未按帧号升序（重复或倒序：${k.frame}）`;
     prev = k.frame;
   }

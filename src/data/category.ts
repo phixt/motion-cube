@@ -11,6 +11,8 @@ export type Category = {
 
 /** 最大嵌套层数（根算第 1 层，最深第 4 层） */
 export const MAX_CATEGORY_DEPTH = 4;
+/** 分类名长度上限：防止导入的超长字符串撑爆 UI */
+export const MAX_CATEGORY_NAME_LENGTH = 32;
 
 export class CategoryError extends Error {}
 
@@ -45,6 +47,9 @@ export function createCategory(
 ): Category {
   const name = input.name.trim();
   if (!name) throw new CategoryError("分类名不能为空");
+  if (name.length > MAX_CATEGORY_NAME_LENGTH) {
+    throw new CategoryError(`分类名过长（最多 ${MAX_CATEGORY_NAME_LENGTH} 字符）`);
+  }
   const parentId = input.parentId ?? null;
   if (parentId !== null && !categories.some((c) => c.id === parentId)) {
     throw new CategoryError("父分类不存在");
