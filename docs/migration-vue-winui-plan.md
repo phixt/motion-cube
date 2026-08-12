@@ -1,7 +1,7 @@
 # motion-cube 迁移评估与实施计划：Vue 3 + WinUIonWeb
 
 > 来源：agent-bridge 任务 `84bd26ed78fa45719aa4739adc233da9`（迁移评估与实施：Vue 3 + WinUIonWeb）
-> 状态：阶段 1、2、3、4 全部完成（7/7 页迁移，playtest 全量通过）；剩余阶段 5（收尾清理/可选打磨）
+> 状态：阶段 1–4 全部完成（7/7 页迁移，playtest 全量通过）；高 DPI 适配已完成；剩余可选打磨
 > 日期：2026-08-11（初稿）/ 2026-08-12（决策与阶段 1-2 + 阶段 3 准备）
 
 ## 0.1 已确认决策（2026-08-12）
@@ -59,6 +59,12 @@
   - 删除：LegacyPage.vue、pages/library.ts、pages/handCalib.ts、styles/library.css、styles/hand.css；仅 pages/editor.ts（编辑器逻辑）保留。路由 7 条全部指向真实组件。
   - 验证：typecheck/build ✅；playtest-ui **全量通过**（含手部标定固化）；视觉抽查 library（分类嵌套/表单/列表）、hand（手掌模型+标尺）、editor（时间线/3D 视口）无渲染问题。
   - 遗留打磨项（非阻塞）：editor 时间线控件化；HUD/标灰面板 WinUI 化；acrylic 材质在旧样式页面上的视觉效果待页面全 WinUI 化后显现。
+
+## 5.5 高 DPI 适配（2026-08-12 ✅）
+
+- 标题栏新增「缩放」按钮：100% / 125% / 150% / 175% / 200%（默认 150%）。
+- 实现：`document.documentElement.style.zoom` 全局缩放（`src/vue/theme.ts` 的 `UiScale` + `applyUiScale`），文本/图标/布局/3D 画布统一放大；持久化 `motion-cube.uiScale`。
+- 验证：zoom 1.5 下 playtest-ui 全量通过（点击坐标、画布尺寸断言均正常）；视觉确认字号/图标显著放大、无布局溢出。
 
 ## 0. 结论摘要
 

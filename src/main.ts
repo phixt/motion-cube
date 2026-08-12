@@ -4,7 +4,7 @@ import { loadSettings } from "./settings";
 import App from "./vue/App.vue";
 import router from "./vue/router";
 import { createMotionCubeI18n, i18nKey } from "./vue/i18n";
-import { applyMaterial, applyTheme, loadMaterial, loadTheme } from "./vue/theme";
+import { applyMaterial, applyTheme, applyUiScale, loadMaterial, loadTheme, loadUiScale } from "./vue/theme";
 
 // 全局基础样式（旧页面依赖）
 import "./styles/base.css";
@@ -17,6 +17,7 @@ const settings = loadSettings();
 setLocale(settings.locale);
 applyTheme(loadTheme());
 applyMaterial(loadMaterial());
+applyUiScale(loadUiScale());
 
 const i18n = createMotionCubeI18n(settings.locale);
 

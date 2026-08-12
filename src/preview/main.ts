@@ -6,11 +6,13 @@ import { createApp } from "vue";
 import App from "./App.vue";
 import router from "./router";
 import { createMotionCubeI18n, i18nKey } from "../vue/i18n";
+import { applyUiScale, loadUiScale } from "../vue/theme";
 import "../vendor/winui-on-web/styles/theme.css";
 import "../vendor/winui-on-web/styles/animations.css";
 import "../vue/styles/global.css";
 
 const i18n = createMotionCubeI18n();
+applyUiScale(loadUiScale());
 
 const app = createApp(App);
 app.use(router);

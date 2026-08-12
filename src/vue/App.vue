@@ -10,13 +10,17 @@ import { APP_ROUTES } from "./router";
 import {
   applyMaterial,
   applyTheme,
+  applyUiScale,
   cycle,
   loadMaterial,
   loadTheme,
+  loadUiScale,
   MATERIAL_MODES,
   THEME_MODES,
+  UI_SCALES,
   type MaterialMode,
   type ThemeMode,
+  type UiScale,
 } from "./theme";
 
 const { t } = useI18n();
@@ -26,6 +30,7 @@ const router = useRouter();
 const isPaneOpen = ref(true);
 const themeMode = ref<ThemeMode>(loadTheme());
 const materialMode = ref<MaterialMode>(loadMaterial());
+const uiScale = ref<UiScale>(loadUiScale());
 
 watch(
   themeMode,
@@ -40,6 +45,14 @@ watch(
   (v) => {
     applyMaterial(v);
     localStorage.setItem("motion-cube.material", v);
+  },
+  { immediate: true },
+);
+watch(
+  uiScale,
+  (v) => {
+    applyUiScale(v);
+    localStorage.setItem("motion-cube.uiScale", String(v));
   },
   { immediate: true },
 );
@@ -70,8 +83,12 @@ const cycleTheme = () => {
 const cycleMaterial = () => {
   materialMode.value = cycle(MATERIAL_MODES, materialMode.value);
 };
+const cycleUiScale = () => {
+  uiScale.value = cycle(UI_SCALES, uiScale.value);
+};
 const themeLabel = computed(() => t(`theme.${themeMode.value}`));
 const materialLabel = computed(() => t(`material.${materialMode.value}`));
+const uiScaleLabel = computed(() => `${t("uiScale.label")}: ${Math.round(uiScale.value * 100)}%`);
 </script>
 
 <template>
@@ -87,6 +104,7 @@ const materialLabel = computed(() => t(`material.${materialMode.value}`));
     <div class="titlebar-actions">
       <WinButton :Content="`${t('theme.label')}: ${themeLabel}`" @Click="cycleTheme" />
       <WinButton :Content="`${t('material.label')}: ${materialLabel}`" @Click="cycleMaterial" />
+      <WinButton :Content="uiScaleLabel" @Click="cycleUiScale" />
     </div>
   </WinTitleBar>
 

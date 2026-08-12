@@ -2,6 +2,12 @@
 
 > 更新：2026-08-06　✅ 已完成 ｜ 🚧 进行中 ｜ ⬜ 待办
 
+## 技术栈迁移（2026-08-12 完成 ✅）
+
+- vanilla TS 命令式 DOM → Vue 3.5 + WinUIonWeb（7 页全部迁移，功能等价，playtest 全量通过）
+- 详见 [migration-vue-winui-plan.md](./migration-vue-winui-plan.md)
+- 高 DPI 适配：标题栏「缩放」按钮 100%–200%（默认 150%），全局 zoom 缩放
+
 ## 待办
 
 ### 体验优化（用户 2026-08-06 反馈）

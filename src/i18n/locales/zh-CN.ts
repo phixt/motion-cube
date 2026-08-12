@@ -9,6 +9,7 @@ export const zhCN: Record<string, string> = {
   "material.label": "材质",
   "material.mica": "Mica",
   "material.acrylic": "Acrylic",
+  "uiScale.label": "缩放",
   "game.title": "Motion Cube",
 
   // WinUI 预览页（src/preview，阶段 3 壳验证载体）
