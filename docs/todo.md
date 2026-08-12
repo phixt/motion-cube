@@ -8,6 +8,65 @@
 - 详见 [migration-vue-winui-plan.md](./migration-vue-winui-plan.md)
 - 高 DPI 适配：标题栏「缩放」按钮 100%–200%（默认 150%），全局 zoom 缩放
 
+## 优先级与路线（2026-08-12 评估）
+
+### P0（推进准备中）
+
+- **拇指根独立建模 + 大鱼际凸块**（用户两次反馈；手部模型是一切手法动画的地基，现有姿态/接触数据还少，越晚改迁移成本越高）
+- **播放器整合：公式播放 + 手法 stepMapping 帧级同步**（产品核心演示；stepMapping 数据已就绪）
+
+### P1（紧随 P0）
+
+- 四元数插值 nlerp → slerp（Timeline.ts 注释已标注占位；起终自动路径的前置，纯函数小改动）
+- contact.lifetime 精确起止帧建模（当前为相邻关键帧离散切换；吸附/坐标高度的数据基础，先做避免模型返工）
+- 编辑器：坐标高度 / 吸附（手法可复现的关键交互）
+- 编辑器：起终自动路径（slerp 前置）
+
+### P2（打磨期）
+
+- cubing 大 chunk 分包优化（vite build 警告；本地/桌面影响小）
+- 编辑器杂项：不可变选项 / 起始底色 / 快捷键独立配置
+- 键位预设（新手直觉布局）；关键帧细化（easing/中间帧）
+
+### P3（长期/可选）
+
+- 函数路径（正弦/圆弧等）；高速动画性能/真实卡顿感（动画抽搐长期项）
+- playtest 脚本化/CI（QA 循环）
+
+依赖链：slerp → 自动路径；contact.lifetime → 吸附；插值正确性 → 播放器整合体验。
+
+## P0 推进准备（2026-08-12 摸底）
+
+### P0-A 拇指根独立建模 + 大鱼际
+
+现状摸底：
+- `thumbCorner`（config 级，默认 0.68,-0.14,0.5）决定拇指根相对手掌中心位置；渲染时 X 按手型取反
+- 拇指链：thumbRoot → thumbDof（CMC 展收/对掌）→ 2 段 3 关节（CMC/MCP/IP）
+- 姿态级 `thumbBase` 独立于几何（示例"单拨 U"三关键帧均为 identity、thumbCMC 0/0）
+- 标定页已有 thumb X/Y/Z 输入；verify-hand-calib.mjs 像素断言（肤色像素居中/数量）
+- 缺陷：拇指根锚在掌前缘角落，无掌根/腕侧语义，无大鱼际几何，与食指易冲突
+
+推进步骤：
+1. handRigStore：`thumbCorner` 语义改为掌根/腕侧锚点（含默认值重标定），新增大鱼际参数（宽/高/位置）；version 1→2 + normalize 迁移
+2. handGeometry：拇指挂载点改掌根 + thenar 凸块几何（椭球/自定义）
+3. 标定页：更新 thumb 参数区默认值与说明（WinUI 表单已就绪）
+4. 示例/默认姿态重校准（defaultHandPose、"单拨 U"关键帧），避免与食指冲突
+5. 回归：verify-hand-calib（像素居中）、playtest（标定/编辑器全量）
+
+### P0-B 播放器整合（公式播放 + stepMapping 帧级同步）
+
+现状摸底：
+- 编辑器已有 60fps 预览循环（pv-play：previewFrame++ → renderPreview → handView.setPose）
+- stepMapping[{stepIndex,startFrame,endFrame}] 数据已就绪（示例 1 步）；公式 moves 可 parseMoves 解析
+- CubePlayer.applyMove(move)（cancel:true）可逐层驱动魔方动画
+
+推进步骤：
+1. 编辑器预览循环扩展：previewFrame 进入 stepMapping[i] 区间时对该步公式 move 执行 applyMove
+2. 公式 moves 与 stepMapping 按 stepIndex 对齐（parseMoves 规范化）
+3. 步进时长 = (endFrame-startFrame)/frameRate，与 cubing 动画时长校准（调速沿用 setSpeed）
+4. 播放/暂停/重置语义在游戏与编辑器间统一（session 与 editor 的 hooks 对齐）
+5. 回归：playtest 编辑器用例 + 新增"播放时魔方转动与手法同步"断言
+
 ## 待办
 
 ### 体验优化（用户 2026-08-06 反馈）
@@ -35,10 +94,10 @@
    精选复盘样本 data/samples/cuberoot-recons.json（3 CFOP + 2 Roux + 1 ZB，含分步解法，
    刷新脚本 scripts/fetch-cuberoot.mjs）；公式库示例扩充 5 条 speedcubedb 真实公式
    （OLL 1 / PLL Aa / CMLL O Adjacent / ZBLL U 1 / 1LLL 1 1，verify-data 27/27）
-- ⬜ 动画编辑器：坐标高度 / 吸附 / 起终自动路径 / 函数路径 / 关键帧细化
-- ⬜ 播放器整合：公式播放 + 手法 stepMapping 帧级同步
+- ⬜ 动画编辑器：坐标高度 / 吸附 / 起终自动路径 / 函数路径 / 关键帧细化（P1/P2，见上方路线）
+- ⬜ 播放器整合：公式播放 + 手法 stepMapping 帧级同步（P0-B）
 - ⬜ playtest QA 循环（含新页面回归）
-- ⬜ 拇指根独立建模 + 手掌"大鱼际"凸块（2026-08-06 记录，用户反馈）
+- ⬜ 拇指根独立建模 + 手掌"大鱼际"凸块（2026-08-06 记录，用户反馈；P0-A）
   - 现状缺陷：拇指没有"根部"，从手掌前缘角落伸出、与食指冲突；真实拇指根位于掌根（腕侧），
     附着处有大鱼际隆起（thenar eminence）。
   - 方案：① 把拇指根位置从"手掌角落"单独拎出来作为独立参数（贴近掌根/腕侧，配合 CMC 位姿），
@@ -48,9 +107,9 @@
 
 ### 技术债
 
-- ⬜ 四元数插值 nlerp → slerp（Timeline.ts）
-- ⬜ contact.lifetime 精确起止帧建模（当前为相邻关键帧离散切换）
-- ⬜ cubing 大 chunk 分包优化（vite build 警告）
+- ⬜ 四元数插值 nlerp → slerp（Timeline.ts；P1）
+- ⬜ contact.lifetime 精确起止帧建模（当前为相邻关键帧离散切换；P1）
+- ⬜ cubing 大 chunk 分包优化（vite build 警告；P2）
 
 ## 已完成
 
