@@ -350,7 +350,15 @@ await page.$eval("#pv-slider", (el) => {
 await sleep(300);
 console.log("editor 3d viewport ok");
 
-// 8d) 播放器整合：播放时魔方按 stepMapping 执行公式步（单拨 U → U）
+// 8d) 播放器整合：正放从起始态（公式逆序状态 U'）执行公式 → 还原态
+const preAlg = await page.evaluate(async () => {
+  const el = globalThis.__motionCubeEditor?.player?.element;
+  try {
+    return (await el?.experimentalModel.alg.get())?.alg?.toString() ?? "";
+  } catch {
+    return "";
+  }
+});
 await page.click("#editor-big-play");
 await sleep(2600);
 const cubeAlg = await page.evaluate(async () => {
@@ -363,9 +371,9 @@ const cubeAlg = await page.evaluate(async () => {
     return `ERR:${e.message}`;
   }
 });
-if (!String(cubeAlg).includes("U")) throw new Error(`播放后魔方未执行公式步：alg=${cubeAlg}`);
-await page.click("#editor-big-play"); // 暂停
-console.log(`player integration ok: cube alg = ${cubeAlg}`);
+if (String(preAlg) === String(cubeAlg)) throw new Error(`正放未驱动魔方：${preAlg}`);
+if (String(cubeAlg) !== "") throw new Error(`正放结束应回还原态：${cubeAlg}`);
+console.log(`player integration ok: ${preAlg} -> ${cubeAlg}`);
 
 // 8d2) 编辑器快捷键：U 拧视口魔方、Escape 重置（独立配置默认与游戏一致）
 const edAlg = async () =>

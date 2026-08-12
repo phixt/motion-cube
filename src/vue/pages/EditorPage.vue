@@ -24,7 +24,7 @@ import {
 import { defaultHandPose, FINGER_ORDER, type Contact, type HandType, type Pose } from "../../hand/HandRig";
 import { HandRigView } from "../../hand/HandRigView";
 import { KeymapController } from "../../input/keymap";
-import { parseMoves, splitCompoundMove } from "../../notation/alg";
+import { invertMoves, parseMoves, splitCompoundMove } from "../../notation/alg";
 import { loadEditorKeymap, loadSettings } from "../../settings";
 import { renderGrayPanel } from "../../ui/grayPanel";
 import {
@@ -55,6 +55,8 @@ const loopPlay = ref(false); // 播放循环开关（默认不循环）
 const reversePlay = ref(false); // 倒放开关
 const previewFrame = ref(0);
 const statusText = ref("");
+/** 倒放逆序执行指针：已逆序执行到第几步（从 formulaMoves.length 递减到 0） */
+let revApplied = 0;
 
 /** 播放器整合：公式 step 与手法 stepMapping 帧级同步 */
 const CUBING_MOVE_SECONDS = 0.3; // cubing 单步动画基准时长（tempoScale=1 时，约 300ms）
@@ -320,9 +322,16 @@ function selectTech(id: string): void {
     };
   }
   stepMoveIndex = 0;
-  // 不再 setMoves 整段公式：魔方保持求解态，播放时逐步骤驱动（避免"瞬间完成"观感）
-  player?.reset();
+  revApplied = formulaMoves.length;
+  // 手法起始态 = 公式逆序状态（从还原态逆序执行公式），而非还原态
+  setStartState();
   renderAll();
+}
+
+/** 正放起始态：公式逆序状态（打乱态 S = 对还原态逆序执行公式） */
+function setStartState(): void {
+  if (!player) return;
+  player.element.alg = formulaMoves.length ? invertMoves(formulaMoves.join(" ")) : "";
 }
 
 /** 按公式步数生成等长动作区间：第 i 步占 [i*t, (i+1)*t]（t = 每动作时长） */
@@ -547,13 +556,14 @@ const onPvPlay = (): void => {
     computeFormulaMoves();
     syncStepSpeed();
     if (reversePlay.value) {
-      // 倒放：从末尾（公式完成态）开始，逐步骤撤销
-      previewFrame.value = totalFrames.value;
-      player?.setMoves(formulaMoves.join(" "));
-      stepMoveIndex = formulaMoves.length;
-    } else {
-      // 正放：魔方回到求解态，逐步骤驱动
+      // 倒放：从还原态开始，逆序执行公式（每步逆动作，带动画）→ 结束在起始态 S
       player?.reset();
+      stepMoveIndex = 0;
+      revApplied = formulaMoves.length;
+      previewFrame.value = totalFrames.value;
+    } else {
+      // 正放：从起始态 S（公式逆序状态）开始，正向执行公式 → 还原态
+      setStartState();
       stepMoveIndex = 0;
       previewFrame.value = 0;
     }
@@ -565,9 +575,11 @@ const onPvPlay = (): void => {
 watch([loopPlay, reversePlay], () => {
   if (!playing.value) return;
   playing.value = false;
-  player?.reset();
   stepMoveIndex = 0;
+  revApplied = formulaMoves.length;
   previewFrame.value = 0;
+  if (reversePlay.value) player?.reset();
+  else setStartState();
   renderPreview();
 });
 
@@ -824,13 +836,11 @@ onMounted(() => {
       if (previewFrame.value <= 0) {
         if (loopPlay.value) {
           previewFrame.value = total;
-          player?.setMoves(formulaMoves.join(" ")); // 循环倒放回到末尾（完成态）
-          stepMoveIndex = formulaMoves.length;
+          player?.reset(); // 循环倒放回到还原态（倒放起始）
+          stepMoveIndex = 0;
+          revApplied = formulaMoves.length;
         } else {
           playing.value = false;
-          // 倒放结束：撤销剩余步骤，完全回到起始态（修复"停在还原差一步"）
-          if (player) player.element.alg = "";
-          stepMoveIndex = 0;
         }
       } else {
         previewFrame.value -= 1;
@@ -839,14 +849,14 @@ onMounted(() => {
         renderPreview();
         return;
       }
-      // 倒放：退出已应用步骤区间时撤销该步（undoLastMove 带动画；
-      // 公式已拆分复合动作，setMoves 整段 + 逐个撤销稳定）
-      while (stepMoveIndex > 0) {
-        const m = tech.value.stepMapping[stepMoveIndex - 1];
-        if (previewFrame.value < m.startFrame) {
-          stepMoveIndex--;
-          player?.undoLastMove();
-        } else {
+      // 倒放：进入未执行过的 step 区间 → 应用该步的逆动作（带动画）
+      const sm = tech.value.stepMapping;
+      for (let i = sm.length - 1; i >= 0; i--) {
+        const m = sm[i];
+        if (revApplied > i && previewFrame.value >= m.startFrame && previewFrame.value < m.endFrame) {
+          const move = formulaMoves[i];
+          if (move) player?.applyMove(invertMoves(move));
+          revApplied = i;
           break;
         }
       }
@@ -855,7 +865,7 @@ onMounted(() => {
         if (loopPlay.value) {
           previewFrame.value = 0;
           stepMoveIndex = 0;
-          player?.reset();
+          setStartState(); // 循环正放回到起始态 S
         } else {
           playing.value = false;
         }
