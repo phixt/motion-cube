@@ -4,6 +4,7 @@ import { DEFAULT_LOCALE, isLocale, type Locale } from "./i18n";
 import { FACES, type Face } from "./cube/stickering";
 
 const KEYMAP_KEY = "motion-cube.keymap";
+const EDITOR_KEYMAP_KEY = "motion-cube.editorKeymap";
 const SETTINGS_KEY = "motion-cube.settings";
 
 export type AppSettings = {
@@ -36,6 +37,21 @@ export function loadKeymap(): KeymapConfig {
 
 export function saveKeymap(cfg: KeymapConfig): void {
   localStorage.setItem(KEYMAP_KEY, JSON.stringify(cfg));
+}
+
+/** 编辑器快捷键独立配置（默认与游戏一致：公式键 + 特殊键语义相同） */
+export function loadEditorKeymap(): KeymapConfig {
+  try {
+    const raw = localStorage.getItem(EDITOR_KEYMAP_KEY);
+    if (!raw) return DEFAULT_KEYMAP;
+    return deserializeKeymap(raw) ?? DEFAULT_KEYMAP;
+  } catch {
+    return DEFAULT_KEYMAP;
+  }
+}
+
+export function saveEditorKeymap(cfg: KeymapConfig): void {
+  localStorage.setItem(EDITOR_KEYMAP_KEY, JSON.stringify(cfg));
 }
 
 export function loadSettings(): AppSettings {

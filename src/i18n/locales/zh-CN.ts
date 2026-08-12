@@ -110,7 +110,11 @@ export const zhCN: Record<string, string> = {
   "keymap.note":
     "提示：Space 保留为“双层(wide)修饰键”，不能单独绑定；Shift 常作为反转修饰。连击冷却用于缓解快速按键导致的动画抽搐。",
   "keymap.scopeNote":
-    "当前键位作用于游戏页。编辑器键位待实现：计划与游戏分开配置、默认与公式保持一致，并提供“连带设置”开关或批量同步提示。",
+    "游戏与编辑器键位分开配置：编辑器默认与游戏一致（公式键在两侧都录入同样动作，如 U）；改键只影响当前作用域，可一键同步到另一侧。",
+  "keymap.scope.game": "游戏键位",
+  "keymap.scope.editor": "编辑器键位",
+  "keymap.sync": "同步到另一侧",
+  "keymap.synced": "已同步",
   "keymap.special.undo": "撤销一步",
   "keymap.special.reset": "重置",
   "keymap.special.play": "播放/暂停",

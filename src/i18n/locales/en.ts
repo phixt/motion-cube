@@ -110,7 +110,11 @@ export const en: Record<string, string> = {
   "keymap.note":
     "Tip: Space is reserved as the wide-move modifier and cannot be bound alone; Shift usually inverts. Move cooldown eases animation jitter from fast key presses.",
   "keymap.scopeNote":
-    "Current bindings apply to the game page. Editor bindings are planned: a separate config defaulting to the same as game, plus a “sync” toggle or bulk-sync hint.",
+    "Game and editor bindings are separate: the editor defaults to the same layout as the game (formula keys map to the same actions in both, e.g. U), so rebinding only affects the current scope; you can copy it to the other scope in one click.",
+  "keymap.scope.game": "Game keys",
+  "keymap.scope.editor": "Editor keys",
+  "keymap.sync": "Copy to other scope",
+  "keymap.synced": "Synced",
   "keymap.special.undo": "Undo one move",
   "keymap.special.reset": "Reset",
   "keymap.special.play": "Play/Pause",

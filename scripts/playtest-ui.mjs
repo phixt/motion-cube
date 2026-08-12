@@ -119,6 +119,28 @@ await page.click('.base-swatch[data-face="D"]'); // 恢复默认底，保证后�
 await sleep(150);
 await shot("ui-04-keymap-rebound");
 
+// 4b) 键位作用域：编辑器独立默认（R=KeyR），同步按钮把游戏配置拷到编辑器
+await page.evaluate(() => {
+  const el = [...document.querySelectorAll(".scope-btn")].find((b) => (b.textContent ?? "").includes("编辑器"));
+  el?.click();
+});
+await sleep(250);
+const edRBinding = await page.$eval('[data-action="R"] .binding', (el) => el.textContent);
+if (edRBinding !== "R") throw new Error(`编辑器 R 默认绑定应为 R：${edRBinding}`);
+await page.evaluate(() => {
+  const el = [...document.querySelectorAll(".scope-btn")].find((b) => (b.textContent ?? "").includes("同步"));
+  el?.click();
+});
+await sleep(250);
+const edRSynced = await page.$eval('[data-action="R"] .binding', (el) => el.textContent);
+if (edRSynced !== "T") throw new Error(`同步后编辑器 R 应为 T：${edRSynced}`);
+await page.evaluate(() => {
+  const el = [...document.querySelectorAll(".scope-btn")].find((b) => (b.textContent ?? "").includes("游戏"));
+  el?.click();
+});
+await sleep(250);
+console.log("keymap scope/sync ok");
+
 // 5) 改键生效：游戏页按 T 应执行 R
 await clickNav("游戏");
 await page.waitForFunction(() => !!document.querySelector("twisty-player"), { timeout: 15000 });
@@ -344,6 +366,27 @@ const cubeAlg = await page.evaluate(async () => {
 if (!String(cubeAlg).includes("U")) throw new Error(`播放后魔方未执行公式步：alg=${cubeAlg}`);
 await page.click("#pv-play"); // 暂停
 console.log(`player integration ok: cube alg = ${cubeAlg}`);
+
+// 8d2) 编辑器快捷键：U 拧视口魔方、Escape 重置（独立配置默认与游戏一致）
+const edAlg = async () =>
+  page.evaluate(async () => {
+    const el = globalThis.__motionCubeEditor?.player?.element;
+    try {
+      return (await el?.experimentalModel.alg.get())?.alg?.toString() ?? "";
+    } catch {
+      return "ERR";
+    }
+  });
+const edA0 = await edAlg();
+await page.keyboard.press("u");
+await sleep(300);
+const edA1 = await edAlg();
+if (edA1 === edA0) throw new Error(`编辑器 U 键未拧动魔方：${edA0}`);
+await page.keyboard.press("Escape");
+await sleep(300);
+const edA2 = await edAlg();
+if (edA2 !== "") throw new Error(`编辑器 Esc 未重置魔方：${edA2}`);
+console.log("editor keymap ok");
 
 // 8e) 起终自动路径：首末关键帧之间生成中间关键帧（单拨 U：0/30/60 → 含 15/45）
 await page.click("#auto-path");

@@ -21,8 +21,9 @@ import {
 } from "../../data/technique";
 import { defaultHandPose, FINGER_ORDER, type Contact, type HandType, type Pose } from "../../hand/HandRig";
 import { HandRigView } from "../../hand/HandRigView";
+import { KeymapController } from "../../input/keymap";
 import { parseMoves } from "../../notation/alg";
-import { loadSettings } from "../../settings";
+import { loadEditorKeymap, loadSettings } from "../../settings";
 import { renderGrayPanel } from "../../ui/grayPanel";
 import {
   applyEasing,
@@ -74,6 +75,7 @@ const pvPoseEl = ref<HTMLElement | null>(null);
 
 let player: CubePlayer | null = null;
 let handView: HandRigView | null = null;
+let editorKeymap: KeymapController | null = null;
 let timer: number | null = null;
 let viewIo: IntersectionObserver | null = null;
 let kickTimers: number[] = [];
@@ -607,6 +609,26 @@ onMounted(() => {
   void handView.init();
   grayOverlay = new GrayOverlay(player);
   void grayOverlay.init().then(() => grayOverlay?.requestApply(grayState.value));
+  // 编辑器快捷键：独立配置（默认与游戏一致），公式键拧视口魔方，特殊键走编辑器动作
+  editorKeymap = new KeymapController(
+    player,
+    {
+      onMove: (move) => player?.applyMove(move),
+      onSpecial: (action) => {
+        if (action === "undo") player?.undoLastMove();
+        else if (action === "reset") {
+          player?.reset();
+          stepMoveIndex = 0;
+          previewFrame.value = 0;
+          renderPreview();
+        } else if (action === "toggle-play") {
+          onPvPlay();
+        }
+      },
+    },
+    loadEditorKeymap(),
+  );
+  editorKeymap.attach(window);
   (globalThis as { __motionCubeEditor?: unknown }).__motionCubeEditor = { player, handView };
   renderAll();
   // 视口渲染兜底：cubing 的 TwistyPlayer 用 IntersectionObserver 懒初始化，
@@ -652,6 +674,8 @@ onBeforeUnmount(() => {
   viewIo = null;
   kickTimers.forEach((t) => window.clearTimeout(t));
   kickTimers = [];
+  editorKeymap?.detach(window);
+  editorKeymap = null;
   editorViewEl.value?.replaceChildren();
   delete (globalThis as { __motionCubeEditor?: unknown }).__motionCubeEditor;
   grayOverlay?.dispose();

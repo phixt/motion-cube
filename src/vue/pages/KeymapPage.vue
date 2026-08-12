@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from "vue";
+import { computed, onBeforeUnmount, ref, toRaw } from "vue";
 import WinButton from "../../vendor/winui-on-web/components/WinButton.vue";
 import WinInfoBar from "../../vendor/winui-on-web/components/WinInfoBar.vue";
 import WinSlider from "../../vendor/winui-on-web/components/WinSlider.vue";
@@ -15,12 +15,29 @@ import {
   type KeymapConfig,
   type SpecialAction,
 } from "../../input/keymap";
-import { loadKeymap, loadSettings, saveKeymap, saveSettings } from "../../settings";
+import {
+  loadEditorKeymap,
+  loadKeymap,
+  loadSettings,
+  saveEditorKeymap,
+  saveKeymap,
+  saveSettings,
+} from "../../settings";
 import { useI18n } from "../i18n";
 
 const { t } = useI18n();
 
-const cfg = ref<KeymapConfig>(structuredClone(loadKeymap()));
+/** 游戏 / 编辑器两个独立作用域（编辑器默认与游戏一致） */
+const scope = ref<"game" | "editor">("game");
+const gameCfg = ref<KeymapConfig>(structuredClone(loadKeymap()));
+const editorCfg = ref<KeymapConfig>(structuredClone(loadEditorKeymap()));
+const cfg = computed<KeymapConfig>({
+  get: () => (scope.value === "game" ? gameCfg.value : editorCfg.value),
+  set: (v) => {
+    if (scope.value === "game") gameCfg.value = v;
+    else editorCfg.value = v;
+  },
+});
 const settings = ref(loadSettings());
 const capturing = ref<string | null>(null);
 const savedFlash = ref(false);
@@ -79,7 +96,22 @@ const conflictText = computed(() => {
 });
 
 const persist = (): void => {
-  saveKeymap(cfg.value);
+  if (scope.value === "game") saveKeymap(cfg.value);
+  else saveEditorKeymap(cfg.value);
+  savedFlash.value = true;
+  window.setTimeout(() => (savedFlash.value = false), 1200);
+};
+
+/** 连带设置：把当前作用域配置复制到另一侧 */
+const syncToOther = (): void => {
+  const copy: KeymapConfig = structuredClone(toRaw(cfg.value));
+  if (scope.value === "game") {
+    editorCfg.value = copy;
+    saveEditorKeymap(copy);
+  } else {
+    gameCfg.value = copy;
+    saveKeymap(copy);
+  }
   savedFlash.value = true;
   window.setTimeout(() => (savedFlash.value = false), 1200);
 };
@@ -166,6 +198,20 @@ onBeforeUnmount(stopCapture);
   <div class="keymap-page">
     <WinTextBlock class="page-title" :Text="t('keymap.title')" FontSize="28" FontWeight="SemiBold" />
     <div v-if="savedFlash" class="save-status">{{ t("keymap.saved") }}</div>
+
+    <div class="scope-switch">
+      <WinButton
+        class="scope-btn"
+        :class="{ active: scope === 'game' }"
+        :Content="t('keymap.scope.game')"
+        @Click="scope = 'game'" />
+      <WinButton
+        class="scope-btn"
+        :class="{ active: scope === 'editor' }"
+        :Content="t('keymap.scope.editor')"
+        @Click="scope = 'editor'" />
+      <WinButton class="scope-btn sync" :Content="t('keymap.sync')" @Click="syncToOther" />
+    </div>
 
     <WinInfoBar
       v-if="conflicts.length"
@@ -307,6 +353,22 @@ onBeforeUnmount(stopCapture);
 .reset-btn,
 .random-base {
   margin-top: 16px;
+}
+
+.scope-switch {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.scope-btn.active {
+  outline: 2px solid var(--accent-base);
+  outline-offset: 1px;
+}
+
+.scope-btn.sync {
+  margin-left: auto;
 }
 
 .preset-row {
