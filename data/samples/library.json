@@ -29,7 +29,7 @@
   ],
   "formulas": [
     {
-      "id": "a835b7c0-7df8-4fd4-8afe-b95d906622ea",
+      "id": "59d57210-162c-4fe7-8803-0e5b2c0d217c",
       "name": "V Perm",
       "moves": "(R' U R' U') (R D' R' D) R' UD' (R2 U' R2' D R2)",
       "tags": [
@@ -38,7 +38,7 @@
       "categoryId": "cat-pll"
     },
     {
-      "id": "0a44e5fa-afdb-4df8-badc-24a9c5b4f6db",
+      "id": "03b67d81-7de2-4b10-8894-fa358eac7193",
       "name": "OLL 21",
       "moves": "R U2 R' U' R U' R'",
       "tags": [
@@ -47,7 +47,7 @@
       "categoryId": "cat-oll"
     },
     {
-      "id": "4d7955ac-df9c-45fe-aa20-51a620dfdb71",
+      "id": "f52afaa7-eb06-4213-a65e-04dd43a69816",
       "name": "H Perm",
       "moves": "M2 U M2 U2 M2 U M2",
       "tags": [
@@ -56,7 +56,7 @@
       "categoryId": "cat-pll"
     },
     {
-      "id": "60ee60d0-48b8-4a49-a460-658a806fc359",
+      "id": "a1cc36b4-f947-427b-8dff-d6e1d6beb8cb",
       "name": "ZBLL（示例）",
       "moves": "R U R' U R U2 R'",
       "tags": [
@@ -66,7 +66,7 @@
       "categoryId": "cat-zbll"
     },
     {
-      "id": "b62d7e95-731d-40c9-91d2-ea4baccba46e",
+      "id": "7ec327e3-5c13-4f06-a175-a8989d146608",
       "name": "OLL 1（速拧参考）",
       "moves": "R U2 R2 F R F' U2 R' F R F'",
       "tags": [
@@ -76,7 +76,7 @@
       "categoryId": "cat-oll"
     },
     {
-      "id": "90129812-6dfa-46ca-b822-98d2f02ef852",
+      "id": "d285ef60-3449-4c6c-ab38-9d480ba17b11",
       "name": "PLL Aa（速拧参考）",
       "moves": "x (R' U R' D2) (R U' R' D2) R2 x'",
       "tags": [
@@ -86,7 +86,7 @@
       "categoryId": "cat-pll"
     },
     {
-      "id": "d5c647e0-704c-42df-9dca-5c5cd5b90f44",
+      "id": "37516ea0-090b-4b56-a4aa-d8acdfba0a11",
       "name": "CMLL O Adjacent（速拧参考）",
       "moves": "R U R' F' R U R' U' R' F R2 U' R'",
       "tags": [
@@ -96,7 +96,7 @@
       "categoryId": "cat-cmll"
     },
     {
-      "id": "1a8040b0-d58e-49f5-b7c8-d9ce65dfe49f",
+      "id": "cf4f866e-080e-4877-b1b4-94c2a5bbfd87",
       "name": "ZBLL U 1（速拧参考）",
       "moves": "(R' U' R U' R' U2' R2) (U' L' U R' U' L)",
       "tags": [
@@ -106,7 +106,7 @@
       "categoryId": "cat-zbll"
     },
     {
-      "id": "f7752c54-d957-4d21-82a1-7cf700c64e01",
+      "id": "2f3fd900-1150-4239-b431-f53ccbda9a3c",
       "name": "1LLL 1 1（速拧参考）",
       "moves": "U' (F' U' L' U L F) (L' U' L U' L' U B' U B L)",
       "tags": [
@@ -116,7 +116,7 @@
       "categoryId": "cat-1lll"
     },
     {
-      "id": "a98623c7-8423-4c1b-b96d-51cedbfefc7e",
+      "id": "e4e33682-f8bd-4904-9f45-4275574051ab",
       "name": "单拨 U",
       "moves": "U",
       "tags": [
@@ -127,9 +127,9 @@
   ],
   "techniques": [
     {
-      "id": "366a26fc-9d02-4237-8543-a2bc17431310",
+      "id": "762a8e1e-3a98-4da7-8d1c-6bfc22265f97",
       "name": "单拨 U（示例）",
-      "formulaId": "a98623c7-8423-4c1b-b96d-51cedbfefc7e",
+      "formulaId": "e4e33682-f8bd-4904-9f45-4275574051ab",
       "frameRate": 60,
       "keyframes": [
         {
@@ -194,15 +194,7 @@
               "abduction": 42,
               "rotation": 30
             },
-            "contacts": [
-              {
-                "finger": "index",
-                "segmentIndex": 2,
-                "side": "pad",
-                "t": 0.67,
-                "target": "UL 边"
-              }
-            ]
+            "contacts": []
           }
         },
         {
@@ -332,15 +324,7 @@
               "abduction": 42,
               "rotation": 30
             },
-            "contacts": [
-              {
-                "finger": "index",
-                "segmentIndex": 0,
-                "side": "back",
-                "t": 0.45,
-                "target": "L 面"
-              }
-            ]
+            "contacts": []
           }
         }
       ],
@@ -349,6 +333,30 @@
           "stepIndex": 0,
           "startFrame": 0,
           "endFrame": 60
+        }
+      ],
+      "contactTracks": [
+        {
+          "startFrame": 0,
+          "endFrame": 30,
+          "contact": {
+            "finger": "index",
+            "segmentIndex": 2,
+            "side": "pad",
+            "t": 0.67,
+            "target": "UL 边"
+          }
+        },
+        {
+          "startFrame": 60,
+          "endFrame": 60,
+          "contact": {
+            "finger": "index",
+            "segmentIndex": 0,
+            "side": "back",
+            "t": 0.45,
+            "target": "L 面"
+          }
         }
       ]
     }

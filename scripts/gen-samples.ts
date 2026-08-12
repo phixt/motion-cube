@@ -93,11 +93,10 @@ const contactAtUL: Contact[] = [
 const contactOnL: Contact[] = [
   { finger: "index", segmentIndex: 0, side: "back", t: 0.45, target: "L 面" },
 ];
-function pose(pip: number, dip: number, contacts: Contact[] = []) {
+function pose(pip: number, dip: number) {
   const p = defaultHandPose("right");
   p.bends.index[1] = pip;
   p.bends.index[2] = dip;
-  p.contacts = contacts;
   return p;
 }
 const technique = createTechnique({
@@ -105,11 +104,16 @@ const technique = createTechnique({
   formulaId: flickFormula.id,
   frameRate: 60,
   keyframes: [
-    { frame: 0, pose: pose(135, 175, contactAtUL) },
+    { frame: 0, pose: pose(135, 175) },
     { frame: 30, pose: pose(90, 155) },
-    { frame: 60, pose: pose(45, 135, contactOnL) },
+    { frame: 60, pose: pose(45, 135) },
   ],
   stepMapping: [{ stepIndex: 0, startFrame: 0, endFrame: 60 }],
+  // 接触轨道（精确起止帧）：起始触 UL 边（0–30），结束触 L 面（60）
+  contactTracks: [
+    { startFrame: 0, endFrame: 30, contact: contactAtUL[0] },
+    { startFrame: 60, endFrame: 60, contact: contactOnL[0] },
+  ],
 });
 
 const lib: LibraryData = { version: 1, categories, formulas, techniques: [technique] };

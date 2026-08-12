@@ -79,13 +79,13 @@ await page.reload({ waitUntil: "networkidle0", timeout: 30000 }); // 预热 Vite
 await page.waitForSelector(".start-page");
 const startTitle = await page.$eval(".start-title", (el) => el.textContent);
 if (startTitle !== "Motion Cube") throw new Error(`开始页标题异常：${startTitle}`);
-const hasLibBtn = (await page.$('.start-actions [data-route="library"]')) !== null;
-if (!hasLibBtn) throw new Error("开始页缺少公式库入口");
+const hasGuide = (await page.$(".start-guide-list")) !== null;
+if (!hasGuide) throw new Error("开始页缺少引导");
 console.log("start page ok");
 await shot("ui-01-start");
 
 // 2) 进入游戏
-await page.click('.start-actions [data-route="game"]');
+await clickNav("游戏");
 await page.waitForFunction(() => !!document.querySelector("twisty-player"), { timeout: 15000 });
 await sleep(1200);
 console.log("game page ok");

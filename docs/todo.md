@@ -23,8 +23,8 @@
 
 ### P1（紧随 P0）
 
-- 四元数插值 nlerp → slerp（Timeline.ts 注释已标注占位；起终自动路径的前置，纯函数小改动）
-- contact.lifetime 精确起止帧建模（当前为相邻关键帧离散切换；吸附/坐标高度的数据基础，先做避免模型返工）
+- ✅ 四元数插值 nlerp → slerp（2026-08-12：Timeline.ts slerpQuat，近平行回退 nlerp；90° 插值中点恰 45°）
+- ✅ contact.lifetime 精确起止帧建模（2026-08-12：接触移到手法级 contactTracks（startFrame/endFrame），插值不再离散切换；编辑器按帧显示活跃接触；示例数据迁移）
 - 编辑器：坐标高度 / 吸附（手法可复现的关键交互）
 - 编辑器：起终自动路径（slerp 前置）
 

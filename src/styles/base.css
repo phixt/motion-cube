@@ -19,18 +19,18 @@ body,
 
 button {
   padding: 0.35rem 0.8rem;
-  border: 1px solid #3a3a44;
+  border: 1px solid var(--ctrl-border, #3a3a44);
   border-radius: 6px;
-  background: #23232b;
-  color: #e8e8ec;
+  background: var(--ctrl-fill-default, #23232b);
+  color: var(--text-primary, #e8e8ec);
   cursor: pointer;
 }
 
 button:hover {
-  background: #2e2e38;
+  background: var(--ctrl-fill-secondary, #2e2e38);
 }
 
 button.primary {
-  background: #2f6fae;
-  border-color: #2f6fae;
+  background: var(--accent-base, #2f6fae);
+  border-color: var(--accent-base, #2f6fae);
 }

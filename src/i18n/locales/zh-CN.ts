@@ -43,6 +43,13 @@ export const zhCN: Record<string, string> = {
   "start.hand": "手部标定",
   "start.keymap": "按键设置",
   "start.help": "说明",
+  "start.guide": "所有功能入口都在左侧导航栏，这里做个快速指引：",
+  "start.guideGame": "游戏 — 3D 魔方操控、公式播放与手法同步",
+  "start.guideLibrary": "公式库 — 公式与手法库管理、示例数据、导入导出",
+  "start.guideEditor": "动画编辑 — 时间线关键帧、补帧预览与保存",
+  "start.guideHand": "手部 — 手模型标定、双视图与标尺测量",
+  "start.guideKeymap": "设置 — 按键改绑、全局底色、标尺与缩放",
+  "start.guideHelp": "说明 — 操作与按键指引",
 
   // 手部标定页
   "hand.title": "手部模型标定",

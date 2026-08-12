@@ -83,7 +83,7 @@ function lerpVec3(a: { x: number; y: number; z: number }, b: { x: number; y: num
   return { x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t), z: lerp(a.z, b.z, t) };
 }
 
-/** 四元数 nlerp（占位近似，后续按需换 slerp；调用方保证输入为单位四元数） */
+/** 四元数 nlerp（近平行时的 slerp 回退；调用方保证输入为单位四元数） */
 function nlerpQuat(
   a: { w: number; x: number; y: number; z: number },
   b: { w: number; x: number; y: number; z: number },
@@ -99,9 +99,36 @@ function nlerpQuat(
   return { w: q.w / len, x: q.x / len, y: q.y / len, z: q.z / len };
 }
 
+/** 四元数 slerp（球面插值，角速度恒定；近平行时回退 nlerp 防除零） */
+function slerpQuat(
+  a: { w: number; x: number; y: number; z: number },
+  b: { w: number; x: number; y: number; z: number },
+  t: number,
+) {
+  let dot = a.w * b.w + a.x * b.x + a.y * b.y + a.z * b.z;
+  let qb = b;
+  if (dot < 0) {
+    dot = -dot;
+    qb = { w: -b.w, x: -b.x, y: -b.y, z: -b.z };
+  }
+  if (dot > 0.9995) return nlerpQuat(a, qb, t);
+  const theta0 = Math.acos(Math.min(1, Math.max(-1, dot)));
+  const theta = theta0 * t;
+  const sinTheta = Math.sin(theta);
+  const sinTheta0 = Math.sin(theta0);
+  const s0 = Math.cos(theta) - (dot * sinTheta) / sinTheta0;
+  const s1 = sinTheta / sinTheta0;
+  return {
+    w: s0 * a.w + s1 * qb.w,
+    x: s0 * a.x + s1 * qb.x,
+    y: s0 * a.y + s1 * qb.y,
+    z: s0 * a.z + s1 * qb.z,
+  };
+}
+
 /**
  * 姿态线性插值（补帧）：位置/四元数/各关节 bend/拇指 CMC 自由度。
- * 接触为离散量，取 t<0.5 时 a、否则 b（接触的精确起止见 params.md contact.lifetime）。
+ * 接触由手法级 contactTracks（精确起止帧）承载，不再随姿态插值。
  */
 export function interpolatePose(a: Pose, b: Pose, t: number): Pose {
   const u = Math.min(1, Math.max(0, t));
@@ -115,11 +142,11 @@ export function interpolatePose(a: Pose, b: Pose, t: number): Pose {
     palm: {
       transform: {
         position: lerpVec3(a.palm.transform.position, b.palm.transform.position, u),
-        quaternion: nlerpQuat(a.palm.transform.quaternion, b.palm.transform.quaternion, u),
+        quaternion: slerpQuat(a.palm.transform.quaternion, b.palm.transform.quaternion, u),
       },
       thumbBase: {
         position: lerpVec3(a.palm.thumbBase.position, b.palm.thumbBase.position, u),
-        quaternion: nlerpQuat(a.palm.thumbBase.quaternion, b.palm.thumbBase.quaternion, u),
+        quaternion: slerpQuat(a.palm.thumbBase.quaternion, b.palm.thumbBase.quaternion, u),
       },
     },
     bends,
@@ -127,6 +154,6 @@ export function interpolatePose(a: Pose, b: Pose, t: number): Pose {
       abduction: lerp(a.thumbCMC.abduction, b.thumbCMC.abduction, u),
       rotation: lerp(a.thumbCMC.rotation, b.thumbCMC.rotation, u),
     },
-    contacts: u < 0.5 ? a.contacts : b.contacts,
+    contacts: [],
   };
 }

@@ -16,7 +16,7 @@ import {
   type Easing,
   type Technique,
 } from "../../data/technique";
-import { defaultHandPose, FINGER_ORDER, type HandType, type Pose } from "../../hand/HandRig";
+import { defaultHandPose, FINGER_ORDER, type Contact, type HandType, type Pose } from "../../hand/HandRig";
 import { HandRigView } from "../../hand/HandRigView";
 import { parseMoves } from "../../notation/alg";
 import {
@@ -122,7 +122,15 @@ function jointName(name: string): string {
   return name === "thumb" ? "IP" : "PIP";
 }
 
-function poseSummary(pose: Pose): string {
+/** 当前帧活跃的接触（来自手法 contactTracks 精确起止帧） */
+function activeContactsAt(frame: number): Contact[] {
+  if (!tech.value) return [];
+  return tech.value.contactTracks
+    .filter((c) => c.startFrame <= frame && frame <= c.endFrame)
+    .map((c) => c.contact);
+}
+
+function poseSummary(pose: Pose, contacts: Contact[] = pose.contacts): string {
   const lines = FINGER_ORDER.map((name) => {
     const arr = pose.bends[name];
     const joint = name === "thumb" ? 2 : 1;
@@ -133,7 +141,7 @@ function poseSummary(pose: Pose): string {
   lines.push(
     `palm pos (${pose.palm.transform.position.x.toFixed(2)}, ${pose.palm.transform.position.y.toFixed(2)}, ${pose.palm.transform.position.z.toFixed(2)})`,
   );
-  lines.push(`contacts: ${pose.contacts.length ? pose.contacts.map((c) => `${c.finger}→${c.target}`).join(", ") : "—"}`);
+  lines.push(`contacts: ${contacts.length ? contacts.map((c) => `${c.finger}→${c.target}`).join(", ") : "—"}`);
   return lines.join("\n");
 }
 
@@ -168,7 +176,10 @@ const previewTableRows = computed(() => {
       sec: (f / tech.value.frameRate).toFixed(2),
       ip: Math.round(ip),
       dip: Math.round(dip),
-      contact: pose.contacts.length ? `${pose.contacts[0].finger}→${pose.contacts[0].target}` : "—",
+      contact: (() => {
+        const act = activeContactsAt(f);
+        return act.length ? `${act[0].finger}→${act[0].target}` : "—";
+      })(),
     });
   }
   return rows;
@@ -182,7 +193,11 @@ function renderSelected(): void {
   if (kfFrameEl.value) kfFrameEl.value.value = kf ? String(kf.frame) : "";
   if (kfEasingEl.value) kfEasingEl.value.value = kf?.easing ?? "linear";
   if (kfPoseEl.value) {
-    kfPoseEl.value.textContent = kf ? poseSummary(kf.pose) : tech.value ? t("editor.noKfSelected") : "";
+    kfPoseEl.value.textContent = kf
+      ? poseSummary(kf.pose, activeContactsAt(kf.frame))
+      : tech.value
+        ? t("editor.noKfSelected")
+        : "";
   }
   if (kfDeleteEl.value) kfDeleteEl.value.disabled = !kf;
 }
@@ -203,7 +218,11 @@ function renderPreview(): void {
       : "";
   }
   const pose = previewPose();
-  if (pvPoseEl.value) pvPoseEl.value.textContent = pose ? poseSummary(pose) : t("editor.needKf");
+  if (pvPoseEl.value) {
+    pvPoseEl.value.textContent = pose
+      ? poseSummary(pose, activeContactsAt(previewFrame.value))
+      : t("editor.needKf");
+  }
   if (handView) {
   handView.setPose(pose ?? defaultHandPose((handTypeSelectEl.value?.value as HandType) ?? "right"));
   }

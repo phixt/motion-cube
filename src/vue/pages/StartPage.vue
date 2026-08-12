@@ -1,38 +1,31 @@
 <script setup lang="ts">
-import { useRouter } from "vue-router";
-import WinButton from "../../vendor/winui-on-web/components/WinButton.vue";
 import WinTextBlock from "../../vendor/winui-on-web/components/WinTextBlock.vue";
 import { useI18n } from "../i18n";
 
 const { t } = useI18n();
-const router = useRouter();
 
-const actions: { route: string; key: string; accent?: boolean }[] = [
-  { route: "game", key: "start.play", accent: true },
-  { route: "library", key: "start.library" },
-  { route: "editor", key: "start.editor" },
-  { route: "hand", key: "start.hand" },
-  { route: "keymap", key: "start.keymap" },
-  { route: "help", key: "start.help" },
+/** 引导：各功能入口在左侧导航，这里仅作说明 */
+const guideItems = [
+  { key: "start.guideGame", icon: "\uE768" },
+  { key: "start.guideLibrary", icon: "\uE8A5" },
+  { key: "start.guideEditor", icon: "\uE70F" },
+  { key: "start.guideHand", icon: "\uE7EF" },
+  { key: "start.guideKeymap", icon: "\uE713" },
+  { key: "start.guideHelp", icon: "\uE897" },
 ];
-
-const go = (route: string) => void router.push({ name: route });
 </script>
 
 <template>
   <div class="start-page">
     <WinTextBlock class="start-title" :Text="t('start.title')" FontSize="38" FontWeight="SemiBold" />
     <WinTextBlock class="page-sub" :Text="t('start.sub')" FontSize="14" />
-    <div class="start-actions">
-      <WinButton
-        v-for="a in actions"
-        :key="a.route"
-        :data-route="a.route"
-        :Content="t(a.key)"
-        :Style="a.accent ? 'AccentButtonStyle' : 'DefaultButtonStyle'"
-        MinWidth="200"
-        @Click="go(a.route)" />
-    </div>
+    <WinTextBlock class="start-guide-hint" :Text="t('start.guide')" FontSize="14" />
+    <ul class="start-guide-list">
+      <li v-for="g in guideItems" :key="g.key">
+        <span class="guide-icon" aria-hidden="true">{{ g.icon }}</span>
+        <span>{{ t(g.key) }}</span>
+      </li>
+    </ul>
   </div>
 </template>
 
@@ -58,11 +51,33 @@ const go = (route: string) => void router.push({ name: route });
   color: var(--text-secondary);
 }
 
-.start-actions {
+.start-guide-hint {
+  margin-top: 18px;
+  color: var(--text-secondary);
+}
+
+.start-guide-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  color: var(--text-primary);
+}
+
+.start-guide-list li {
+  display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 22px;
+}
+
+.guide-icon {
+  font-family: "WinUIOnWebIcons";
+  font-size: 16px;
+  color: var(--accent-base);
+  width: 20px;
+  text-align: center;
 }
 </style>

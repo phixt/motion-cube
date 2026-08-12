@@ -21,6 +21,13 @@ export type StepMapping = {
   endFrame: number;
 };
 
+/** 接触轨道：精确起止帧（params.md contact.lifetime），与关键帧姿态分离，可中途接触/释放 */
+export type ContactTrack = {
+  startFrame: number;
+  endFrame: number;
+  contact: Contact;
+};
+
 export type Technique = {
   id: string;
   name: string;
@@ -30,6 +37,8 @@ export type Technique = {
   /** 稀疏控制点，按 frame 升序 */
   keyframes: TechniqueKeyframe[];
   stepMapping: StepMapping[];
+  /** 接触轨道（精确起止帧） */
+  contactTracks: ContactTrack[];
 };
 
 export class TechniqueError extends Error {}
@@ -47,6 +56,15 @@ export function validateTechnique(t: Technique): void {
       throw new TechniqueError(`stepMapping 区间非法：${m.startFrame}–${m.endFrame}`);
     }
   }
+  for (const c of t.contactTracks) {
+    if (!Number.isInteger(c.startFrame) || c.startFrame < 0) {
+      throw new TechniqueError(`接触轨道 startFrame 非法：${c.startFrame}`);
+    }
+    if (!Number.isInteger(c.endFrame) || c.endFrame < c.startFrame) {
+      throw new TechniqueError(`接触轨道区间非法：${c.startFrame}–${c.endFrame}`);
+    }
+    if (!c.contact) throw new TechniqueError("接触轨道缺少 contact");
+  }
 }
 
 export type NewTechnique = {
@@ -56,6 +74,7 @@ export type NewTechnique = {
   frameRate?: number;
   keyframes?: TechniqueKeyframe[];
   stepMapping?: StepMapping[];
+  contactTracks?: ContactTrack[];
 };
 
 export function createTechnique(input: NewTechnique): Technique {
@@ -66,6 +85,7 @@ export function createTechnique(input: NewTechnique): Technique {
     frameRate: input.frameRate ?? DEFAULT_FRAME_RATE,
     keyframes: sortKeyframes(input.keyframes ?? []),
     stepMapping: [...(input.stepMapping ?? [])],
+    contactTracks: [...(input.contactTracks ?? [])],
   };
   validateTechnique(t);
   return t;
@@ -210,6 +230,30 @@ function parseStepMapping(v: unknown): StepMapping[] {
   });
 }
 
+/** 深度校验并规范化接触轨道（复用 parseContacts 的接触校验） */
+function parseContactTracks(v: unknown): ContactTrack[] {
+  if (!Array.isArray(v)) throw new TechniqueError("contactTracks 必须为数组");
+  return v.map((c, i) => {
+    const o = c as Record<string, unknown> | null;
+    if (!o || typeof o !== "object") throw new TechniqueError(`contactTracks[${i}] 必须为对象`);
+    const { startFrame, endFrame, contact } = o;
+    if (
+      !Number.isInteger(startFrame) ||
+      !Number.isInteger(endFrame) ||
+      (startFrame as number) < 0 ||
+      (endFrame as number) < (startFrame as number)
+    ) {
+      throw new TechniqueError(`contactTracks[${i}] 帧区间非法：${String(startFrame)}–${String(endFrame)}`);
+    }
+    if (contact === undefined) throw new TechniqueError(`contactTracks[${i}] 缺少 contact`);
+    return {
+      startFrame: startFrame as number,
+      endFrame: endFrame as number,
+      contact: parseContacts([contact])[0],
+    };
+  });
+}
+
 export function deserializeTechnique(text: string): Technique {
   let raw: unknown;
   try {
@@ -225,6 +269,7 @@ export function deserializeTechnique(text: string): Technique {
     keyframes = (obj.keyframes as unknown[]).map(parseKeyframe);
   }
   const stepMapping = obj.stepMapping === undefined ? [] : parseStepMapping(obj.stepMapping);
+  const contactTracks = obj.contactTracks === undefined ? [] : parseContactTracks(obj.contactTracks);
   const t: Technique = {
     id: typeof obj.id === "string" ? obj.id : crypto.randomUUID(),
     name: typeof obj.name === "string" ? obj.name : "",
@@ -232,6 +277,7 @@ export function deserializeTechnique(text: string): Technique {
     frameRate: typeof obj.frameRate === "number" ? obj.frameRate : DEFAULT_FRAME_RATE,
     keyframes: sortKeyframes(keyframes),
     stepMapping,
+    contactTracks,
   };
   validateTechnique(t);
   return t;
