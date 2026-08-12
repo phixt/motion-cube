@@ -39,7 +39,9 @@ const cfg = ref<HandRigConfig>(loadHandRigConfig());
 const statusText = ref("");
 const scaleReadout = ref("");
 const previewRef = ref<HTMLElement | null>(null);
+const sidePreviewRef = ref<HTMLElement | null>(null);
 let calib: HandCalibView | null = null;
+let calibSide: HandCalibView | null = null;
 
 const setStatus = (s: string): void => {
   statusText.value = s;
@@ -47,6 +49,7 @@ const setStatus = (s: string): void => {
 
 const refresh = (): void => {
   calib?.setConfig(cfg.value);
+  calibSide?.setConfig(cfg.value);
   const pinkyLen = cfg.value.fingers.pinky.reduce((s, seg) => s + seg.length, 0);
   scaleReadout.value = t("hand.scaleNote", { n: (pinkyLen * cfg.value.handScale).toFixed(2) });
 };
@@ -122,16 +125,19 @@ const reset = (): void => {
 };
 
 onMounted(() => {
-  if (!previewRef.value) return;
-  calib = new HandCalibView(previewRef.value, cfg.value);
-  (globalThis as { __motionCubeHandCalib?: unknown }).__motionCubeHandCalib = { calib };
+  if (!previewRef.value || !sidePreviewRef.value) return;
+  calib = new HandCalibView(previewRef.value, cfg.value, "top");
+  calibSide = new HandCalibView(sidePreviewRef.value, cfg.value, "left");
+  (globalThis as { __motionCubeHandCalib?: unknown }).__motionCubeHandCalib = { calib, calibSide };
   syncInputs();
   refresh();
 });
 
 onBeforeUnmount(() => {
   calib?.dispose();
+  calibSide?.dispose();
   calib = null;
+  calibSide = null;
   delete (globalThis as { __motionCubeHandCalib?: unknown }).__motionCubeHandCalib;
 });
 </script>
@@ -143,7 +149,16 @@ onBeforeUnmount(() => {
 
     <div class="hand-calib">
       <div class="hand-preview-wrap">
-        <div ref="previewRef" id="hand-calib-view" class="hand-preview"></div>
+        <div class="hand-views">
+          <div class="hand-view-box">
+            <div ref="previewRef" id="hand-calib-view" class="hand-preview"></div>
+            <WinTextBlock class="hand-view-label" :Text="t('hand.viewTop')" FontSize="12" />
+          </div>
+          <div class="hand-view-box">
+            <div ref="sidePreviewRef" id="hand-calib-side-view" class="hand-preview"></div>
+            <WinTextBlock class="hand-view-label" :Text="t('hand.viewLeft')" FontSize="12" />
+          </div>
+        </div>
         <WinTextBlock class="hand-unit-note" :Text="t('hand.rulerUnit')" FontSize="12" />
         <WinTextBlock class="page-note" :Text="t('hand.viewHint')" />
       </div>
@@ -271,11 +286,27 @@ onBeforeUnmount(() => {
 .hand-preview {
   position: relative;
   width: 100%;
-  min-height: 420px;
+  min-height: 380px;
   border: 1px solid var(--stroke-divider);
   border-radius: var(--ControlCornerRadius, 6px);
   background: var(--ctrl-solid-fill, #101014);
   overflow: hidden;
+}
+
+.hand-views {
+  display: flex;
+  gap: 12px;
+}
+
+.hand-view-box {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.hand-view-label {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-tertiary);
 }
 
 .hand-unit-note {
