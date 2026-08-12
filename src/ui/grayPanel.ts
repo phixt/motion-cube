@@ -8,6 +8,7 @@ import {
   graySet,
   stickerWorldPos,
   type Face,
+  type GrayKind,
   type GrayPreset,
   type GrayState,
   type StickerId,
@@ -152,6 +153,8 @@ export function renderGrayPanel(
     getState: () => GrayState;
     setState: (s: GrayState) => void;
     getBase: () => Face;
+    /** 当前涂灰类型：mutable（可变）/ immutable（不可变）；编辑器阶段可切换 */
+    getKind: () => GrayKind;
     applyPreset: (p: GrayPreset | "clear") => void;
     getPositions: () => Map<StickerId, { x: number; y: number; z: number }>;
   },
@@ -288,7 +291,13 @@ export function renderGrayPanel(
     const has = graySet(state).has(id);
     const mutable = state.mutable.filter((s) => s !== id);
     const immutable = state.immutable.filter((s) => s !== id);
-    opts.setState(has ? { mutable, immutable } : { mutable: [...mutable, id], immutable });
+    opts.setState(
+      has
+        ? { mutable, immutable }
+        : opts.getKind() === "immutable"
+          ? { mutable, immutable: [...immutable, id] }
+          : { mutable: [...mutable, id], immutable },
+    );
   };
   svg.addEventListener("pointerdown", (e) => {
     svg.focus();

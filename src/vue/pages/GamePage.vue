@@ -189,6 +189,52 @@ watch(speed, (v) => session?.setSpeed(v));
   font-size: 13px;
 }
 
+.gray-panel .gray-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text-primary);
+}
+
+.gray-panel .gray-presets {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.gray-panel .gray-presets button {
+  padding: 2px 9px;
+  font-size: 12px;
+}
+
+.gray-panel .gray-net {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0 auto;
+  user-select: none;
+}
+
+.gray-panel .gray-cell {
+  cursor: pointer;
+  stroke-width: 0;
+}
+
+.gray-panel .gray-body {
+  pointer-events: none;
+}
+
+.gray-panel .gray-face-label {
+  font-size: 10px;
+  fill: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.gray-panel .gray-net:focus {
+  outline: 1px solid var(--accent-base);
+  outline-offset: 2px;
+}
+
 .bottom-panel {
   position: absolute;
   left: 12px;

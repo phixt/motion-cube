@@ -345,6 +345,23 @@ const pipAfter = await page.$eval("#kf-pose", (el) => (el.textContent.match(/ind
 if (pipBefore === pipAfter) throw new Error(`正弦路径未改变中间帧姿态：${pipBefore}`);
 console.log(`sine path ok: index PIP ${pipBefore} -> ${pipAfter}`);
 
+// 8i) 编辑器标灰面板 + 不可变选项
+await page.click("#editor-gray-toggle");
+await sleep(300);
+await page.click('#gray-panel .gray-preset[data-preset="cross"]');
+await sleep(400);
+const egrayCount = await page.$$eval("#gray-panel [data-sticker]", (els) =>
+  els.filter((e) => e.getAttribute("fill") === "#8f959e").length,
+);
+if (egrayCount !== 45) throw new Error(`编辑器初始十字灰数应为 45：${egrayCount}`);
+await page.click(".editor-gray-kind-toggle");
+await sleep(200);
+await page.click('#gray-panel [data-sticker="D4"]');
+await sleep(300);
+const d4stroke = await page.$eval('#gray-panel [data-sticker="D4"]', (el) => el.getAttribute("stroke"));
+if (d4stroke !== "#222") throw new Error(`不可变点选未生效：${d4stroke}`);
+console.log("editor gray panel ok");
+
 await page.$eval("#editor-view", (el) => el.scrollIntoView({ block: "center" }));
 await sleep(400);
 await shot("ui-16-editor-view");

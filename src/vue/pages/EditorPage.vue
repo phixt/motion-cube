@@ -9,6 +9,8 @@ import WinButton from "../../vendor/winui-on-web/components/WinButton.vue";
 import WinTextBlock from "../../vendor/winui-on-web/components/WinTextBlock.vue";
 import WinToggleSwitch from "../../vendor/winui-on-web/components/WinToggleSwitch.vue";
 import { CubePlayer } from "../../cube/CubePlayer";
+import { GrayOverlay } from "../../cube/GrayOverlay";
+import { createGrayState, presetGrayState, type GrayPreset, type GrayState } from "../../cube/stickering";
 import { loadLibrary, saveLibrary, upsertTechniqueInLib } from "../../data/libraryStore";
 import {
   createTechnique,
@@ -21,6 +23,7 @@ import { defaultHandPose, FINGER_ORDER, type Contact, type HandType, type Pose }
 import { HandRigView } from "../../hand/HandRigView";
 import { parseMoves } from "../../notation/alg";
 import { loadSettings } from "../../settings";
+import { renderGrayPanel } from "../../ui/grayPanel";
 import {
   applyEasing,
   interpolatePose,
@@ -73,6 +76,12 @@ let player: CubePlayer | null = null;
 let handView: HandRigView | null = null;
 let timer: number | null = null;
 const snapOn = ref(true);
+const grayState = ref<GrayState>(createGrayState());
+const grayKind = ref<"mutable" | "immutable">("mutable");
+const grayPanelOpen = ref(false);
+const grayPanelEl = ref<HTMLElement | null>(null);
+let grayOverlay: GrayOverlay | null = null;
+let grayPanelApi: ReturnType<typeof renderGrayPanel> | null = null;
 
 const totalFrames = computed(() => {
   if (!tech.value || tech.value.keyframes.length === 0) return 0;
@@ -552,6 +561,33 @@ const onSinePath = (): void => {
   statusText.value = t("editor.sinePathDone");
 };
 
+/** 编辑器标灰面板：切换显示时惰性渲染；预设/点选走 GrayState + 3D 覆盖层 */
+const toggleGrayPanel = (): void => {
+  grayPanelOpen.value = !grayPanelOpen.value;
+  if (!grayPanelOpen.value || !grayPanelEl.value || grayPanelApi) return;
+  grayOverlay?.setRenderListener(() => grayPanelApi?.refresh());
+  grayPanelApi = renderGrayPanel(grayPanelEl.value, {
+    getState: () => grayState.value,
+    setState: (s) => {
+      grayState.value = s;
+      grayOverlay?.requestApply(s);
+      grayPanelApi?.refresh();
+    },
+    getBase: () => loadSettings().baseFace,
+    getKind: () => grayKind.value,
+    getPositions: () => grayOverlay?.currentPositions() ?? new Map(),
+    applyPreset: (p: GrayPreset | "clear") => {
+      grayState.value = p === "clear" ? createGrayState() : presetGrayState(p, loadSettings().baseFace);
+      grayOverlay?.requestApply(grayState.value);
+      grayPanelApi?.refresh();
+    },
+  });
+};
+
+const toggleGrayKind = (): void => {
+  grayKind.value = grayKind.value === "mutable" ? "immutable" : "mutable";
+};
+
 const selectKf = (frame: number): void => {
   selectedFrame.value = frame;
   previewFrame.value = frame;
@@ -567,6 +603,8 @@ onMounted(() => {
   });
   handView = new HandRigView(player);
   void handView.init();
+  grayOverlay = new GrayOverlay(player);
+  void grayOverlay.init().then(() => grayOverlay?.requestApply(grayState.value));
   (globalThis as { __motionCubeEditor?: unknown }).__motionCubeEditor = { player, handView };
   renderAll();
   timer = window.setInterval(() => {
@@ -588,6 +626,8 @@ onBeforeUnmount(() => {
   if (timer !== null) window.clearInterval(timer);
   editorViewEl.value?.replaceChildren();
   delete (globalThis as { __motionCubeEditor?: unknown }).__motionCubeEditor;
+  grayOverlay?.dispose();
+  grayOverlay = null;
   player = null;
   handView = null;
 });
@@ -614,6 +654,19 @@ onBeforeUnmount(() => {
         <select id="view-hand" ref="handTypeSelectEl" class="native-select" @change="onHandTypeChange">
           <option v-for="opt in handTypeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
         </select>
+        <WinButton id="editor-gray-toggle" :Content="t('gray.btn')" @Click="toggleGrayPanel" />
+      </div>
+      <div v-show="grayPanelOpen" class="editor-gray-panel">
+        <div class="editor-gray-kind-row">
+          <WinTextBlock class="editor-label" :Text="t('gray.title')" FontSize="13" />
+          <WinToggleSwitch
+            class="editor-gray-kind-toggle"
+            :IsOn="grayKind === 'immutable'"
+            :OnContent="t('gray.kind.immutable')"
+            :OffContent="t('gray.kind.mutable')"
+            @Toggled="toggleGrayKind" />
+        </div>
+        <div ref="grayPanelEl" id="gray-panel" class="editor-gray-panel-box"></div>
       </div>
       <div ref="editorViewEl" id="editor-view" class="editor-view"></div>
       <WinTextBlock class="page-note" :Text="t('editor.viewHint')" />
@@ -825,6 +878,67 @@ onBeforeUnmount(() => {
   border-radius: var(--ControlCornerRadius, 6px);
   background: var(--ctrl-solid-fill, #101014);
   overflow: hidden;
+}
+
+.editor-gray-panel {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--stroke-divider);
+  border-radius: var(--ControlCornerRadius, 6px);
+  background: var(--ctrl-fill-default);
+}
+
+.editor-gray-kind-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.editor-gray-panel-box .gray-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text-primary);
+}
+
+.editor-gray-panel-box .gray-presets {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.editor-gray-panel-box .gray-presets button {
+  padding: 2px 9px;
+  font-size: 12px;
+}
+
+.editor-gray-panel-box .gray-net {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0 auto;
+  user-select: none;
+}
+
+.editor-gray-panel-box .gray-cell {
+  cursor: pointer;
+  stroke-width: 0;
+}
+
+.editor-gray-panel-box .gray-body {
+  pointer-events: none;
+}
+
+.editor-gray-panel-box .gray-face-label {
+  font-size: 10px;
+  fill: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.editor-gray-panel-box .gray-net:focus {
+  outline: 1px solid var(--accent-base);
+  outline-offset: 2px;
 }
 
 .tl-wrap {

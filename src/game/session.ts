@@ -59,6 +59,7 @@ export function createGameSession(
       grayPanelApi.refresh();
     },
     getBase: () => settings.baseFace,
+    getKind: () => "mutable",
     getPositions: () => overlay.currentPositions(),
     applyPreset: (p: GrayPreset | "clear") => {
       grayState.state = p === "clear" ? createGrayState() : presetGrayState(p, settings.baseFace);
