@@ -7,7 +7,7 @@ import { createFormula } from "../src/data/formula.ts";
 import { serializeLibraryData, type LibraryData } from "../src/data/libraryStore.ts";
 import { createTechnique } from "../src/data/technique.ts";
 import { defaultHandPose, type Contact } from "../src/hand/HandRig.ts";
-import { parseMoves } from "../src/notation/alg.ts";
+import { parseMoves, splitCompoundMove } from "../src/notation/alg.ts";
 
 const OUT = "data/samples";
 mkdirSync(OUT, { recursive: true });
@@ -117,9 +117,9 @@ const technique = createTechnique({
   ],
 });
 
-// 其余公式各配一个基础手法：自动动作刻度（每步 60 帧 = 1 秒，stepMapping 等长均分），
+// 其余公式各配一个基础手法：自动动作刻度（每步 18 帧 = 0.3 秒，与 cubing 单步动画匹配），
 // 无关键帧（播放时手用默认姿态、魔方按公式逐步骤驱动）——保证示例都能正常播放
-const STEP_FRAMES = 60;
+const STEP_FRAMES = 18;
 const formulaTechniques = formulas
   .filter((f) => f.id !== flickFormula.id)
   .map((f) => {
@@ -129,6 +129,7 @@ const formulaTechniques = formulas
           .split(/\s+/)
           .filter(Boolean)
           .map((s) => s.replace(/[()]/g, ""))
+          .flatMap(splitCompoundMove)
       : [];
     return createTechnique({
       name: `${f.name}（手法）`,

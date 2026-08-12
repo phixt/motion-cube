@@ -4,7 +4,7 @@
  * 测试依赖的控件保持原生（select/number/range，playtest 直接操作 DOM），
  * 按钮与标题使用 Win 控件。
  */
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import WinButton from "../../vendor/winui-on-web/components/WinButton.vue";
 import WinTextBlock from "../../vendor/winui-on-web/components/WinTextBlock.vue";
 import WinToggleSwitch from "../../vendor/winui-on-web/components/WinToggleSwitch.vue";
@@ -23,7 +23,7 @@ import {
 import { defaultHandPose, FINGER_ORDER, type Contact, type HandType, type Pose } from "../../hand/HandRig";
 import { HandRigView } from "../../hand/HandRigView";
 import { KeymapController } from "../../input/keymap";
-import { parseMoves } from "../../notation/alg";
+import { parseMoves, splitCompoundMove } from "../../notation/alg";
 import { loadEditorKeymap, loadSettings } from "../../settings";
 import { renderGrayPanel } from "../../ui/grayPanel";
 import {
@@ -43,7 +43,8 @@ const pxPerFrame = ref(6);
 const PREVIEW_SAMPLE_STEP = 15;
 const AUTO_PATH_STEP = 15; // 自动路径中间关键帧间隔（帧）
 const SNAP_STEP = 1 / 3; // 吸附步长：1/3 块边长（sticker 网格）
-const STEP_DEFAULT_SEC = 1; // 每动作默认时长（秒）：手法初始时长 = 公式步数 × t
+// 每动作默认时长（秒）＝ cubing 单步动画基准（0.3s），改时长后速度由 syncStepSpeed 校准匹配
+const STEP_DEFAULT_SEC = 0.3;
 
 const lib = ref(loadLibrary());
 const tech = ref<Technique | null>(null);
@@ -325,11 +326,13 @@ function computeFormulaMoves(): void {
   if (!f) return;
   const parsed = parseMoves(f.moves);
   if (!parsed.ok) return;
-  // 去括号：normalized 保留分组括号（如 "(R'"），单步应用需纯动作 token
-  formulaMoves = parsed.normalized
+  // 去括号 + 拆分复合动作（如 "UD'" → U、D'）：cubing 动画处理复合动作会崩溃
+  // （areQuantumMovesSameAxis），单面顺序执行既稳定又与记法语义等价
+  const tokens = parsed.normalized
     .split(/\s+/)
     .filter(Boolean)
     .map((s) => s.replace(/[()]/g, ""));
+  formulaMoves = tokens.flatMap(splitCompoundMove);
 }
 
 /** 步进时长校准：让 cubing 单步动画时长 ≈ stepMapping 区间时长 */
@@ -426,7 +429,11 @@ const onKfDelete = (): void => {
 
 /** 姿态坐标编辑（手掌位置 X/Y/Z；吸附开启时按 1/3 块边长取整） */
 const onPoseInput = (e: Event, axis: "x" | "y" | "z"): void => {
-  if (!tech.value || selectedFrame.value === null) return;
+  if (!tech.value) return;
+  if (selectedFrame.value === null) {
+    statusText.value = t("editor.poseNeedKf");
+    return;
+  }
   const raw = (e.target as HTMLInputElement).value;
   let v = Number(raw);
   if (!Number.isFinite(v)) return;
@@ -505,6 +512,16 @@ const onPvPlay = (): void => {
   playing.value = !playing.value;
 };
 
+// 切换循环/倒放时强制刷新（停止 + 重置），避免方向切换造成的状态错乱
+watch([loopPlay, reversePlay], () => {
+  if (!playing.value) return;
+  playing.value = false;
+  player?.reset();
+  stepMoveIndex = 0;
+  previewFrame.value = 0;
+  renderPreview();
+});
+
 /** 每动作完成时长编辑（秒，最小值 > 0）：修改后按顺序连续重建 stepMapping */
 const onStepDurationChange = (e: Event, idx: number): void => {
   if (!tech.value) return;
@@ -518,13 +535,29 @@ const onStepDurationChange = (e: Event, idx: number): void => {
       i === idx ? sec : (m.endFrame - m.startFrame) / t2.frameRate,
     );
     let acc = 0;
+    const stepMapping = secs.map((s, i) => {
+      const startFrame = Math.round(acc * t2.frameRate);
+      acc += s;
+      return { stepIndex: i, startFrame, endFrame: Math.round(acc * t2.frameRate) };
+    });
+    // 关键帧等比例跟随动作刻度：按原所属步骤内的相对进度映射到新步骤
+    const keyframes = t2.keyframes.map((kf) => {
+      const old = t2.stepMapping;
+      const step = old.find((m) => kf.frame >= m.startFrame && kf.frame <= m.endFrame);
+      if (!step || old.length === 0) {
+        // 步骤外：按总时长等比例缩放
+        const oldTotal = Math.max(old.length ? old[old.length - 1].endFrame : 1, 1);
+        const newTotal = Math.max(stepMapping.length ? stepMapping[stepMapping.length - 1].endFrame : 1, 1);
+        return { ...kf, frame: Math.round((kf.frame / oldTotal) * newTotal) };
+      }
+      const ratio = (kf.frame - step.startFrame) / Math.max(step.endFrame - step.startFrame, 1);
+      const ns = stepMapping[step.stepIndex];
+      return { ...kf, frame: Math.round(ns.startFrame + ratio * (ns.endFrame - ns.startFrame)) };
+    });
     return {
       ...t2,
-      stepMapping: secs.map((s, i) => {
-        const startFrame = Math.round(acc * t2.frameRate);
-        acc += s;
-        return { stepIndex: i, startFrame, endFrame: Math.round(acc * t2.frameRate) };
-      }),
+      stepMapping,
+      keyframes,
     };
   });
 };
@@ -754,12 +787,12 @@ onMounted(() => {
         renderPreview();
         return;
       }
-      // 倒放：退出已应用步骤区间时撤销该步
+      // 倒放：退出已应用步骤区间时撤销该步（重设"已完成部分"公式，稳定无动画队列错乱）
       while (stepMoveIndex > 0) {
         const m = tech.value.stepMapping[stepMoveIndex - 1];
         if (previewFrame.value < m.startFrame) {
-          player?.undoLastMove();
           stepMoveIndex--;
+          if (player) player.element.alg = formulaMoves.slice(0, stepMoveIndex).join(" ");
         } else {
           break;
         }
@@ -1219,13 +1252,13 @@ onBeforeUnmount(() => {
 
 .tl-kf {
   position: absolute;
-  top: 0;
+  top: 21px; /* 标尺底部，尖端朝下指向下方动作刻度 */
   width: 10px;
   height: 9px;
   padding: 0;
   border: none;
   background: var(--accent-base); /* 纯三角：clip-path，无残留背景 */
-  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
   cursor: pointer;
 }
 

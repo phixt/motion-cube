@@ -163,9 +163,15 @@ export function createDefaultPose(rig: HandRig): Pose {
  */
 export function defaultHandPose(handType: HandType = "right"): Pose {
   const pose = createDefaultPose(createDefaultRig(handType));
-  // 手掌置于魔方左前方稍远处（右手：拇指侧朝魔方，四指伸向前表面），
-  // 拉开距离避免遮挡魔方主体；放大后中指全长 ≈ 2.8 块（用户后续自行调整位姿）
-  pose.palm.transform.position = { x: -3.0, y: 0.5, z: 9.0 };
-  pose.palm.transform.quaternion = { w: 0, x: 0, y: 1, z: 0 }; // rotY 180°
+  // 基准：单拨 U 原始坐标（-3, 0.5, 9）+ 手指朝向调转、整手竖直：
+  // 手指朝上（+Y）、手掌朝魔方（-Z）、右手拇指朝左（-X）。
+  // 坐标待用户手动微调后定稿；左手暂为镜像占位（用户调完右手后对称定义）。
+  if (handType === "left") {
+    pose.palm.transform.position = { x: 3.0, y: 0.5, z: 9.0 };
+    pose.palm.transform.quaternion = { w: 0, x: 0, y: Math.SQRT1_2, z: Math.SQRT1_2 };
+  } else {
+    pose.palm.transform.position = { x: -3.0, y: 0.5, z: 9.0 };
+    pose.palm.transform.quaternion = { w: 0, x: 0, y: Math.SQRT1_2, z: -Math.SQRT1_2 };
+  }
   return pose;
 }

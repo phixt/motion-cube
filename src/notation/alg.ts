@@ -24,6 +24,14 @@ export function normalizeMoves(input: string): string {
   return Alg.fromString(input).toString();
 }
 
+/** 把复合动作 token 拆成单面动作：UD' → [U, D']；R2' → [R2']（保持修饰）。
+ * 用于单步应用/播放：cubing 动画处理复合动作会崩溃（areQuantumMovesSameAxis）。 */
+export function splitCompoundMove(token: string): string[] {
+  const parts = token.match(/[UDFBLRudfbMESxyz](\d*'?)/g);
+  if (!parts || parts.length <= 1) return [token];
+  return parts;
+}
+
 export function invertMoves(input: string): string {
   return Alg.fromString(input).invert().toString();
 }

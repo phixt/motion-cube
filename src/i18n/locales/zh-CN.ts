@@ -213,6 +213,7 @@ export const zhCN: Record<string, string> = {
   "editor.easing": "缓动",
   "editor.deleteKf": "删除关键帧",
   "editor.pose": "手掌坐标",
+  "editor.poseNeedKf": "请先点击时间线上的关键帧，再编辑姿态",
   "editor.snapOn": "吸附 开",
   "editor.snapOff": "吸附 关",
   "editor.posX": "X",

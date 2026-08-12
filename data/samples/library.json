@@ -29,7 +29,7 @@
   ],
   "formulas": [
     {
-      "id": "48cca6a1-0141-402e-a575-0246294b4e92",
+      "id": "fef0ec0c-9e1d-4a7e-b52c-9386e33732c2",
       "name": "V Perm",
       "moves": "(R' U R' U') (R D' R' D) R' UD' (R2 U' R2' D R2)",
       "tags": [
@@ -38,7 +38,7 @@
       "categoryId": "cat-pll"
     },
     {
-      "id": "efe4ebfa-6bca-4bad-b214-58b9026ca14f",
+      "id": "0cb866f6-a7dc-41da-8666-8d3bdc09d0cf",
       "name": "OLL 21",
       "moves": "R U2 R' U' R U' R'",
       "tags": [
@@ -47,7 +47,7 @@
       "categoryId": "cat-oll"
     },
     {
-      "id": "d4459022-3e3d-4e5b-bba9-dbff8983eaf1",
+      "id": "f50badd7-18df-4875-b5d5-ae2ff610a1ee",
       "name": "H Perm",
       "moves": "M2 U M2 U2 M2 U M2",
       "tags": [
@@ -56,7 +56,7 @@
       "categoryId": "cat-pll"
     },
     {
-      "id": "addc3481-929a-4714-aa49-5493eac9d834",
+      "id": "7463951f-8e2a-43c1-aa67-29d5caeb9b32",
       "name": "ZBLL（示例）",
       "moves": "R U R' U R U2 R'",
       "tags": [
@@ -66,7 +66,7 @@
       "categoryId": "cat-zbll"
     },
     {
-      "id": "a5020437-6a77-4b2a-9a95-ce88a3ea5330",
+      "id": "d52d9c72-3a57-4edf-b0f0-9dd3fcf35268",
       "name": "OLL 1（速拧参考）",
       "moves": "R U2 R2 F R F' U2 R' F R F'",
       "tags": [
@@ -76,7 +76,7 @@
       "categoryId": "cat-oll"
     },
     {
-      "id": "9f0cf78e-abb8-4cbb-9fa0-c0637eb0c737",
+      "id": "69c12586-5894-4059-b3cc-75a80ee67fac",
       "name": "PLL Aa（速拧参考）",
       "moves": "x (R' U R' D2) (R U' R' D2) R2 x'",
       "tags": [
@@ -86,7 +86,7 @@
       "categoryId": "cat-pll"
     },
     {
-      "id": "e99cf89e-cf2f-4423-beed-1037be0a28b8",
+      "id": "32cc6897-621c-49d0-a770-a4def0036bcc",
       "name": "CMLL O Adjacent（速拧参考）",
       "moves": "R U R' F' R U R' U' R' F R2 U' R'",
       "tags": [
@@ -96,7 +96,7 @@
       "categoryId": "cat-cmll"
     },
     {
-      "id": "f571e0c2-fe25-4243-8577-56dd3a177bc2",
+      "id": "a4a95755-80cc-49fe-bbfc-54527468e6ec",
       "name": "ZBLL U 1（速拧参考）",
       "moves": "(R' U' R U' R' U2' R2) (U' L' U R' U' L)",
       "tags": [
@@ -106,7 +106,7 @@
       "categoryId": "cat-zbll"
     },
     {
-      "id": "316b9edb-6108-4f7a-bc3f-2842b5323e79",
+      "id": "32ba0686-29c9-49aa-9896-68cd1fdad0d6",
       "name": "1LLL 1 1（速拧参考）",
       "moves": "U' (F' U' L' U L F) (L' U' L U' L' U B' U B L)",
       "tags": [
@@ -116,7 +116,7 @@
       "categoryId": "cat-1lll"
     },
     {
-      "id": "33c8456d-bc22-4087-a002-955b19273f38",
+      "id": "bf2460eb-0ddb-4c30-a822-142ecf9b0b93",
       "name": "单拨 U",
       "moves": "U",
       "tags": [
@@ -127,9 +127,9 @@
   ],
   "techniques": [
     {
-      "id": "5f639b26-616f-4b61-9fb3-78c931212fb9",
+      "id": "673d7756-d3f9-48ed-b7b4-158fd3688806",
       "name": "单拨 U（示例）",
-      "formulaId": "33c8456d-bc22-4087-a002-955b19273f38",
+      "formulaId": "bf2460eb-0ddb-4c30-a822-142ecf9b0b93",
       "frameRate": 60,
       "keyframes": [
         {
@@ -138,15 +138,15 @@
             "palm": {
               "transform": {
                 "position": {
-                  "x": -3,
+                  "x": 5,
                   "y": 0.5,
-                  "z": 9
+                  "z": 0
                 },
                 "quaternion": {
-                  "w": 0,
+                  "w": 0.5,
                   "x": 0,
-                  "y": 1,
-                  "z": 0
+                  "y": -0.5,
+                  "z": 0.5
                 }
               },
               "thumbBase": {
@@ -203,15 +203,15 @@
             "palm": {
               "transform": {
                 "position": {
-                  "x": -3,
+                  "x": 5,
                   "y": 0.5,
-                  "z": 9
+                  "z": 0
                 },
                 "quaternion": {
-                  "w": 0,
+                  "w": 0.5,
                   "x": 0,
-                  "y": 1,
-                  "z": 0
+                  "y": -0.5,
+                  "z": 0.5
                 }
               },
               "thumbBase": {
@@ -268,15 +268,15 @@
             "palm": {
               "transform": {
                 "position": {
-                  "x": -3,
+                  "x": 5,
                   "y": 0.5,
-                  "z": 9
+                  "z": 0
                 },
                 "quaternion": {
-                  "w": 0,
+                  "w": 0.5,
                   "x": 0,
-                  "y": 1,
-                  "z": 0
+                  "y": -0.5,
+                  "z": 0.5
                 }
               },
               "thumbBase": {
@@ -361,596 +361,601 @@
       ]
     },
     {
-      "id": "e5e7db54-5c0e-4f8f-bff9-55a4575bc311",
+      "id": "1612e367-e5f4-4a8d-a5e8-53df2dd0f341",
       "name": "V Perm（手法）",
-      "formulaId": "48cca6a1-0141-402e-a575-0246294b4e92",
+      "formulaId": "fef0ec0c-9e1d-4a7e-b52c-9386e33732c2",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
         {
           "stepIndex": 0,
           "startFrame": 0,
-          "endFrame": 60
+          "endFrame": 18
         },
         {
           "stepIndex": 1,
-          "startFrame": 60,
-          "endFrame": 120
+          "startFrame": 18,
+          "endFrame": 36
         },
         {
           "stepIndex": 2,
-          "startFrame": 120,
-          "endFrame": 180
+          "startFrame": 36,
+          "endFrame": 54
         },
         {
           "stepIndex": 3,
-          "startFrame": 180,
-          "endFrame": 240
+          "startFrame": 54,
+          "endFrame": 72
         },
         {
           "stepIndex": 4,
-          "startFrame": 240,
-          "endFrame": 300
+          "startFrame": 72,
+          "endFrame": 90
         },
         {
           "stepIndex": 5,
-          "startFrame": 300,
-          "endFrame": 360
+          "startFrame": 90,
+          "endFrame": 108
         },
         {
           "stepIndex": 6,
-          "startFrame": 360,
-          "endFrame": 420
+          "startFrame": 108,
+          "endFrame": 126
         },
         {
           "stepIndex": 7,
-          "startFrame": 420,
-          "endFrame": 480
+          "startFrame": 126,
+          "endFrame": 144
         },
         {
           "stepIndex": 8,
-          "startFrame": 480,
-          "endFrame": 540
+          "startFrame": 144,
+          "endFrame": 162
         },
         {
           "stepIndex": 9,
-          "startFrame": 540,
-          "endFrame": 600
+          "startFrame": 162,
+          "endFrame": 180
         },
         {
           "stepIndex": 10,
-          "startFrame": 600,
-          "endFrame": 660
+          "startFrame": 180,
+          "endFrame": 198
         },
         {
           "stepIndex": 11,
-          "startFrame": 660,
-          "endFrame": 720
+          "startFrame": 198,
+          "endFrame": 216
         },
         {
           "stepIndex": 12,
-          "startFrame": 720,
-          "endFrame": 780
+          "startFrame": 216,
+          "endFrame": 234
         },
         {
           "stepIndex": 13,
-          "startFrame": 780,
-          "endFrame": 840
+          "startFrame": 234,
+          "endFrame": 252
         },
         {
           "stepIndex": 14,
-          "startFrame": 840,
-          "endFrame": 900
-        }
-      ],
-      "contactTracks": []
-    },
-    {
-      "id": "40130b40-3233-49ce-92cb-29aef1b426ad",
-      "name": "OLL 21（手法）",
-      "formulaId": "efe4ebfa-6bca-4bad-b214-58b9026ca14f",
-      "frameRate": 60,
-      "keyframes": [],
-      "stepMapping": [
-        {
-          "stepIndex": 0,
-          "startFrame": 0,
-          "endFrame": 60
-        },
-        {
-          "stepIndex": 1,
-          "startFrame": 60,
-          "endFrame": 120
-        },
-        {
-          "stepIndex": 2,
-          "startFrame": 120,
-          "endFrame": 180
-        },
-        {
-          "stepIndex": 3,
-          "startFrame": 180,
-          "endFrame": 240
-        },
-        {
-          "stepIndex": 4,
-          "startFrame": 240,
-          "endFrame": 300
-        },
-        {
-          "stepIndex": 5,
-          "startFrame": 300,
-          "endFrame": 360
-        },
-        {
-          "stepIndex": 6,
-          "startFrame": 360,
-          "endFrame": 420
-        }
-      ],
-      "contactTracks": []
-    },
-    {
-      "id": "5577b0bf-4e11-4c9b-b90a-916a01cd9c77",
-      "name": "H Perm（手法）",
-      "formulaId": "d4459022-3e3d-4e5b-bba9-dbff8983eaf1",
-      "frameRate": 60,
-      "keyframes": [],
-      "stepMapping": [
-        {
-          "stepIndex": 0,
-          "startFrame": 0,
-          "endFrame": 60
-        },
-        {
-          "stepIndex": 1,
-          "startFrame": 60,
-          "endFrame": 120
-        },
-        {
-          "stepIndex": 2,
-          "startFrame": 120,
-          "endFrame": 180
-        },
-        {
-          "stepIndex": 3,
-          "startFrame": 180,
-          "endFrame": 240
-        },
-        {
-          "stepIndex": 4,
-          "startFrame": 240,
-          "endFrame": 300
-        },
-        {
-          "stepIndex": 5,
-          "startFrame": 300,
-          "endFrame": 360
-        },
-        {
-          "stepIndex": 6,
-          "startFrame": 360,
-          "endFrame": 420
-        }
-      ],
-      "contactTracks": []
-    },
-    {
-      "id": "9c1d0a64-13cf-4e79-a05d-cf87de75e55d",
-      "name": "ZBLL（示例）（手法）",
-      "formulaId": "addc3481-929a-4714-aa49-5493eac9d834",
-      "frameRate": 60,
-      "keyframes": [],
-      "stepMapping": [
-        {
-          "stepIndex": 0,
-          "startFrame": 0,
-          "endFrame": 60
-        },
-        {
-          "stepIndex": 1,
-          "startFrame": 60,
-          "endFrame": 120
-        },
-        {
-          "stepIndex": 2,
-          "startFrame": 120,
-          "endFrame": 180
-        },
-        {
-          "stepIndex": 3,
-          "startFrame": 180,
-          "endFrame": 240
-        },
-        {
-          "stepIndex": 4,
-          "startFrame": 240,
-          "endFrame": 300
-        },
-        {
-          "stepIndex": 5,
-          "startFrame": 300,
-          "endFrame": 360
-        },
-        {
-          "stepIndex": 6,
-          "startFrame": 360,
-          "endFrame": 420
-        }
-      ],
-      "contactTracks": []
-    },
-    {
-      "id": "cb4886c0-ae27-4832-9487-bc90609e3f97",
-      "name": "OLL 1（速拧参考）（手法）",
-      "formulaId": "a5020437-6a77-4b2a-9a95-ce88a3ea5330",
-      "frameRate": 60,
-      "keyframes": [],
-      "stepMapping": [
-        {
-          "stepIndex": 0,
-          "startFrame": 0,
-          "endFrame": 60
-        },
-        {
-          "stepIndex": 1,
-          "startFrame": 60,
-          "endFrame": 120
-        },
-        {
-          "stepIndex": 2,
-          "startFrame": 120,
-          "endFrame": 180
-        },
-        {
-          "stepIndex": 3,
-          "startFrame": 180,
-          "endFrame": 240
-        },
-        {
-          "stepIndex": 4,
-          "startFrame": 240,
-          "endFrame": 300
-        },
-        {
-          "stepIndex": 5,
-          "startFrame": 300,
-          "endFrame": 360
-        },
-        {
-          "stepIndex": 6,
-          "startFrame": 360,
-          "endFrame": 420
-        },
-        {
-          "stepIndex": 7,
-          "startFrame": 420,
-          "endFrame": 480
-        },
-        {
-          "stepIndex": 8,
-          "startFrame": 480,
-          "endFrame": 540
-        },
-        {
-          "stepIndex": 9,
-          "startFrame": 540,
-          "endFrame": 600
-        },
-        {
-          "stepIndex": 10,
-          "startFrame": 600,
-          "endFrame": 660
-        }
-      ],
-      "contactTracks": []
-    },
-    {
-      "id": "0dd2c7d2-9797-4317-a9ad-2c97f57ff43e",
-      "name": "PLL Aa（速拧参考）（手法）",
-      "formulaId": "9f0cf78e-abb8-4cbb-9fa0-c0637eb0c737",
-      "frameRate": 60,
-      "keyframes": [],
-      "stepMapping": [
-        {
-          "stepIndex": 0,
-          "startFrame": 0,
-          "endFrame": 60
-        },
-        {
-          "stepIndex": 1,
-          "startFrame": 60,
-          "endFrame": 120
-        },
-        {
-          "stepIndex": 2,
-          "startFrame": 120,
-          "endFrame": 180
-        },
-        {
-          "stepIndex": 3,
-          "startFrame": 180,
-          "endFrame": 240
-        },
-        {
-          "stepIndex": 4,
-          "startFrame": 240,
-          "endFrame": 300
-        },
-        {
-          "stepIndex": 5,
-          "startFrame": 300,
-          "endFrame": 360
-        },
-        {
-          "stepIndex": 6,
-          "startFrame": 360,
-          "endFrame": 420
-        },
-        {
-          "stepIndex": 7,
-          "startFrame": 420,
-          "endFrame": 480
-        },
-        {
-          "stepIndex": 8,
-          "startFrame": 480,
-          "endFrame": 540
-        },
-        {
-          "stepIndex": 9,
-          "startFrame": 540,
-          "endFrame": 600
-        },
-        {
-          "stepIndex": 10,
-          "startFrame": 600,
-          "endFrame": 660
-        }
-      ],
-      "contactTracks": []
-    },
-    {
-      "id": "306b83a0-3671-4b87-af06-e25ad0d2a65c",
-      "name": "CMLL O Adjacent（速拧参考）（手法）",
-      "formulaId": "e99cf89e-cf2f-4423-beed-1037be0a28b8",
-      "frameRate": 60,
-      "keyframes": [],
-      "stepMapping": [
-        {
-          "stepIndex": 0,
-          "startFrame": 0,
-          "endFrame": 60
-        },
-        {
-          "stepIndex": 1,
-          "startFrame": 60,
-          "endFrame": 120
-        },
-        {
-          "stepIndex": 2,
-          "startFrame": 120,
-          "endFrame": 180
-        },
-        {
-          "stepIndex": 3,
-          "startFrame": 180,
-          "endFrame": 240
-        },
-        {
-          "stepIndex": 4,
-          "startFrame": 240,
-          "endFrame": 300
-        },
-        {
-          "stepIndex": 5,
-          "startFrame": 300,
-          "endFrame": 360
-        },
-        {
-          "stepIndex": 6,
-          "startFrame": 360,
-          "endFrame": 420
-        },
-        {
-          "stepIndex": 7,
-          "startFrame": 420,
-          "endFrame": 480
-        },
-        {
-          "stepIndex": 8,
-          "startFrame": 480,
-          "endFrame": 540
-        },
-        {
-          "stepIndex": 9,
-          "startFrame": 540,
-          "endFrame": 600
-        },
-        {
-          "stepIndex": 10,
-          "startFrame": 600,
-          "endFrame": 660
-        },
-        {
-          "stepIndex": 11,
-          "startFrame": 660,
-          "endFrame": 720
-        },
-        {
-          "stepIndex": 12,
-          "startFrame": 720,
-          "endFrame": 780
-        }
-      ],
-      "contactTracks": []
-    },
-    {
-      "id": "42f807d8-cc6d-4eac-99d3-0f17be048b2a",
-      "name": "ZBLL U 1（速拧参考）（手法）",
-      "formulaId": "f571e0c2-fe25-4243-8577-56dd3a177bc2",
-      "frameRate": 60,
-      "keyframes": [],
-      "stepMapping": [
-        {
-          "stepIndex": 0,
-          "startFrame": 0,
-          "endFrame": 60
-        },
-        {
-          "stepIndex": 1,
-          "startFrame": 60,
-          "endFrame": 120
-        },
-        {
-          "stepIndex": 2,
-          "startFrame": 120,
-          "endFrame": 180
-        },
-        {
-          "stepIndex": 3,
-          "startFrame": 180,
-          "endFrame": 240
-        },
-        {
-          "stepIndex": 4,
-          "startFrame": 240,
-          "endFrame": 300
-        },
-        {
-          "stepIndex": 5,
-          "startFrame": 300,
-          "endFrame": 360
-        },
-        {
-          "stepIndex": 6,
-          "startFrame": 360,
-          "endFrame": 420
-        },
-        {
-          "stepIndex": 7,
-          "startFrame": 420,
-          "endFrame": 480
-        },
-        {
-          "stepIndex": 8,
-          "startFrame": 480,
-          "endFrame": 540
-        },
-        {
-          "stepIndex": 9,
-          "startFrame": 540,
-          "endFrame": 600
-        },
-        {
-          "stepIndex": 10,
-          "startFrame": 600,
-          "endFrame": 660
-        },
-        {
-          "stepIndex": 11,
-          "startFrame": 660,
-          "endFrame": 720
-        },
-        {
-          "stepIndex": 12,
-          "startFrame": 720,
-          "endFrame": 780
-        }
-      ],
-      "contactTracks": []
-    },
-    {
-      "id": "91aeb8d3-3b21-49ab-a4df-645d5b7be074",
-      "name": "1LLL 1 1（速拧参考）（手法）",
-      "formulaId": "316b9edb-6108-4f7a-bc3f-2842b5323e79",
-      "frameRate": 60,
-      "keyframes": [],
-      "stepMapping": [
-        {
-          "stepIndex": 0,
-          "startFrame": 0,
-          "endFrame": 60
-        },
-        {
-          "stepIndex": 1,
-          "startFrame": 60,
-          "endFrame": 120
-        },
-        {
-          "stepIndex": 2,
-          "startFrame": 120,
-          "endFrame": 180
-        },
-        {
-          "stepIndex": 3,
-          "startFrame": 180,
-          "endFrame": 240
-        },
-        {
-          "stepIndex": 4,
-          "startFrame": 240,
-          "endFrame": 300
-        },
-        {
-          "stepIndex": 5,
-          "startFrame": 300,
-          "endFrame": 360
-        },
-        {
-          "stepIndex": 6,
-          "startFrame": 360,
-          "endFrame": 420
-        },
-        {
-          "stepIndex": 7,
-          "startFrame": 420,
-          "endFrame": 480
-        },
-        {
-          "stepIndex": 8,
-          "startFrame": 480,
-          "endFrame": 540
-        },
-        {
-          "stepIndex": 9,
-          "startFrame": 540,
-          "endFrame": 600
-        },
-        {
-          "stepIndex": 10,
-          "startFrame": 600,
-          "endFrame": 660
-        },
-        {
-          "stepIndex": 11,
-          "startFrame": 660,
-          "endFrame": 720
-        },
-        {
-          "stepIndex": 12,
-          "startFrame": 720,
-          "endFrame": 780
-        },
-        {
-          "stepIndex": 13,
-          "startFrame": 780,
-          "endFrame": 840
-        },
-        {
-          "stepIndex": 14,
-          "startFrame": 840,
-          "endFrame": 900
+          "startFrame": 252,
+          "endFrame": 270
         },
         {
           "stepIndex": 15,
-          "startFrame": 900,
-          "endFrame": 960
+          "startFrame": 270,
+          "endFrame": 288
+        }
+      ],
+      "contactTracks": []
+    },
+    {
+      "id": "4b28cd7d-2024-47c0-88b2-6dbaebc0fc89",
+      "name": "OLL 21（手法）",
+      "formulaId": "0cb866f6-a7dc-41da-8666-8d3bdc09d0cf",
+      "frameRate": 60,
+      "keyframes": [],
+      "stepMapping": [
+        {
+          "stepIndex": 0,
+          "startFrame": 0,
+          "endFrame": 18
+        },
+        {
+          "stepIndex": 1,
+          "startFrame": 18,
+          "endFrame": 36
+        },
+        {
+          "stepIndex": 2,
+          "startFrame": 36,
+          "endFrame": 54
+        },
+        {
+          "stepIndex": 3,
+          "startFrame": 54,
+          "endFrame": 72
+        },
+        {
+          "stepIndex": 4,
+          "startFrame": 72,
+          "endFrame": 90
+        },
+        {
+          "stepIndex": 5,
+          "startFrame": 90,
+          "endFrame": 108
+        },
+        {
+          "stepIndex": 6,
+          "startFrame": 108,
+          "endFrame": 126
+        }
+      ],
+      "contactTracks": []
+    },
+    {
+      "id": "7e3be99b-0902-4c7a-ba81-78ae55d4e090",
+      "name": "H Perm（手法）",
+      "formulaId": "f50badd7-18df-4875-b5d5-ae2ff610a1ee",
+      "frameRate": 60,
+      "keyframes": [],
+      "stepMapping": [
+        {
+          "stepIndex": 0,
+          "startFrame": 0,
+          "endFrame": 18
+        },
+        {
+          "stepIndex": 1,
+          "startFrame": 18,
+          "endFrame": 36
+        },
+        {
+          "stepIndex": 2,
+          "startFrame": 36,
+          "endFrame": 54
+        },
+        {
+          "stepIndex": 3,
+          "startFrame": 54,
+          "endFrame": 72
+        },
+        {
+          "stepIndex": 4,
+          "startFrame": 72,
+          "endFrame": 90
+        },
+        {
+          "stepIndex": 5,
+          "startFrame": 90,
+          "endFrame": 108
+        },
+        {
+          "stepIndex": 6,
+          "startFrame": 108,
+          "endFrame": 126
+        }
+      ],
+      "contactTracks": []
+    },
+    {
+      "id": "c1ea88b3-8038-4e96-b896-9706e4d9a1cf",
+      "name": "ZBLL（示例）（手法）",
+      "formulaId": "7463951f-8e2a-43c1-aa67-29d5caeb9b32",
+      "frameRate": 60,
+      "keyframes": [],
+      "stepMapping": [
+        {
+          "stepIndex": 0,
+          "startFrame": 0,
+          "endFrame": 18
+        },
+        {
+          "stepIndex": 1,
+          "startFrame": 18,
+          "endFrame": 36
+        },
+        {
+          "stepIndex": 2,
+          "startFrame": 36,
+          "endFrame": 54
+        },
+        {
+          "stepIndex": 3,
+          "startFrame": 54,
+          "endFrame": 72
+        },
+        {
+          "stepIndex": 4,
+          "startFrame": 72,
+          "endFrame": 90
+        },
+        {
+          "stepIndex": 5,
+          "startFrame": 90,
+          "endFrame": 108
+        },
+        {
+          "stepIndex": 6,
+          "startFrame": 108,
+          "endFrame": 126
+        }
+      ],
+      "contactTracks": []
+    },
+    {
+      "id": "5b9b0c0a-3be4-473a-8f73-2c3573cd1cba",
+      "name": "OLL 1（速拧参考）（手法）",
+      "formulaId": "d52d9c72-3a57-4edf-b0f0-9dd3fcf35268",
+      "frameRate": 60,
+      "keyframes": [],
+      "stepMapping": [
+        {
+          "stepIndex": 0,
+          "startFrame": 0,
+          "endFrame": 18
+        },
+        {
+          "stepIndex": 1,
+          "startFrame": 18,
+          "endFrame": 36
+        },
+        {
+          "stepIndex": 2,
+          "startFrame": 36,
+          "endFrame": 54
+        },
+        {
+          "stepIndex": 3,
+          "startFrame": 54,
+          "endFrame": 72
+        },
+        {
+          "stepIndex": 4,
+          "startFrame": 72,
+          "endFrame": 90
+        },
+        {
+          "stepIndex": 5,
+          "startFrame": 90,
+          "endFrame": 108
+        },
+        {
+          "stepIndex": 6,
+          "startFrame": 108,
+          "endFrame": 126
+        },
+        {
+          "stepIndex": 7,
+          "startFrame": 126,
+          "endFrame": 144
+        },
+        {
+          "stepIndex": 8,
+          "startFrame": 144,
+          "endFrame": 162
+        },
+        {
+          "stepIndex": 9,
+          "startFrame": 162,
+          "endFrame": 180
+        },
+        {
+          "stepIndex": 10,
+          "startFrame": 180,
+          "endFrame": 198
+        }
+      ],
+      "contactTracks": []
+    },
+    {
+      "id": "322f3eab-a848-4e80-a7c0-1391a09432dc",
+      "name": "PLL Aa（速拧参考）（手法）",
+      "formulaId": "69c12586-5894-4059-b3cc-75a80ee67fac",
+      "frameRate": 60,
+      "keyframes": [],
+      "stepMapping": [
+        {
+          "stepIndex": 0,
+          "startFrame": 0,
+          "endFrame": 18
+        },
+        {
+          "stepIndex": 1,
+          "startFrame": 18,
+          "endFrame": 36
+        },
+        {
+          "stepIndex": 2,
+          "startFrame": 36,
+          "endFrame": 54
+        },
+        {
+          "stepIndex": 3,
+          "startFrame": 54,
+          "endFrame": 72
+        },
+        {
+          "stepIndex": 4,
+          "startFrame": 72,
+          "endFrame": 90
+        },
+        {
+          "stepIndex": 5,
+          "startFrame": 90,
+          "endFrame": 108
+        },
+        {
+          "stepIndex": 6,
+          "startFrame": 108,
+          "endFrame": 126
+        },
+        {
+          "stepIndex": 7,
+          "startFrame": 126,
+          "endFrame": 144
+        },
+        {
+          "stepIndex": 8,
+          "startFrame": 144,
+          "endFrame": 162
+        },
+        {
+          "stepIndex": 9,
+          "startFrame": 162,
+          "endFrame": 180
+        },
+        {
+          "stepIndex": 10,
+          "startFrame": 180,
+          "endFrame": 198
+        }
+      ],
+      "contactTracks": []
+    },
+    {
+      "id": "3270e728-dfa4-4b81-9c4c-78fbdf058db7",
+      "name": "CMLL O Adjacent（速拧参考）（手法）",
+      "formulaId": "32cc6897-621c-49d0-a770-a4def0036bcc",
+      "frameRate": 60,
+      "keyframes": [],
+      "stepMapping": [
+        {
+          "stepIndex": 0,
+          "startFrame": 0,
+          "endFrame": 18
+        },
+        {
+          "stepIndex": 1,
+          "startFrame": 18,
+          "endFrame": 36
+        },
+        {
+          "stepIndex": 2,
+          "startFrame": 36,
+          "endFrame": 54
+        },
+        {
+          "stepIndex": 3,
+          "startFrame": 54,
+          "endFrame": 72
+        },
+        {
+          "stepIndex": 4,
+          "startFrame": 72,
+          "endFrame": 90
+        },
+        {
+          "stepIndex": 5,
+          "startFrame": 90,
+          "endFrame": 108
+        },
+        {
+          "stepIndex": 6,
+          "startFrame": 108,
+          "endFrame": 126
+        },
+        {
+          "stepIndex": 7,
+          "startFrame": 126,
+          "endFrame": 144
+        },
+        {
+          "stepIndex": 8,
+          "startFrame": 144,
+          "endFrame": 162
+        },
+        {
+          "stepIndex": 9,
+          "startFrame": 162,
+          "endFrame": 180
+        },
+        {
+          "stepIndex": 10,
+          "startFrame": 180,
+          "endFrame": 198
+        },
+        {
+          "stepIndex": 11,
+          "startFrame": 198,
+          "endFrame": 216
+        },
+        {
+          "stepIndex": 12,
+          "startFrame": 216,
+          "endFrame": 234
+        }
+      ],
+      "contactTracks": []
+    },
+    {
+      "id": "8509d796-5e54-4fdd-8684-fd9893037e81",
+      "name": "ZBLL U 1（速拧参考）（手法）",
+      "formulaId": "a4a95755-80cc-49fe-bbfc-54527468e6ec",
+      "frameRate": 60,
+      "keyframes": [],
+      "stepMapping": [
+        {
+          "stepIndex": 0,
+          "startFrame": 0,
+          "endFrame": 18
+        },
+        {
+          "stepIndex": 1,
+          "startFrame": 18,
+          "endFrame": 36
+        },
+        {
+          "stepIndex": 2,
+          "startFrame": 36,
+          "endFrame": 54
+        },
+        {
+          "stepIndex": 3,
+          "startFrame": 54,
+          "endFrame": 72
+        },
+        {
+          "stepIndex": 4,
+          "startFrame": 72,
+          "endFrame": 90
+        },
+        {
+          "stepIndex": 5,
+          "startFrame": 90,
+          "endFrame": 108
+        },
+        {
+          "stepIndex": 6,
+          "startFrame": 108,
+          "endFrame": 126
+        },
+        {
+          "stepIndex": 7,
+          "startFrame": 126,
+          "endFrame": 144
+        },
+        {
+          "stepIndex": 8,
+          "startFrame": 144,
+          "endFrame": 162
+        },
+        {
+          "stepIndex": 9,
+          "startFrame": 162,
+          "endFrame": 180
+        },
+        {
+          "stepIndex": 10,
+          "startFrame": 180,
+          "endFrame": 198
+        },
+        {
+          "stepIndex": 11,
+          "startFrame": 198,
+          "endFrame": 216
+        },
+        {
+          "stepIndex": 12,
+          "startFrame": 216,
+          "endFrame": 234
+        }
+      ],
+      "contactTracks": []
+    },
+    {
+      "id": "0c8afb12-46cb-4d1a-bbd3-fa42826b9c13",
+      "name": "1LLL 1 1（速拧参考）（手法）",
+      "formulaId": "32ba0686-29c9-49aa-9896-68cd1fdad0d6",
+      "frameRate": 60,
+      "keyframes": [],
+      "stepMapping": [
+        {
+          "stepIndex": 0,
+          "startFrame": 0,
+          "endFrame": 18
+        },
+        {
+          "stepIndex": 1,
+          "startFrame": 18,
+          "endFrame": 36
+        },
+        {
+          "stepIndex": 2,
+          "startFrame": 36,
+          "endFrame": 54
+        },
+        {
+          "stepIndex": 3,
+          "startFrame": 54,
+          "endFrame": 72
+        },
+        {
+          "stepIndex": 4,
+          "startFrame": 72,
+          "endFrame": 90
+        },
+        {
+          "stepIndex": 5,
+          "startFrame": 90,
+          "endFrame": 108
+        },
+        {
+          "stepIndex": 6,
+          "startFrame": 108,
+          "endFrame": 126
+        },
+        {
+          "stepIndex": 7,
+          "startFrame": 126,
+          "endFrame": 144
+        },
+        {
+          "stepIndex": 8,
+          "startFrame": 144,
+          "endFrame": 162
+        },
+        {
+          "stepIndex": 9,
+          "startFrame": 162,
+          "endFrame": 180
+        },
+        {
+          "stepIndex": 10,
+          "startFrame": 180,
+          "endFrame": 198
+        },
+        {
+          "stepIndex": 11,
+          "startFrame": 198,
+          "endFrame": 216
+        },
+        {
+          "stepIndex": 12,
+          "startFrame": 216,
+          "endFrame": 234
+        },
+        {
+          "stepIndex": 13,
+          "startFrame": 234,
+          "endFrame": 252
+        },
+        {
+          "stepIndex": 14,
+          "startFrame": 252,
+          "endFrame": 270
+        },
+        {
+          "stepIndex": 15,
+          "startFrame": 270,
+          "endFrame": 288
         },
         {
           "stepIndex": 16,
-          "startFrame": 960,
-          "endFrame": 1020
+          "startFrame": 288,
+          "endFrame": 306
         }
       ],
       "contactTracks": []
