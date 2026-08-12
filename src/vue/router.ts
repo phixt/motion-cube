@@ -1,14 +1,16 @@
 /**
  * 应用正式路由（vue-router，hash history）：7 个页面当前全部走 LegacyPage 宿主，
- * 逐页迁移完成后替换为对应页面组件。
+ * 逐页迁移后已全部替换为对应页面组件（library/editor/hand 为 Vue 壳 + 旧逻辑复用）。
  */
 import { createRouter, createWebHashHistory } from "vue-router";
 import type { Route } from "../router";
+import EditorPage from "./pages/EditorPage.vue";
 import GamePage from "./pages/GamePage.vue";
+import HandCalibPage from "./pages/HandCalibPage.vue";
 import HelpPage from "./pages/HelpPage.vue";
 import KeymapPage from "./pages/KeymapPage.vue";
+import LibraryPage from "./pages/LibraryPage.vue";
 import StartPage from "./pages/StartPage.vue";
-import LegacyPage from "./LegacyPage.vue";
 
 export const APP_ROUTES: { name: Route; titleKey: string; icon: string }[] = [
   { name: "start", titleKey: "nav.back", icon: "\uE80F" },
@@ -28,10 +30,9 @@ const router = createRouter({
     { path: "/game", name: "game", component: GamePage },
     { path: "/keymap", name: "keymap", component: KeymapPage },
     { path: "/help", name: "help", component: HelpPage },
-    // 以下页面尚未迁移，经 LegacyPage 宿主渲染旧实现
-    { path: "/library", name: "library", component: LegacyPage, props: { route: "library" } },
-    { path: "/editor", name: "editor", component: LegacyPage, props: { route: "editor" } },
-    { path: "/hand", name: "hand", component: LegacyPage, props: { route: "hand" } },
+    { path: "/library", name: "library", component: LibraryPage },
+    { path: "/editor", name: "editor", component: EditorPage },
+    { path: "/hand", name: "hand", component: HandCalibPage },
     { path: "/:pathMatch(.*)*", redirect: "/start" },
   ],
 });

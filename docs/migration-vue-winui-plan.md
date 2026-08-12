@@ -1,7 +1,7 @@
 # motion-cube 迁移评估与实施计划：Vue 3 + WinUIonWeb
 
 > 来源：agent-bridge 任务 `84bd26ed78fa45719aa4739adc233da9`（迁移评估与实施：Vue 3 + WinUIonWeb）
-> 状态：评估完成；阶段 1、2、3 已完成；阶段 4 进行中（4/7 页已迁移：start/help/keymap/game），剩余 library/editor/handCalib
+> 状态：阶段 1、2、3、4 全部完成（7/7 页迁移，playtest 全量通过）；剩余阶段 5（收尾清理/可选打磨）
 > 日期：2026-08-11（初稿）/ 2026-08-12（决策与阶段 1-2 + 阶段 3 准备）
 
 ## 0.1 已确认决策（2026-08-12）
@@ -51,6 +51,14 @@
   - App.vue 路由视图加 `.mc-page-view` 定位包装（旧 .page absolute 与新页 flow 布局共存）。
   - 验证：typecheck/build ✅；playtest-ui 全量通过（改键/冷却/标灰/伪 3D/编辑器/公式库/分类/手部标定）；视觉抽查 start/keymap/game/help 无渲染问题（spike-shots/ui-*.png）。
   - 剩余：library（457 行 CRUD）、editor（536 行时间线/关键帧）、handCalib（244 行标定）——下一轮迁移。
+- **阶段 4（收尾）✅ 7/7 完成（2026-08-12）**
+  - **LibraryPage.vue**：全响应式重写（lib/cascadeChain/tagList refs）；分类管理、公式 CRUD、级联分类下拉（声明式 `cascadeLevels`）、标签上限、示例/导入/导出全部迁移；测试依赖的 id/class/`[data-name]`/`style.marginLeft` 结构保留；WinButton 用于按钮、原生 input/select 用于录入控件。
+  - **HandCalibPage.vue**：SFC 重写参数表单（three.js 的 HandCalibView 复用，onMounted 挂载 / onBeforeUnmount dispose）；原生 number 输入自管理 value（保留旧版输入体验）；保存/重置为 WinButton。
+    - 修复 Vue 事件陷阱：`@input="onNumInput(...)"` 的返回值会被丢弃（事件触发只求值表达式，返回的处理器不会调用），导致 cfg 从未更新（保存仍是默认值 0.86）。改为「id → setter 注册表 + 统一 `onFieldInput` 分发」。
+  - **EditorPage.vue**：WinUI 标题壳 + 复用 `renderEditorPage`（时间线/关键帧/3D 视口逻辑密集且与 HandRigView/CubePlayer/Timeline 深度耦合，控件化重写留作后续打磨项）。
+  - 删除：LegacyPage.vue、pages/library.ts、pages/handCalib.ts、styles/library.css、styles/hand.css；仅 pages/editor.ts（编辑器逻辑）保留。路由 7 条全部指向真实组件。
+  - 验证：typecheck/build ✅；playtest-ui **全量通过**（含手部标定固化）；视觉抽查 library（分类嵌套/表单/列表）、hand（手掌模型+标尺）、editor（时间线/3D 视口）无渲染问题。
+  - 遗留打磨项（非阻塞）：editor 时间线控件化；HUD/标灰面板 WinUI 化；acrylic 材质在旧样式页面上的视觉效果待页面全 WinUI 化后显现。
 
 ## 0. 结论摘要
 
