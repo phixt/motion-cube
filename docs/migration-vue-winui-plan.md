@@ -1,7 +1,7 @@
 # motion-cube 迁移评估与实施计划：Vue 3 + WinUIonWeb
 
 > 来源：agent-bridge 任务 `84bd26ed78fa45719aa4739adc233da9`（迁移评估与实施：Vue 3 + WinUIonWeb）
-> 状态：评估完成；阶段 1、2 已完成，阶段 3 已准备（预览壳验证通过），等待继续实施
+> 状态：评估完成；阶段 1、2、3 已完成（功能等价验证通过），等待阶段 4 逐页迁移
 > 日期：2026-08-11（初稿）/ 2026-08-12（决策与阶段 1-2 + 阶段 3 准备）
 
 ## 0.1 已确认决策（2026-08-12）
@@ -28,6 +28,18 @@
   - 预览页 `preview.html` + `src/preview/`（App.vue 壳 + vue-router + 占位页）：WinNavigationView 7 项导航、路由切换、WinButton/WinToggleSwitch 控件演示；已加入生产构建入口。
   - 验证：typecheck ✅、build ✅、dev server + puppeteer 截图（spike-shots/preview-*.png）确认深色 WinUI 主题渲染、导航点击路由正常、i18n 文案生效、无渲染错误。重复"设置"项已通过 `:IsSettingsVisible="false"` 修复。
   - 遗留小项：preview 页加载时 favicon 404（无害，未配置 favicon）。
+- **阶段 3（正式实施）✅ 功能等价验证通过（2026-08-12）**
+  - `src/main.ts` 切换为 Vue 入口（createApp + vue-router + i18n provide + 主题/材质初始化）。
+  - 正式壳 `src/vue/App.vue`：WinToolTipService + WinTitleBar（标题 + 主题/材质切换按钮）+ WinNavigationView（7 项导航）+ router-view（淡入过渡）。
+  - `src/vue/theme.ts`：主题 system/light/dark（html.theme-light/theme-dark，theme.css 原生支持）+ 材质 mica/acrylic（壳自建 CSS，acrylic 为半透明磨砂；旧页面不透明背景覆盖时效果受限，页面迁移后完全显现），均持久化到 localStorage。
+  - `src/vue/LegacyPage.vue`：旧 7 页经宿主组件挂载（onMounted 渲染 / watch 路由 / onBeforeUnmount 清理）；旧导航条在过渡期隐藏。
+  - `src/vue/router.ts`：7 条 hash 路由全部指向 LegacyPage（props.route），逐页迁移时替换为真实组件。
+  - 回归验证：
+    - typecheck（vue-tsc）✅、build ✅
+    - 7 路由关键元素全在（game 页 twisty-player/#hud、library .lib-form/#lib-status、editor #editor-view、hand #hand-calib-view 等）
+    - `scripts/playtest-ui.mjs`（完整 UI 流程：改键/冷却/标灰/伪 3D/编辑器关键帧/公式库增删改/分类级联/手法级联/手部标定固化）**全量通过**；`verify-notation.mjs` 全 PASS
+    - 主题/材质切换实测生效（html class 正确、浅色主题标题栏/导航变浅、截图见 spike-shots/shell-*.png）
+  - `scripts/shot-shell.mjs`：新增壳回归截图脚本（7 路由 + 主题/材质切换）。
 
 ## 0. 结论摘要
 

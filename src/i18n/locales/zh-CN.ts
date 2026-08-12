@@ -1,5 +1,15 @@
 /** 简体中文文案（默认语言）。 */
 export const zhCN: Record<string, string> = {
+  // WinUI 壳（src/vue）
+  "app.title": "Motion Cube",
+  "theme.label": "主题",
+  "theme.system": "系统",
+  "theme.light": "浅色",
+  "theme.dark": "深色",
+  "material.label": "材质",
+  "material.mica": "Mica",
+  "material.acrylic": "Acrylic",
+
   // WinUI 预览页（src/preview，阶段 3 壳验证载体）
   "placeholder.hint": "这是 WinUIonWeb 控件预览：控件由 Vue 3 渲染，主题走 WinUI 风格。",
   "placeholder.on": "开",

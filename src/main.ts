@@ -1,50 +1,27 @@
-import "./styles/base.css";
+import { createApp } from "vue";
 import { setLocale } from "./i18n";
-import { renderEditorPage } from "./pages/editor";
-import { mountGamePage } from "./pages/game";
-import { renderHandCalibPage } from "./pages/handCalib";
-import { renderHelpPage } from "./pages/help";
-import { renderKeymapPage } from "./pages/keymap";
-import { renderLibraryPage } from "./pages/library";
-import { renderStartPage } from "./pages/start";
-import { currentRoute, onRouteChange, type Route } from "./router";
 import { loadSettings } from "./settings";
+import App from "./vue/App.vue";
+import router from "./vue/router";
+import { createMotionCubeI18n, i18nKey } from "./vue/i18n";
+import { applyMaterial, applyTheme, loadMaterial, loadTheme } from "./vue/theme";
 
-// index.html 保证 #app 存在；querySelector 非空断言 + 运行期防御
-const app = document.querySelector<HTMLElement>("#app")!;
-if (!app) throw new Error("missing #app mount point");
+// 全局基础样式（旧页面依赖）
+import "./styles/base.css";
+// WinUIonWeb 主题与图标字体
+import "./vendor/winui-on-web/styles/theme.css";
+import "./vendor/winui-on-web/styles/animations.css";
+import "./vue/styles/global.css";
 
-setLocale(loadSettings().locale);
+const settings = loadSettings();
+setLocale(settings.locale);
+applyTheme(loadTheme());
+applyMaterial(loadMaterial());
 
-let cleanup: (() => void) | null = null;
+const i18n = createMotionCubeI18n(settings.locale);
 
-function render(route: Route): void {
-  cleanup?.();
-  cleanup = null;
-  switch (route) {
-    case "start":
-      renderStartPage(app);
-      break;
-    case "game":
-      cleanup = mountGamePage(app);
-      break;
-    case "library":
-      renderLibraryPage(app);
-      break;
-    case "editor":
-      renderEditorPage(app);
-      break;
-    case "hand":
-      cleanup = renderHandCalibPage(app);
-      break;
-    case "keymap":
-      renderKeymapPage(app);
-      break;
-    case "help":
-      renderHelpPage(app);
-      break;
-  }
-}
-
-render(currentRoute());
-onRouteChange(render);
+const app = createApp(App);
+app.use(router);
+app.provide(i18nKey, i18n);
+app.config.globalProperties.$t = i18n.t;
+app.mount("#app");

@@ -40,6 +40,17 @@ async function shot(name) {
 
 async function clickNav(label) {
   console.log(`clickNav: ${label} (hash=${await page.evaluate(() => location.hash)})`);
+  // 新壳优先：WinUI 导航项（文本含图标字 + 标签，用 includes 匹配）
+  const winItems = await page.$$(".win-nav-item");
+  for (const h of winItems) {
+    const t = await h.evaluate((n) => n.textContent ?? "");
+    if (t.includes(label)) {
+      await h.click();
+      await sleep(350);
+      console.log(`  -> clicked win-nav-item, hash=${await page.evaluate(() => location.hash)}`);
+      return;
+    }
+  }
   const handles = await page.$$(".nav-link");
   for (const h of handles) {
     const t = await h.evaluate((n) => n.textContent);
