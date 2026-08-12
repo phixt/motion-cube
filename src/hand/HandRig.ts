@@ -163,15 +163,14 @@ export function createDefaultPose(rig: HandRig): Pose {
  */
 export function defaultHandPose(handType: HandType = "right"): Pose {
   const pose = createDefaultPose(createDefaultRig(handType));
-  // 用户指定基准：掌面顺时针旋转 90°（手指从朝上转到朝右），归位到 0,0,0，坐标待手调。
-  // 右手当前姿态：手指朝 +X（右）、掌面朝魔方（-Z）、拇指朝上（+Y）。
+  // 用户指定基准：Z=2.2（X/Y 不变），手掌绕魔方中心在水平面内旋转 180°——
+  // 右手掌心朝原始视线（+Z，观察者），左手对称掌背朝视线；拇指均朝上，坐标待手调。
   if (handType === "left") {
-    // 左手镜像占位（用户调完右手后对称定义）
-    pose.palm.transform.position = { x: 0, y: 0, z: 0 };
+    pose.palm.transform.position = { x: 0, y: 0, z: 2.2 };
     pose.palm.transform.quaternion = { w: 0.5, x: 0.5, y: -0.5, z: -0.5 };
   } else {
-    pose.palm.transform.position = { x: 0, y: 0, z: 0 };
-    pose.palm.transform.quaternion = { w: 0.5, x: 0.5, y: 0.5, z: 0.5 };
+    pose.palm.transform.position = { x: 0, y: 0, z: 2.2 };
+    pose.palm.transform.quaternion = { w: 0.5, x: -0.5, y: -0.5, z: 0.5 };
   }
   return pose;
 }
