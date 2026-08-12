@@ -48,8 +48,8 @@ export const DEFAULT_HAND_CONFIG: HandRigConfig = {
   },
   // 拇指根锚在掌根/腕侧（不再从掌前缘角落伸出）：z 取手掌中后部、x 靠拇指侧边、y 略偏指腹
   thumbCorner: { x: 0.55, y: -0.05, z: -0.45 },
-  // 大鱼际：拇指根处椭球凸块，略微超出掌缘形成"根部隆起"
-  thenar: { width: 0.62, height: 0.38, length: 0.9, x: 0.5, y: -0.02, z: -0.42 },
+  // 大鱼际：拇指根处椭球凸块，尺寸覆盖掌根拇指侧并与圆角手掌融合
+  thenar: { width: 0.9, height: 0.42, length: 1.05, x: 0.48, y: -0.03, z: -0.45 },
   fingers: defaultFingers(),
 };
 

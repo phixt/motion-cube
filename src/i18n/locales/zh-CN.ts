@@ -16,7 +16,7 @@ export const zhCN: Record<string, string> = {
   "hand.ruler": "标尺",
   "hand.rulerOn": "开",
   "hand.rulerOff": "关",
-  "hand.rulerHint": "按住 Shift 切换标尺方向（水平/竖直，不持久化）",
+  "hand.rulerHint": "拖拽移动标尺；按住 Shift 切换水平/竖直（不持久化）",
 
   // WinUI 预览页（src/preview，阶段 3 壳验证载体）
   "placeholder.hint": "这是 WinUIonWeb 控件预览：控件由 Vue 3 渲染，主题走 WinUI 风格。",

@@ -29,18 +29,9 @@ const RULER_COLOR = "#8fa3b8";
 const GRID_COLOR = "#66707f";
 const LABEL_COLOR = "#9aa0aa";
 
-/** 半格刻度序列（大格=整数，从半格起点开始，避免 0.5 步进浮点漂移漏标整数格） */
-function rulerTicks(min: number, max: number): { t: number; major: boolean }[] {
-  const out: { t: number; major: boolean }[] = [];
-  const start = Math.ceil(min * 2) / 2;
-  for (let t = start; t <= max + 1e-9; t += 0.5) {
-    out.push({ t, major: Math.abs(t - Math.round(t)) < 1e-6 });
-  }
-  return out;
-}
-
 export type HandCalibViewKind = "top" | "left";
 export type RulerAxis = "horizontal" | "vertical";
+export type RulerState = { enabled: boolean; axis: RulerAxis; offset: number };
 export type RulerOptions = { enabled: boolean; axis: RulerAxis };
 
 export class HandCalibView {
@@ -54,7 +45,7 @@ export class HandCalibView {
   private readonly disposables: { obj: Object3D }[] = [];
   private readonly resizeObserver: ResizeObserver;
   private handBox: Box3 | null = null;
-  private ruler: RulerOptions = { enabled: true, axis: "vertical" };
+  private ruler: RulerState = { enabled: true, axis: "vertical", offset: 1.55 };
 
   constructor(
     container: HTMLElement,
@@ -104,10 +95,61 @@ export class HandCalibView {
     this.render();
   }
 
-  /** 标尺显示与方向（半透明 + 大格数字；方向切换不持久化，由页面按钮/Shift 控制） */
+  /** 标尺显示与方向（可拖拽移动、十等分刻度；方向切换不持久化，由页面按钮/Shift 控制） */
   setRuler(opts: RulerOptions): void {
-    this.ruler = opts;
+    if (opts.axis !== this.ruler.axis) {
+      this.ruler.offset = this.rulerDefaultOffset(opts.axis);
+    }
+    this.ruler.enabled = opts.enabled;
+    this.ruler.axis = opts.axis;
     this.drawRuler();
+  }
+
+  /** 拖拽移动标尺（offset 为固定坐标，单位 = 块边长） */
+  moveRuler(offset: number): void {
+    const box = this.contentBox();
+    const EDGE = CUBE_UNIT_WORLD;
+    let min: number;
+    let max: number;
+    if (this.view === "left") {
+      if (this.ruler.axis === "horizontal") {
+        min = box.min.y / EDGE;
+        max = box.max.y / EDGE;
+      } else {
+        min = box.min.z / EDGE;
+        max = box.max.z / EDGE;
+      }
+    } else if (this.ruler.axis === "horizontal") {
+      min = box.min.z / EDGE;
+      max = box.max.z / EDGE;
+    } else {
+      min = box.min.x / EDGE;
+      max = box.max.x / EDGE;
+    }
+    this.ruler.offset = Math.min(max + 0.5, Math.max(min - 0.5, offset));
+    this.drawRuler();
+  }
+
+  getRuler(): RulerState {
+    return { ...this.ruler };
+  }
+
+  /** 标尺沿固定坐标轴的默认位置（块边长） */
+  private rulerDefaultOffset(axis: RulerAxis): number {
+    if (this.view === "left") return -1.25;
+    return axis === "horizontal" ? W_RULE.z : L_RULE.x;
+  }
+
+  /** 标尺刻度范围（沿标尺方向，块边长） */
+  private rulerRange(): { min: number; max: number } {
+    if (this.view === "left") {
+      return this.ruler.axis === "horizontal"
+        ? { min: L_RULE_LEFT.zMin, max: L_RULE_LEFT.zMax }
+        : { min: L_RULE_LEFT.yMin, max: L_RULE_LEFT.yMax };
+    }
+    return this.ruler.axis === "horizontal"
+      ? { min: W_RULE.xMin, max: W_RULE.xMax }
+      : { min: L_RULE.zMin, max: L_RULE.zMax };
   }
 
   dispose(): void {
@@ -178,7 +220,7 @@ export class HandCalibView {
     // 拇指应用自然外翻（CMC 默认展收/对掌），手指保持伸直（测量用途）
     const cmc = rig.fingers.thumb.joints[0];
     built.thumbDof.rotation.z = degToRad(cmc.abduction ?? 0);
-    built.thumbDof.rotation.y = degToRad(cmc.rotation ?? 0);
+    built.thumbDof.rotation.y = degToRad((cmc.rotation ?? 0) * 1); // 标定用右手（sideSign=1）
     this.rootGroup.add(built.root);
     this.scene.updateMatrixWorld(true);
     this.handBox = new Box3().setFromObject(built.root);
@@ -220,13 +262,12 @@ export class HandCalibView {
 
   private drawRuler(): void {
     this.overlay.replaceChildren();
-    if (!this.ruler.enabled) return;
     const w = this.renderer.domElement.clientWidth;
     const h = this.renderer.domElement.clientHeight;
     if (w === 0 || h === 0) return;
 
     const svgNS = "http://www.w3.org/2000/svg";
-    const line = (x1: number, y1: number, x2: number, y2: number, color: string, width: number, opacity: number) => {
+    const line = (parent: Element, x1: number, y1: number, x2: number, y2: number, color: string, width: number, opacity: number) => {
       const l = document.createElementNS(svgNS, "line");
       l.setAttribute("x1", String(x1));
       l.setAttribute("y1", String(y1));
@@ -235,9 +276,9 @@ export class HandCalibView {
       l.setAttribute("stroke", color);
       l.setAttribute("stroke-width", String(width));
       l.setAttribute("opacity", String(opacity));
-      this.overlay.appendChild(l);
+      parent.appendChild(l);
     };
-    const text = (x: number, y: number, s: string, anchor = "middle") => {
+    const text = (parent: Element, x: number, y: number, s: string, anchor = "middle") => {
       const t = document.createElementNS(svgNS, "text");
       t.setAttribute("x", String(x));
       t.setAttribute("y", String(y));
@@ -245,102 +286,127 @@ export class HandCalibView {
       t.setAttribute("fill", LABEL_COLOR);
       t.setAttribute("font-size", "13");
       t.setAttribute("font-weight", "600");
-      t.setAttribute("opacity", "0.6");
+      t.setAttribute("opacity", "0.7");
       t.setAttribute("font-family", "ui-monospace, Consolas, monospace");
       t.textContent = s;
-      this.overlay.appendChild(t);
+      parent.appendChild(t);
     };
 
     const EDGE = CUBE_UNIT_WORLD; // 1 块边长（场景单位）
     const box = this.contentBox();
+
+    // ---- 网格：静态背景，独立于标尺 ----
     if (this.view === "left") {
-      // 左视图标尺：YZ 网格 + 高（Y）轴 + 长（Z）轴
-      const gyMin = Math.ceil(box.min.y / EDGE);
-      const gyMax = Math.floor(box.max.y / EDGE);
-      for (let gy = gyMin; gy <= gyMax; gy++) {
+      for (let gy = Math.ceil(box.min.y / EDGE); gy <= Math.floor(box.max.y / EDGE); gy++) {
         const a = this.project(0, gy * EDGE, box.min.z);
         const b = this.project(0, gy * EDGE, box.max.z);
-        line(a.x, a.y, b.x, b.y, GRID_COLOR, 0.5, 0.2);
+        line(this.overlay, a.x, a.y, b.x, b.y, GRID_COLOR, 0.5, 0.18);
       }
-      const gzMin = Math.ceil(box.min.z / EDGE);
-      const gzMax = Math.floor(box.max.z / EDGE);
-      for (let gz = gzMin; gz <= gzMax; gz++) {
+      for (let gz = Math.ceil(box.min.z / EDGE); gz <= Math.floor(box.max.z / EDGE); gz++) {
         const a = this.project(0, box.min.y, gz * EDGE);
         const b = this.project(0, box.max.y, gz * EDGE);
-        line(a.x, a.y, b.x, b.y, GRID_COLOR, 0.5, 0.2);
-      }
-      if (this.ruler.axis === "vertical") {
-        // 竖直：高轴（沿 Y，z = -1.25）
-        const a = this.project(0, L_RULE_LEFT.yMin * EDGE, -1.25 * EDGE);
-        const b = this.project(0, L_RULE_LEFT.yMax * EDGE, -1.25 * EDGE);
-        line(a.x, a.y, b.x, b.y, RULER_COLOR, 1.2, 0.55);
-        for (const { t, major } of rulerTicks(L_RULE_LEFT.yMin, L_RULE_LEFT.yMax)) {
-          const p = this.project(0, t * EDGE, -1.25 * EDGE);
-          const len = major ? 12 : 5;
-          line(p.x - len / 2, p.y, p.x + len / 2, p.y, RULER_COLOR, major ? 1.4 : 0.8, 0.55);
-          if (major && Math.abs(t) >= 0.5) text(p.x + 6, p.y + 4, String(t), "start");
-        }
-        text(a.x + 8, a.y - 6, "高 (块边长)", "start");
-      } else {
-        // 水平：长轴（沿 Z，y = -1.25）
-        const a = this.project(0, -1.25 * EDGE, L_RULE_LEFT.zMin * EDGE);
-        const b = this.project(0, -1.25 * EDGE, L_RULE_LEFT.zMax * EDGE);
-        line(a.x, a.y, b.x, b.y, RULER_COLOR, 1.2, 0.55);
-        for (const { t, major } of rulerTicks(L_RULE_LEFT.zMin, L_RULE_LEFT.zMax)) {
-          const p = this.project(0, -1.25 * EDGE, t * EDGE);
-          const len = major ? 12 : 5;
-          line(p.x, p.y - len / 2, p.x, p.y + len / 2, RULER_COLOR, major ? 1.4 : 0.8, 0.55);
-          if (major && Math.abs(t) >= 0.5) text(p.x, p.y + 18, String(t));
-        }
-        text(a.x + 8, a.y - 6, "长 (块边长)", "start");
+        line(this.overlay, a.x, a.y, b.x, b.y, GRID_COLOR, 0.5, 0.18);
       }
     } else {
-      // 俯视图标尺：XZ 网格 + 宽（X）轴 + 长（Z）轴
-      const gxMin = Math.ceil(box.min.x / EDGE);
-      const gxMax = Math.floor(box.max.x / EDGE);
-      for (let gx = gxMin; gx <= gxMax; gx++) {
+      for (let gx = Math.ceil(box.min.x / EDGE); gx <= Math.floor(box.max.x / EDGE); gx++) {
         const a = this.project(gx * EDGE, 0, box.min.z);
         const b = this.project(gx * EDGE, 0, box.max.z);
-        line(a.x, a.y, b.x, b.y, GRID_COLOR, 0.5, 0.2);
+        line(this.overlay, a.x, a.y, b.x, b.y, GRID_COLOR, 0.5, 0.18);
       }
-      const gzMin = Math.ceil(box.min.z / EDGE);
-      const gzMax = Math.floor(box.max.z / EDGE);
-      for (let gz = gzMin; gz <= gzMax; gz++) {
+      for (let gz = Math.ceil(box.min.z / EDGE); gz <= Math.floor(box.max.z / EDGE); gz++) {
         const a = this.project(box.min.x, 0, gz * EDGE);
         const b = this.project(box.max.x, 0, gz * EDGE);
-        line(a.x, a.y, b.x, b.y, GRID_COLOR, 0.5, 0.2);
-      }
-
-      if (this.ruler.axis === "horizontal") {
-        // 水平：宽向轴线（沿 X，z = W_RULE.z）
-        const a = this.project(W_RULE.xMin * EDGE, 0, W_RULE.z * EDGE);
-        const b = this.project(W_RULE.xMax * EDGE, 0, W_RULE.z * EDGE);
-        line(a.x, a.y, b.x, b.y, RULER_COLOR, 1.2, 0.55);
-        for (const { t, major } of rulerTicks(W_RULE.xMin, W_RULE.xMax)) {
-          const p = this.project(t * EDGE, 0, W_RULE.z * EDGE);
-          const len = major ? 12 : 5;
-          line(p.x, p.y - len / 2, p.x, p.y + len / 2, RULER_COLOR, major ? 1.4 : 0.8, 0.55);
-          if (major && Math.abs(t) >= 0.5) text(p.x, p.y + 18, String(t));
-        }
-        text(a.x + 8, a.y - 6, "宽 (块边长)", "start");
-      } else {
-        // 竖直：长向轴线（沿 Z，x = L_RULE.x）
-        const a = this.project(L_RULE.x * EDGE, 0, L_RULE.zMin * EDGE);
-        const b = this.project(L_RULE.x * EDGE, 0, L_RULE.zMax * EDGE);
-        line(a.x, a.y, b.x, b.y, RULER_COLOR, 1.2, 0.55);
-        for (const { t, major } of rulerTicks(L_RULE.zMin, L_RULE.zMax)) {
-          const p = this.project(L_RULE.x * EDGE, 0, t * EDGE);
-          const len = major ? 12 : 5;
-          line(p.x - len / 2, p.y, p.x + len / 2, p.y, RULER_COLOR, major ? 1.4 : 0.8, 0.55);
-          if (major && Math.abs(t) >= 0.5) text(p.x + 6, p.y + 4, String(t), "start");
-        }
-        text(a.x + 8, a.y - 6, "长 (块边长)", "start");
+        line(this.overlay, a.x, a.y, b.x, b.y, GRID_COLOR, 0.5, 0.18);
       }
     }
+
+    // ---- 标尺：可拖拽的独立标尺条（大格 1 块边长 + 十等分小格） ----
+    if (!this.ruler.enabled) return;
+
+    const { min, max } = this.rulerRange();
+    const horizontal = this.ruler.axis === "horizontal"; // 屏幕方向
+    const g = document.createElementNS(svgNS, "g");
+    g.setAttribute("class", "calib-ruler");
+    g.style.cursor = "move";
+    g.style.touchAction = "none";
+    g.style.pointerEvents = "auto";
+
+    const pointAt = (t: number): { x: number; y: number } => {
+      if (this.view === "left") {
+        return horizontal
+          ? this.project(0, this.ruler.offset * EDGE, t * EDGE)
+          : this.project(0, t * EDGE, this.ruler.offset * EDGE);
+      }
+      return horizontal
+        ? this.project(t * EDGE, 0, this.ruler.offset * EDGE)
+        : this.project(this.ruler.offset * EDGE, 0, t * EDGE);
+    };
+
+    const a = pointAt(min);
+    const b = pointAt(max);
+    // 透明命中条：加宽可拖拽区域（点击标尺附近即可拖动）
+    const hit = document.createElementNS(svgNS, "line");
+    hit.setAttribute("x1", String(a.x));
+    hit.setAttribute("y1", String(a.y));
+    hit.setAttribute("x2", String(b.x));
+    hit.setAttribute("y2", String(b.y));
+    hit.setAttribute("stroke", "transparent");
+    hit.setAttribute("stroke-width", "16");
+    hit.setAttribute("pointer-events", "stroke");
+    g.appendChild(hit);
+    line(g, a.x, a.y, b.x, b.y, RULER_COLOR, 1.4, 0.7);
+    // 十等分刻度：0.1 小格 / 0.5 中格 / 1.0 大格 + 数字
+    // 十等分：按整数 k/10 遍历，避免 0.1 步进浮点漂移
+    for (let k = Math.ceil(min * 10); k <= Math.floor(max * 10) + 1e-9; k++) {
+      const t = k / 10;
+      const major = Math.abs(t - Math.round(t)) < 1e-6;
+      const half = Math.abs(t - (Math.round(t) + 0.5)) < 1e-6;
+      const len = major ? 14 : half ? 9 : 4;
+      const p = pointAt(t);
+      if (horizontal) line(g, p.x, p.y - len / 2, p.x, p.y + len / 2, RULER_COLOR, major ? 1.4 : 0.7, 0.55);
+      else line(g, p.x - len / 2, p.y, p.x + len / 2, p.y, RULER_COLOR, major ? 1.4 : 0.7, 0.55);
+      if (major && Math.abs(t) >= 0.5) {
+        if (horizontal) text(g, p.x + 5, p.y + 18, String(Math.round(t)), "start");
+        else text(g, p.x + 7, p.y + 4, String(Math.round(t)), "start");
+      }
+    }
+    // 拖拽手柄（端点圆点）
+    const grip = document.createElementNS(svgNS, "circle");
+    grip.setAttribute("cx", String(b.x));
+    grip.setAttribute("cy", String(b.y));
+    grip.setAttribute("r", "5");
+    grip.setAttribute("fill", RULER_COLOR);
+    grip.setAttribute("opacity", "0.8");
+    g.appendChild(grip);
+    this.overlay.appendChild(g);
+
+    // 拖拽：按指针位置移动标尺固定坐标（offset，块边长）
+    let dragging = false;
+    const rect = this.wrapper.getBoundingClientRect();
+    const unprojectOffset = (sx: number, sy: number): number => {
+      const ndcX = (sx / w) * 2 - 1;
+      const ndcY = 1 - (sy / h) * 2;
+      const v = new Vector3(ndcX, ndcY, 0).unproject(this.camera);
+      if (this.view === "left") return (horizontal ? v.y : v.z) / EDGE;
+      return (horizontal ? v.z : v.x) / EDGE;
+    };
+    const onMove = (e: PointerEvent): void => {
+      if (!dragging) return;
+      this.moveRuler(unprojectOffset(e.clientX - rect.left, e.clientY - rect.top));
+    };
+    g.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      dragging = true;
+      g.setPointerCapture(e.pointerId);
+    });
+    g.addEventListener("pointermove", onMove);
+    const stop = (): void => {
+      dragging = false;
+    };
+    g.addEventListener("pointerup", stop);
+    g.addEventListener("pointercancel", stop);
   }
 }
-
-const degToRad = (d: number) => (d * Math.PI) / 180;
 
 function disposeObject(obj: Object3D): void {
   const materials = new Set<Material>();
@@ -360,3 +426,5 @@ function disposeObject(obj: Object3D): void {
   });
   materials.forEach((m) => m.dispose());
 }
+
+const degToRad = (d: number) => (d * Math.PI) / 180;

@@ -146,9 +146,9 @@ export class HandRigView {
       tb.position.z + tc.z * H,
     );
     this.thumbRoot.quaternion.set(tb.quaternion.x, tb.quaternion.y, tb.quaternion.z, tb.quaternion.w);
-    // CMC 展收（左手镜像）/ 对掌旋转
+    // CMC 展收/对掌旋转（均按手型镜像，保证左右手拇指朝向对称一致）
     this.thumbDof.rotation.z = degToRad(pose.thumbCMC.abduction * this.sideSign);
-    this.thumbDof.rotation.y = degToRad(pose.thumbCMC.rotation);
+    this.thumbDof.rotation.y = degToRad(pose.thumbCMC.rotation * this.sideSign);
 
     for (const name of FINGER_ORDER) {
       const nodes = this.fingers[name];

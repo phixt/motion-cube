@@ -5,7 +5,6 @@
  * 调用方再按 CUBE_UNIT_WORLD 缩放到 cubing 世界尺度。
  */
 import {
-  BoxGeometry,
   Color,
   CylinderGeometry,
   EdgesGeometry,
@@ -16,6 +15,7 @@ import {
   MeshBasicMaterial,
   SphereGeometry,
 } from "three";
+import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import type { FingerName } from "./HandRig";
 import type { HandRig } from "./HandRig";
 import type { HandRigConfig } from "./handRigStore";
@@ -73,9 +73,15 @@ export function buildHandGeometry(
   };
   const root = new Group();
 
-  // 手掌：宽（拇指↔小指）× 厚 × 长；前表面落在 mcpZ，手指/拇指从掌前缘伸出
+  // 手掌：宽（拇指↔小指）× 厚 × 长；圆角盒体（略微圆滑，与大鱼际融合）；前表面落在 mcpZ
   const palmMesh = new Mesh(
-    new BoxGeometry(cfg.palm.width * H, cfg.palm.height * H, cfg.palm.length * H),
+    new RoundedBoxGeometry(
+      cfg.palm.width * H,
+      cfg.palm.height * H,
+      cfg.palm.length * H,
+      3,
+      0.08 * H,
+    ),
     skin,
   );
   palmMesh.position.set(0, -0.02 * H, (cfg.palm.mcpZ - cfg.palm.length / 2) * H);
