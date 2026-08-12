@@ -8,6 +8,12 @@
 - 详见 [migration-vue-winui-plan.md](./migration-vue-winui-plan.md)
 - 高 DPI 适配：标题栏「缩放」按钮 100%–200%（默认 150%），全局 zoom 缩放
 
+## 审查与安全加固（2026-08-12）
+
+- ✅ **首次全面审查（安全/性能）**：S1 导入 JSON 深度校验（`deserializeTechnique` 对 pose/stepMapping 逐字段校验，非法结构导入即抛错；公式名/标签/分类名长度上限）；S2 关键帧帧号上限 36_000（防超大帧号卡死时间线渲染）；补全英文包 `en.ts`（194 key 与 zh-CN 全量对齐）；`verify-data` 失效断言修复（handRigStore 合法版本已迁移到 2，改测 version 3）
+- ✅ **二次审查（标尺领地补审，2026-08-12）**：`HandCalibView.dispose` 清理 window 级拖拽监听（拖拽中切页不再泄漏/空转）；标定页 `thumb-x/y/z` 负值坐标可正常输入（此前被 `v >= 0` 静默拦截，标定功能不完整）；Shift 切换标尺角度过滤 INPUT/TEXTAREA 焦点（输入框内按 Shift 不再误改写角度值）
+- 低危遗留（暂不处理）：`window.__motionCube` 等调试后门未加 DEV 守卫；无 CSP；`crypto.randomUUID` 依赖安全上下文（file:// 打开会崩）；标定页每次输入全量重建 3D 几何（P1 性能，可用防抖+rAF）；`drawRuler` 全量重建 SVG（P2）
+
 ## 优先级与路线（2026-08-12 评估）
 
 ### P0（推进准备中）
