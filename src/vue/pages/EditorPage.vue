@@ -374,6 +374,7 @@ const onTecChange = (e: Event): void => {
 
 const onHandTypeChange = (e: Event): void => {
   handView?.setHandType((e.target as HTMLSelectElement).value as HandType);
+  renderPreview(); // 默认手位随手型更新（左右手镜像位置/朝向）
 };
 
 const onNewAdd = (): void => {
