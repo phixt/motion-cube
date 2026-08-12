@@ -17,6 +17,7 @@ import {
   removeKeyframe,
   upsertKeyframe,
   type Easing,
+  type StepMapping,
   type Technique,
 } from "../../data/technique";
 import { defaultHandPose, FINGER_ORDER, type Contact, type HandType, type Pose } from "../../hand/HandRig";
@@ -42,11 +43,14 @@ const pxPerFrame = ref(6);
 const PREVIEW_SAMPLE_STEP = 15;
 const AUTO_PATH_STEP = 15; // 自动路径中间关键帧间隔（帧）
 const SNAP_STEP = 1 / 3; // 吸附步长：1/3 块边长（sticker 网格）
+const STEP_DEFAULT_SEC = 1; // 每动作默认时长（秒）：手法初始时长 = 公式步数 × t
 
 const lib = ref(loadLibrary());
 const tech = ref<Technique | null>(null);
 const selectedFrame = ref<number | null>(null);
 const playing = ref(false);
+const loopPlay = ref(false); // 播放循环开关（默认不循环）
+const reversePlay = ref(false); // 倒放开关
 const previewFrame = ref(0);
 const statusText = ref("");
 
@@ -290,10 +294,27 @@ function selectTech(id: string): void {
   previewFrame.value = 0;
   tech.value = lib.value.techniques.find((x) => x.id === id) ?? null;
   computeFormulaMoves();
+  // 补全动作刻度：stepMapping 为空时按 公式步数 × 每步默认时长 生成
+  if (tech.value && tech.value.stepMapping.length === 0 && formulaMoves.length > 0) {
+    tech.value = {
+      ...tech.value,
+      stepMapping: buildStepMappingFromMoves(formulaMoves, tech.value.frameRate),
+    };
+  }
   stepMoveIndex = 0;
-  const f = tech.value ? lib.value.formulas.find((x) => x.id === tech.value!.formulaId) : undefined;
-  player?.setMoves(f?.moves ?? "");
+  // 不再 setMoves 整段公式：魔方保持求解态，播放时逐步骤驱动（避免"瞬间完成"观感）
+  player?.reset();
   renderAll();
+}
+
+/** 按公式步数生成等长动作区间：第 i 步占 [i*t, (i+1)*t]（t = 每动作时长） */
+function buildStepMappingFromMoves(moves: string[], frameRate: number): StepMapping[] {
+  const frames = Math.round(STEP_DEFAULT_SEC * frameRate);
+  return moves.map((_, i) => ({
+    stepIndex: i,
+    startFrame: i * frames,
+    endFrame: (i + 1) * frames,
+  }));
 }
 
 /** 解析当前手法关联公式为单步 move 列表（与 stepMapping.stepIndex 对齐） */
@@ -304,7 +325,11 @@ function computeFormulaMoves(): void {
   if (!f) return;
   const parsed = parseMoves(f.moves);
   if (!parsed.ok) return;
-  formulaMoves = parsed.normalized.split(/\s+/).filter(Boolean);
+  // 去括号：normalized 保留分组括号（如 "(R'"），单步应用需纯动作 token
+  formulaMoves = parsed.normalized
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((s) => s.replace(/[()]/g, ""));
 }
 
 /** 步进时长校准：让 cubing 单步动画时长 ≈ stepMapping 区间时长 */
@@ -463,14 +488,45 @@ const onPvPlay = (): void => {
     return;
   }
   if (!playing.value) {
-    // 开始播放：魔方回到求解态，逐步骤驱动
-    player?.reset();
-    stepMoveIndex = 0;
     computeFormulaMoves();
     syncStepSpeed();
-    previewFrame.value = 0;
+    if (reversePlay.value) {
+      // 倒放：从末尾（公式完成态）开始，逐步骤撤销
+      previewFrame.value = totalFrames.value;
+      player?.setMoves(formulaMoves.join(" "));
+      stepMoveIndex = formulaMoves.length;
+    } else {
+      // 正放：魔方回到求解态，逐步骤驱动
+      player?.reset();
+      stepMoveIndex = 0;
+      previewFrame.value = 0;
+    }
   }
   playing.value = !playing.value;
+};
+
+/** 每动作完成时长编辑（秒，最小值 > 0）：修改后按顺序连续重建 stepMapping */
+const onStepDurationChange = (e: Event, idx: number): void => {
+  if (!tech.value) return;
+  const sec = Number((e.target as HTMLInputElement).value);
+  if (!Number.isFinite(sec) || sec <= 0) {
+    renderAll();
+    return;
+  }
+  commit((t2) => {
+    const secs = t2.stepMapping.map((m, i) =>
+      i === idx ? sec : (m.endFrame - m.startFrame) / t2.frameRate,
+    );
+    let acc = 0;
+    return {
+      ...t2,
+      stepMapping: secs.map((s, i) => {
+        const startFrame = Math.round(acc * t2.frameRate);
+        acc += s;
+        return { stepIndex: i, startFrame, endFrame: Math.round(acc * t2.frameRate) };
+      }),
+    };
+  });
 };
 
 /** 时间线缩放：Ctrl+滚轮 */
@@ -682,14 +738,50 @@ onMounted(() => {
   timer = window.setInterval(() => {
     if (!playing.value || !tech.value) return;
     const total = totalFrames.value;
-    if (previewFrame.value >= total) {
-      previewFrame.value = 0;
-      stepMoveIndex = 0;
-      player?.reset();
+    if (reversePlay.value) {
+      if (previewFrame.value <= 0) {
+        if (loopPlay.value) {
+          previewFrame.value = total;
+          player?.setMoves(formulaMoves.join(" ")); // 循环倒放回到末尾（完成态）
+          stepMoveIndex = formulaMoves.length;
+        } else {
+          playing.value = false;
+        }
+      } else {
+        previewFrame.value -= 1;
+      }
+      if (!playing.value) {
+        renderPreview();
+        return;
+      }
+      // 倒放：退出已应用步骤区间时撤销该步
+      while (stepMoveIndex > 0) {
+        const m = tech.value.stepMapping[stepMoveIndex - 1];
+        if (previewFrame.value < m.startFrame) {
+          player?.undoLastMove();
+          stepMoveIndex--;
+        } else {
+          break;
+        }
+      }
     } else {
-      previewFrame.value += 1;
+      if (previewFrame.value >= total) {
+        if (loopPlay.value) {
+          previewFrame.value = 0;
+          stepMoveIndex = 0;
+          player?.reset();
+        } else {
+          playing.value = false;
+        }
+      } else {
+        previewFrame.value += 1;
+      }
+      if (!playing.value) {
+        renderPreview();
+        return;
+      }
+      applyStepAtFrame(previewFrame.value);
     }
-    applyStepAtFrame(previewFrame.value);
     renderPreview();
   }, 1000 / 60);
 });
@@ -770,8 +862,21 @@ onBeforeUnmount(() => {
 
     <section class="editor-section">
       <WinTextBlock class="section-title" :Text="t('editor.timeline')" FontSize="20" FontWeight="SemiBold" />
+      <div class="tl-playback-controls">
+        <WinToggleSwitch v-model:IsOn="loopPlay" :OnContent="t('editor.loopOn')" :OffContent="t('editor.loopOff')" />
+        <WinToggleSwitch v-model:IsOn="reversePlay" :OnContent="t('editor.reverseOn')" :OffContent="t('editor.reverseOff')" />
+      </div>
       <div class="tl-wrap" @wheel="onTlWheel">
         <div id="tl-ruler" class="tl-ruler" :style="{ width: tlWidth }">
+          <button
+            v-for="kf in sortedKeyframes"
+            :key="kf.frame"
+            class="tl-kf"
+            :class="{ selected: selectedFrame === kf.frame }"
+            :data-frame="kf.frame"
+            :style="{ left: `${kf.frame * pxPerFrame - 5}px` }"
+            :title="`${kf.frame} (${(kf.frame / (tech?.frameRate ?? 60)).toFixed(2)}s)`"
+            @click="selectKf(kf.frame)"></button>
           <span
             v-for="tick in rulerTicks"
             :key="tick.frame"
@@ -788,16 +893,22 @@ onBeforeUnmount(() => {
             :style="{ left: `${band.startFrame * pxPerFrame}px`, width: `${Math.max((band.endFrame - band.startFrame) * pxPerFrame, 8)}px` }">
             S{{ band.stepIndex + 1 }}
           </span>
-          <button
-            v-for="kf in sortedKeyframes"
-            :key="kf.frame"
-            class="tl-kf"
-            :class="{ selected: selectedFrame === kf.frame }"
-            :data-frame="kf.frame"
-            :style="{ left: `${kf.frame * pxPerFrame - 5}px` }"
-            :title="`${kf.frame} (${(kf.frame / (tech?.frameRate ?? 60)).toFixed(2)}s)`"
-            @click="selectKf(kf.frame)"></button>
         </div>
+      </div>
+      <div v-if="tech && stepBands.length" class="step-durations">
+        <WinTextBlock class="editor-label" :Text="t('editor.stepDuration')" FontSize="14" />
+        <label v-for="(band, i) in stepBands" :key="i" class="step-dur">
+          <span class="step-dur-name">S{{ i + 1 }}</span>
+          <input
+            :id="`step-dur-${i}`"
+            type="number"
+            min="0.1"
+            step="0.1"
+            class="native-input num-input"
+            :value="((band.endFrame - band.startFrame) / (tech?.frameRate ?? 60)).toFixed(1)"
+            @change="onStepDurationChange($event, i)" />
+          <span>s</span>
+        </label>
       </div>
       <p id="tl-meta" ref="tlMetaEl" class="page-note"></p>
     </section>
@@ -1028,6 +1139,33 @@ onBeforeUnmount(() => {
   outline-offset: 2px;
 }
 
+.tl-playback-controls {
+  display: flex;
+  gap: 12px;
+  margin: 6px 0 8px;
+}
+
+.step-durations {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.step-dur {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.step-dur-name {
+  font-family: ui-monospace, Consolas, monospace;
+  color: var(--text-primary);
+}
+
 .tl-wrap {
   overflow-x: auto;
   padding: 6px 0;
@@ -1035,7 +1173,7 @@ onBeforeUnmount(() => {
 
 .tl-ruler {
   position: relative;
-  height: 24px;
+  height: 30px;
   background: var(--ctrl-fill-secondary, #26262c); /* 明显灰色标尺，与页面背景区分 */
   border-radius: 4px 4px 0 0;
   border-bottom: 1px solid var(--stroke-divider);
@@ -1044,7 +1182,7 @@ onBeforeUnmount(() => {
 .tl-tick-major,
 .tl-tick-minor {
   position: absolute;
-  top: 2px;
+  top: 15px;
   font-size: 11px;
   color: var(--text-tertiary);
 }
@@ -1061,20 +1199,20 @@ onBeforeUnmount(() => {
 
 .tl-track {
   position: relative;
-  height: 40px;
+  height: 22px;
   background: var(--ctrl-fill-default, rgba(128, 128, 138, 0.08));
   border-radius: 0 0 4px 4px;
 }
 
 .tl-step-band {
   position: absolute;
-  top: 4px;
-  height: 16px;
+  top: 2px;
+  height: 18px;
   border-radius: 4px;
   background: var(--accent-base);
   color: var(--accent-text);
   font-size: 11px;
-  line-height: 16px;
+  line-height: 18px;
   text-align: center;
   opacity: 0.7;
 }
@@ -1082,20 +1220,18 @@ onBeforeUnmount(() => {
 .tl-kf {
   position: absolute;
   top: 0;
-  width: 0;
-  height: 0;
+  width: 10px;
+  height: 9px;
   padding: 0;
   border: none;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-bottom: 9px solid var(--accent-base); /* 蓝色小箭头，尖端朝上指向标尺 */
+  background: var(--accent-base); /* 纯三角：clip-path，无残留背景 */
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
   cursor: pointer;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
 }
 
 .tl-kf.selected {
-  border-bottom-color: var(--accent-hover, #59d5ff);
-  border-bottom-width: 13px;
+  background: var(--accent-hover, #59d5ff);
+  height: 13px;
 }
 
 .editor-big-play {

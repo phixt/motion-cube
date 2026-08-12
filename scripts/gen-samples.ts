@@ -7,6 +7,7 @@ import { createFormula } from "../src/data/formula.ts";
 import { serializeLibraryData, type LibraryData } from "../src/data/libraryStore.ts";
 import { createTechnique } from "../src/data/technique.ts";
 import { defaultHandPose, type Contact } from "../src/hand/HandRig.ts";
+import { parseMoves } from "../src/notation/alg.ts";
 
 const OUT = "data/samples";
 mkdirSync(OUT, { recursive: true });
@@ -116,7 +117,38 @@ const technique = createTechnique({
   ],
 });
 
-const lib: LibraryData = { version: 1, categories, formulas, techniques: [technique] };
+// 其余公式各配一个基础手法：自动动作刻度（每步 60 帧 = 1 秒，stepMapping 等长均分），
+// 无关键帧（播放时手用默认姿态、魔方按公式逐步骤驱动）——保证示例都能正常播放
+const STEP_FRAMES = 60;
+const formulaTechniques = formulas
+  .filter((f) => f.id !== flickFormula.id)
+  .map((f) => {
+    const parsed = parseMoves(f.moves);
+    const moves = parsed.ok
+      ? parsed.normalized
+          .split(/\s+/)
+          .filter(Boolean)
+          .map((s) => s.replace(/[()]/g, ""))
+      : [];
+    return createTechnique({
+      name: `${f.name}（手法）`,
+      formulaId: f.id,
+      frameRate: 60,
+      keyframes: [],
+      stepMapping: moves.map((_, i) => ({
+        stepIndex: i,
+        startFrame: i * STEP_FRAMES,
+        endFrame: (i + 1) * STEP_FRAMES,
+      })),
+    });
+  });
+
+const lib: LibraryData = {
+  version: 1,
+  categories,
+  formulas,
+  techniques: [technique, ...formulaTechniques],
+};
 writeFileSync(join(OUT, "library.json"), serializeLibraryData(lib));
 // 旧的两文件格式废弃，清理
 rmSync(join(OUT, "formulas.json"), { force: true });

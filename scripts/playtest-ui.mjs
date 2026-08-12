@@ -449,6 +449,35 @@ await page.$eval("#editor-view", (el) => el.scrollIntoView({ block: "center" }))
 await sleep(400);
 await shot("ui-16-editor-view");
 
+// 8k) 自动动作刻度 + 复杂公式播放：无关键帧手法也有步骤带，播放逐步驱动魔方
+await page.evaluate(() => {
+  const sel = document.querySelector("#tec-select");
+  const opt = [...sel.options].find((o) => (o.textContent ?? "").includes("V Perm（手法）"));
+  if (opt) {
+    sel.value = opt.value;
+    sel.dispatchEvent(new Event("change"));
+  }
+});
+await sleep(500);
+const vSteps = await page.$$eval("#tl-track .tl-step-band", (els) => els.length);
+if (vSteps < 2) throw new Error(`V Perm 手法应有多个动作刻度：${vSteps}`);
+const vAlg = async () =>
+  page.evaluate(async () => {
+    const el = globalThis.__motionCubeEditor?.player?.element;
+    try {
+      return (await el?.experimentalModel.alg.get())?.alg?.toString() ?? "";
+    } catch {
+      return "";
+    }
+  });
+const vA0 = await vAlg();
+await page.click("#editor-big-play");
+await sleep(900);
+const vA1 = await vAlg();
+if (vA1 === vA0) throw new Error(`复杂公式播放未驱动魔方：${vA0}`);
+await page.click("#editor-big-play"); // 暂停
+console.log(`auto step mapping + complex play ok (${vSteps} steps)`);
+
 await clickNav("公式库");
 await page.waitForSelector("#formula-rows");
 await page.type("#f-name", "测试 OLL");

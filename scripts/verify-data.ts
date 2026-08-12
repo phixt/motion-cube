@@ -289,13 +289,19 @@ check("samples: 示例公式库可加载", () => {
 });
 
 check("samples: 示例手法可加载（60fps/三关键帧/终态 PIP 45）", () => {
-  expect(SAMPLE_TECHNIQUES.length === 1, "示例手法应为 1 条");
+  expect(SAMPLE_TECHNIQUES.length >= 1, "示例手法应至少 1 条");
   const tec = SAMPLE_TECHNIQUES[0];
   expect(tec.frameRate === 60, "frameRate 应为 60");
   expect(tec.keyframes.length === 3, "关键帧应为 3");
   expect(tec.keyframes[2].pose.bends.index[1] === 45, "终态 PIP 应为 45");
   expect(tec.stepMapping.length === 1, "stepMapping 应为 1");
   expect(tec.formulaId.length > 0, "手法应关联公式");
+  // 自动动作刻度补全：其余公式手法 stepMapping 与公式步数一致（每步 1 秒）
+  const auto = SAMPLE_TECHNIQUES.filter((x) => x.keyframes.length === 0);
+  expect(
+    auto.every((x) => x.stepMapping.length > 0 && x.stepMapping.every((m) => m.endFrame > m.startFrame)),
+    "无关键帧手法应含合法 stepMapping",
+  );
 });
 
 check("library: 合并与序列化往返", () => {
