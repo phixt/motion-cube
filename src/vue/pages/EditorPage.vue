@@ -486,6 +486,72 @@ const onAutoPath = (): void => {
   statusText.value = t("editor.autoPathDone");
 };
 
+/** 插入中间帧：在选中关键帧与其后一帧之间插入 slerp 插值帧 */
+const onInsertMid = (): void => {
+  if (!tech.value || selectedFrame.value === null) {
+    statusText.value = t("editor.insertMidNeed");
+    return;
+  }
+  const sorted = [...tech.value.keyframes].sort((a, b) => a.frame - b.frame);
+  const idx = sorted.findIndex((k) => k.frame === selectedFrame.value);
+  if (idx < 0 || idx >= sorted.length - 1) {
+    statusText.value = t("editor.insertMidNeed");
+    return;
+  }
+  const a = sorted[idx];
+  const b = sorted[idx + 1];
+  const mid = Math.round((a.frame + b.frame) / 2);
+  if (mid <= a.frame || mid >= b.frame) {
+    statusText.value = t("editor.insertMidNeed");
+    return;
+  }
+  commit((t2) =>
+    upsertKeyframe(t2, {
+      frame: mid,
+      pose: interpolatePose(a.pose, b.pose, (mid - a.frame) / (b.frame - a.frame)),
+      easing: a.easing ?? "linear",
+    }),
+  );
+  statusText.value = t("editor.insertMidDone");
+};
+
+/** 正弦函数路径：首末关键帧间按正弦缓动生成中间帧（各指关节 bend 用 sin²(πt/2)） */
+const onSinePath = (): void => {
+  if (!tech.value || tech.value.keyframes.length < 2) {
+    statusText.value = t("editor.autoPathNeed");
+    return;
+  }
+  const sorted = [...tech.value.keyframes].sort((a, b) => a.frame - b.frame);
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
+  if (last.frame - first.frame <= AUTO_PATH_STEP) {
+    statusText.value = t("editor.autoPathNeed");
+    return;
+  }
+  commit((t2) => {
+    let acc = t2;
+    for (let f = first.frame + AUTO_PATH_STEP; f < last.frame; f += AUTO_PATH_STEP) {
+      const t = (f - first.frame) / (last.frame - first.frame);
+      const base = interpolatePose(first.pose, last.pose, t);
+      // 正弦缓动：位置/朝向仍线性/slerp，关节 bend 用 sin² 平滑
+      const e = Math.sin((Math.PI / 2) * t) ** 2;
+      const bends = {} as Pose["bends"];
+      for (const name of FINGER_ORDER) {
+        const arrA = first.pose.bends[name];
+        const arrB = last.pose.bends[name];
+        bends[name] = arrA.map((v, i) => v + ((arrB[i] ?? v) - v) * e);
+      }
+      acc = upsertKeyframe(acc, {
+        frame: f,
+        pose: { ...base, bends },
+        easing: first.easing ?? "linear",
+      });
+    }
+    return acc;
+  });
+  statusText.value = t("editor.sinePathDone");
+};
+
 const selectKf = (frame: number): void => {
   selectedFrame.value = frame;
   previewFrame.value = frame;
@@ -633,6 +699,8 @@ onBeforeUnmount(() => {
       <input id="kf-add-frame" ref="addFrameEl" type="number" min="0" step="1" class="native-input num-input" value="30" />
       <WinButton id="kf-add" :Content="t('editor.addKf')" Style="AccentButtonStyle" @Click="onKfAdd" />
       <WinButton id="auto-path" :Content="t('editor.autoPath')" @Click="onAutoPath" />
+      <WinButton id="kf-insert-mid" :Content="t('editor.insertMid')" @Click="onInsertMid" />
+      <WinButton id="sine-path" :Content="t('editor.sinePath')" @Click="onSinePath" />
     </div>
     <WinTextBlock class="page-note" :Text="t('editor.addKfHint')" />
 

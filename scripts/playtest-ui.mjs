@@ -326,6 +326,25 @@ const poseText = await page.$eval("#kf-pose", (el) => el.textContent ?? "");
 if (!poseText.includes("palm pos (1.00")) throw new Error(`姿态坐标未更新：${poseText.split("\n").slice(-1)}`);
 console.log("pose edit ok");
 
+// 8g) 插入中间帧：选中 30 与其后 45 之间插入 38
+await page.click('#tl-track .tl-kf[data-frame="30"]');
+await sleep(200);
+await page.click("#kf-insert-mid");
+await sleep(300);
+let kfFramesMid = await page.$$eval("#tl-track .tl-kf", (els) => els.map((e) => e.dataset.frame).sort());
+if (!kfFramesMid.includes("38")) throw new Error(`插入中间帧失败：${kfFramesMid}`);
+console.log(`insert mid ok: ${kfFramesMid.join(",")}`);
+
+// 8h) 正弦路径：中间帧关节 bend 改为正弦缓动（与线性插值不同）
+await page.click('#tl-track .tl-kf[data-frame="15"]');
+await sleep(200);
+const pipBefore = await page.$eval("#kf-pose", (el) => (el.textContent.match(/index\s+PIP:(\d+)/) || [])[1]);
+await page.click("#sine-path");
+await sleep(300);
+const pipAfter = await page.$eval("#kf-pose", (el) => (el.textContent.match(/index\s+PIP:(\d+)/) || [])[1]);
+if (pipBefore === pipAfter) throw new Error(`正弦路径未改变中间帧姿态：${pipBefore}`);
+console.log(`sine path ok: index PIP ${pipBefore} -> ${pipAfter}`);
+
 await page.$eval("#editor-view", (el) => el.scrollIntoView({ block: "center" }));
 await sleep(400);
 await shot("ui-16-editor-view");
