@@ -172,7 +172,7 @@ if (grayCount !== 0) throw new Error(`清除后应为 0：${grayCount}`);
 console.log("gray panel ok");
 await shot("ui-13-gray");
 
-// 6c) 伪3D：悬停不换面、按住拖拽换面、x 键换面且不转主魔方（用侧面小面坐标验证）
+// 6c) 伪3D：悬停不换面、滑环拖拽换面、x 键换面且不转主魔方（用侧面小面坐标验证）
 const f4 = () => page.$eval('#gray-panel [data-sticker="F4"]', (el) => el.getAttribute("points"));
 const f4Before = await f4();
 const grayBox = await page.$eval("#gray-panel svg", (el) => {
@@ -182,6 +182,7 @@ const grayBox = await page.$eval("#gray-panel svg", (el) => {
 await page.mouse.move(grayBox.x + grayBox.w / 2 + 60, grayBox.y + grayBox.h / 2);
 await sleep(250);
 if ((await f4()) !== f4Before) throw new Error("悬停不应换面");
+// 魔方内拖动只涂灰不换面（换面走魔方外滑环）
 await page.mouse.move(grayBox.x + grayBox.w / 2, grayBox.y + grayBox.h / 2);
 await page.mouse.down();
 for (let i = 1; i <= 6; i++) {
@@ -190,7 +191,21 @@ for (let i = 1; i <= 6; i++) {
 }
 await page.mouse.up();
 await sleep(300);
-if ((await f4()) === f4Before) throw new Error("按住拖拽应换面");
+if ((await f4()) !== f4Before) throw new Error("魔方内拖动不应换面（只涂灰）");
+// 滑环：在魔方外环上拖拽换面
+const ringBox = await page.$eval("#gray-panel .gray-ring", (el) => {
+  const r = el.getBoundingClientRect();
+  return { x: r.x, y: r.y, w: r.width, h: r.height };
+});
+await page.mouse.move(ringBox.x + ringBox.w - 4, ringBox.y + ringBox.h / 2);
+await page.mouse.down();
+for (let i = 1; i <= 6; i++) {
+  await page.mouse.move(ringBox.x + ringBox.w - 4 - i * 12, ringBox.y + ringBox.h / 2);
+  await sleep(15);
+}
+await page.mouse.up();
+await sleep(300);
+if ((await f4()) === f4Before) throw new Error("滑环拖拽应换面");
 const logBeforeX = await moveLogText();
 await page.click('#gray-panel [data-sticker="F4"]');
 await sleep(200);
@@ -199,6 +214,31 @@ await sleep(300);
 if ((await moveLogText()) !== logBeforeX) throw new Error("按 x 不应转动主魔方");
 console.log("pseudo3d hover/drag/keys ok");
 await shot("ui-14-pseudo3d-flip");
+
+// 6d) 长拖涂灰 vs 换面拖拽：按住小面 >0.4s 再拖动 → 涂灰且不换面
+await page.click('.gray-preset[data-preset="clear"]');
+await sleep(300);
+const paintBefore = await page.$$eval("#gray-panel [data-sticker]", (els) =>
+  els.filter((e) => e.getAttribute("fill") === "#8f959e").length,
+);
+const f4ptsPaint = await f4();
+const f4box = await page.$eval('#gray-panel [data-sticker="F4"]', (el) => {
+  const r = el.getBoundingClientRect();
+  return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+});
+await page.mouse.move(f4box.x, f4box.y);
+await page.mouse.down();
+await sleep(450);
+await page.mouse.move(f4box.x + 16, f4box.y, { steps: 4 });
+await sleep(120);
+await page.mouse.up();
+await sleep(300);
+const paintAfter = await page.$$eval("#gray-panel [data-sticker]", (els) =>
+  els.filter((e) => e.getAttribute("fill") === "#8f959e").length,
+);
+if (paintAfter <= paintBefore) throw new Error(`长拖涂灰未生效：${paintBefore} -> ${paintAfter}`);
+if ((await f4()) !== f4ptsPaint) throw new Error("长拖涂灰不应换面");
+console.log(`long-press paint ok: ${paintBefore} -> ${paintAfter}`);
 
 // 7) 动画编辑占位页 + 说明页
 await clickNav("动画编辑");
@@ -358,8 +398,8 @@ await page.click(".editor-gray-kind-toggle");
 await sleep(200);
 await page.click('#gray-panel [data-sticker="D4"]');
 await sleep(300);
-const d4stroke = await page.$eval('#gray-panel [data-sticker="D4"]', (el) => el.getAttribute("stroke"));
-if (d4stroke !== "#222") throw new Error(`不可变点选未生效：${d4stroke}`);
+const d4fill = await page.$eval('#gray-panel [data-sticker="D4"]', (el) => el.getAttribute("fill"));
+if (d4fill !== "#565c66") throw new Error(`不可变点选未生效（应为深灰 #565c66）：${d4fill}`);
 console.log("editor gray panel ok");
 
 await page.$eval("#editor-view", (el) => el.scrollIntoView({ block: "center" }));

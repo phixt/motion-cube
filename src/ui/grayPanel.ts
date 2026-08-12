@@ -27,6 +27,7 @@ const FACE_COLORS: Record<Face, string> = {
   B: "#4a6fd4",
 };
 const GRAY_MUTABLE = "#8f959e";
+const GRAY_IMMUTABLE = "#565c66";
 const BODY_BG = "#16161c";
 const PROJECT_OUT = 2.0;
 const DRAG_FLIP_PX = 44;
@@ -203,6 +204,40 @@ export function renderGrayPanel(
     }
   }
 
+  // 魔方外换面滑环：可见环 + 加宽命中带 + 四个方向点（换面与涂灰完全分离）
+  const ring = document.createElementNS(NS, "ellipse");
+  ring.classList.add("gray-ring");
+  ring.setAttribute("fill", "none");
+  ring.style.stroke = "var(--accent-base, #8ab4f8)";
+  ring.setAttribute("stroke-width", "3");
+  ring.setAttribute("opacity", "0.75");
+  ring.setAttribute("pointer-events", "none");
+
+  const ringHit = document.createElementNS(NS, "ellipse");
+  ringHit.classList.add("gray-ring-hit");
+  ringHit.setAttribute("fill", "none");
+  ringHit.setAttribute("stroke", "transparent");
+  ringHit.setAttribute("stroke-width", "30");
+  ringHit.setAttribute("pointer-events", "stroke");
+  ringHit.style.cursor = "grab";
+
+  const handles: SVGCircleElement[] = [];
+  for (const dir of ["n", "e", "s", "w"] as const) {
+    const h = document.createElementNS(NS, "circle");
+    h.classList.add("gray-handle");
+    h.dataset.dir = dir;
+    h.setAttribute("r", "7");
+    h.style.fill = "var(--accent-base, #8ab4f8)";
+    h.style.stroke = "var(--text-primary, #ffffff)";
+    h.setAttribute("stroke-width", "1.5");
+    h.style.cursor = "pointer";
+    handles.push(h);
+  }
+  // 层级：命中带最底，可见环居中，方向点最上（保证点方向点可命中）
+  svg.appendChild(ringHit);
+  svg.appendChild(ring);
+  for (const h of handles) svg.appendChild(h);
+
   let viewRot: Mat3 = [...IDENTITY];
 
   function flipView(axis: "x" | "y" | "z", sign: 1 | -1): void {
@@ -247,10 +282,16 @@ export function renderGrayPanel(
           .map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`)
           .join(" ");
         poly.setAttribute("points", pts);
-        poly.setAttribute("fill", gray.has(id) ? GRAY_MUTABLE : FACE_COLORS[id[0] as Face]);
+        // 不可变格用深灰填充区分（去掉黑色描边，与 3D 覆盖层 immutable 同色）
+        poly.setAttribute(
+          "fill",
+          gray.has(id)
+            ? state.immutable.includes(id)
+              ? GRAY_IMMUTABLE
+              : GRAY_MUTABLE
+            : FACE_COLORS[id[0] as Face],
+        );
         poly.setAttribute("opacity", polyFace === "U" || polyFace === "F" || polyFace === "R" ? "1" : "0.55");
-        if (state.immutable.includes(id)) poly.setAttribute("stroke", "#222");
-        else poly.removeAttribute("stroke");
       }
     }
 
@@ -276,15 +317,43 @@ export function renderGrayPanel(
         }),
       );
     }
-    const pad = 20;
+    const pad = 52; // 容纳魔方外换面滑环
     svg.setAttribute("viewBox", `${minX - pad} ${minY - pad} ${maxX - minX + pad * 2} ${maxY - minY + pad * 2}`);
+
+    // 滑环：绕魔方投影外扩 30 单位居中，随 viewBox 更新
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    const rx = (maxX - minX) / 2 + 30;
+    const ry = (maxY - minY) / 2 + 30;
+    for (const el of [ring, ringHit]) {
+      el.setAttribute("cx", cx.toFixed(1));
+      el.setAttribute("cy", cy.toFixed(1));
+      el.setAttribute("rx", rx.toFixed(1));
+      el.setAttribute("ry", ry.toFixed(1));
+    }
+    const handleOffsets: Record<string, [number, number]> = {
+      n: [0, -1],
+      s: [0, 1],
+      e: [1, 0],
+      w: [-1, 0],
+    };
+    for (const h of handles) {
+      const [sx, sy] = handleOffsets[h.dataset.dir ?? ""] ?? [0, 0];
+      h.setAttribute("cx", (cx + sx * rx).toFixed(1));
+      h.setAttribute("cy", (cy + sy * ry).toFixed(1));
+    }
   }
 
-  // 交互：点击/拖选标灰
-  let painting = false;
-  let paintingOn = false;
+  // 交互：换面与涂灰完全分离——
+  // - 小面上按下即涂灰（拖动连续涂，快速松开=切换该小面）；换面只走魔方外滑环；
+  // - 滑环上拖拽换面（水平↔绕 Y、垂直↔绕 X，44px 一步）；点方向点一步翻转；
+  // - 键盘 X/Y/Z 换面（焦点在视图上时生效）。
   const cellOf = (target: EventTarget | null): HTMLElement | null =>
     target instanceof Element ? target.closest<HTMLElement>("[data-sticker]") : null;
+  const ringOf = (target: EventTarget | null): Element | null =>
+    target instanceof Element
+      ? target.closest<Element>(".gray-ring, .gray-ring-hit, .gray-handle")
+      : null;
   const applyCell = (cell: HTMLElement) => {
     const id = cell.dataset.sticker as StickerId;
     const state = opts.getState();
@@ -299,61 +368,89 @@ export function renderGrayPanel(
           : { mutable: [...mutable, id], immutable },
     );
   };
-  svg.addEventListener("pointerdown", (e) => {
-    svg.focus();
-    const cell = cellOf(e.target);
-    if (!cell) return;
-    e.preventDefault();
-    painting = true;
-    paintingOn = !graySet(opts.getState()).has(cell.dataset.sticker as StickerId);
-    applyCell(cell);
-  });
-  svg.addEventListener("pointerover", (e) => {
-    if (!painting || !(e.buttons & 1)) return;
-    const cell = cellOf(e.target);
-    if (!cell) return;
-    const id = cell.dataset.sticker as StickerId;
-    if (graySet(opts.getState()).has(id) !== paintingOn) applyCell(cell);
-  });
-  window.addEventListener("pointerup", () => {
-    painting = false;
-  });
 
-  // 拖拽换面（只在视图上）
+  const HANDLE_CLICK_PX = 8;
+  let painting = false;
+  let paintingOn = false;
+  let dragging = false;
+  let downHandle: string | null = null;
+  let downX = 0;
+  let downY = 0;
   let dragX = 0;
   let dragY = 0;
   let lastX = 0;
   let lastY = 0;
-  let dragging = false;
-  svg.addEventListener("pointerdown", (e) => {
-    dragging = true;
-    dragX = 0;
-    dragY = 0;
-    lastX = e.clientX;
-    lastY = e.clientY;
-  });
-  svg.addEventListener("pointermove", (e) => {
-    if (!dragging || !(e.buttons & 1)) return;
-    dragX += e.clientX - lastX;
-    dragY += e.clientY - lastY;
-    lastX = e.clientX;
-    lastY = e.clientY;
-    if (Math.abs(dragX) >= DRAG_FLIP_PX) {
-      flipView("y", dragX > 0 ? -1 : 1);
-      dragX = 0;
-    }
-    if (Math.abs(dragY) >= DRAG_FLIP_PX) {
-      flipView("x", dragY > 0 ? 1 : -1);
-      dragY = 0;
-    }
-  });
-  const endDrag = () => {
-    dragging = false;
-    painting = false;
+
+  const flipHandle = (dir: string): void => {
+    if (dir === "n") flipView("x", -1);
+    else if (dir === "s") flipView("x", 1);
+    else if (dir === "e") flipView("y", -1);
+    else if (dir === "w") flipView("y", 1);
   };
-  svg.addEventListener("pointerup", endDrag);
-  svg.addEventListener("pointercancel", endDrag);
-  svg.addEventListener("pointerleave", endDrag);
+
+  svg.addEventListener("pointerdown", (e) => {
+    svg.focus();
+    if (ringOf(e.target)) {
+      // 滑环：换面拖拽 / 点方向点一步翻转
+      dragging = true;
+      painting = false;
+      downHandle =
+        (e.target as Element).closest<Element>(".gray-handle")?.getAttribute("data-dir") ?? null;
+      downX = e.clientX;
+      downY = e.clientY;
+      dragX = 0;
+      dragY = 0;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      return;
+    }
+    const cell = cellOf(e.target);
+    if (!cell) return;
+    e.preventDefault();
+    painting = true;
+    dragging = false;
+    downHandle = null;
+    paintingOn = !graySet(opts.getState()).has(cell.dataset.sticker as StickerId);
+    applyCell(cell);
+  });
+
+  svg.addEventListener("pointermove", (e) => {
+    if (dragging) {
+      if (!(e.buttons & 1)) return;
+      dragX += e.clientX - lastX;
+      dragY += e.clientY - lastY;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      if (Math.abs(dragX) >= DRAG_FLIP_PX) {
+        flipView("y", dragX > 0 ? -1 : 1);
+        dragX = 0;
+      }
+      if (Math.abs(dragY) >= DRAG_FLIP_PX) {
+        flipView("x", dragY > 0 ? 1 : -1);
+        dragY = 0;
+      }
+      return;
+    }
+    if (painting && (e.buttons & 1)) {
+      const cell = cellOf(e.target);
+      if (!cell) return;
+      const id = cell.dataset.sticker as StickerId;
+      if (graySet(opts.getState()).has(id) !== paintingOn) applyCell(cell);
+    }
+  });
+
+  const endGesture = (): void => {
+    if (dragging && downHandle && Math.abs(lastX - downX) + Math.abs(lastY - downY) < HANDLE_CLICK_PX) {
+      flipHandle(downHandle);
+    }
+    painting = false;
+    dragging = false;
+    downHandle = null;
+  };
+  svg.addEventListener("pointerup", endGesture);
+  svg.addEventListener("pointercancel", endGesture);
+  window.addEventListener("pointerup", endGesture);
+  svg.addEventListener("pointerleave", endGesture);
   svg.addEventListener("keydown", (e) => {
     if (document.activeElement !== svg) return;
     const key = e.key.toLowerCase();

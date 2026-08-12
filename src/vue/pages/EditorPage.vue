@@ -75,6 +75,8 @@ const pvPoseEl = ref<HTMLElement | null>(null);
 let player: CubePlayer | null = null;
 let handView: HandRigView | null = null;
 let timer: number | null = null;
+let viewIo: IntersectionObserver | null = null;
+let kickTimers: number[] = [];
 const snapOn = ref(true);
 const grayState = ref<GrayState>(createGrayState());
 const grayKind = ref<"mutable" | "immutable">("mutable");
@@ -607,6 +609,28 @@ onMounted(() => {
   void grayOverlay.init().then(() => grayOverlay?.requestApply(grayState.value));
   (globalThis as { __motionCubeEditor?: unknown }).__motionCubeEditor = { player, handView };
   renderAll();
+  // 视口渲染兜底：cubing 的 TwistyPlayer 用 IntersectionObserver 懒初始化，
+  // 挂载时若视口在折叠线外（或懒初始化未触发）可能长时间空白；
+  // 监听可见性 + 定时踢帧，保证进入编辑器即可见魔方/手。
+  const kickRender = (): void => {
+    void (async () => {
+      try {
+        const vantages = await player?.element.experimentalCurrentVantages();
+        for (const v of vantages ?? []) v.scheduleRender();
+      } catch {
+        // 场景未就绪时忽略
+      }
+      handView?.setPose(previewPose() ?? defaultHandPose((handTypeSelectEl.value?.value as HandType) ?? "right"));
+    })();
+  };
+  viewIo = new IntersectionObserver(
+    (entries) => {
+      if (entries.some((en) => en.isIntersecting)) kickRender();
+    },
+    { threshold: 0.01 },
+  );
+  if (editorViewEl.value) viewIo.observe(editorViewEl.value);
+  kickTimers = [1200, 3500, 8000].map((ms) => window.setTimeout(kickRender, ms));
   timer = window.setInterval(() => {
     if (!playing.value || !tech.value) return;
     const total = totalFrames.value;
@@ -624,6 +648,10 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (timer !== null) window.clearInterval(timer);
+  viewIo?.disconnect();
+  viewIo = null;
+  kickTimers.forEach((t) => window.clearTimeout(t));
+  kickTimers = [];
   editorViewEl.value?.replaceChildren();
   delete (globalThis as { __motionCubeEditor?: unknown }).__motionCubeEditor;
   grayOverlay?.dispose();
