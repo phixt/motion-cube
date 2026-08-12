@@ -828,6 +828,9 @@ onMounted(() => {
           stepMoveIndex = formulaMoves.length;
         } else {
           playing.value = false;
+          // 倒放结束：撤销剩余步骤，完全回到起始态（修复"停在还原差一步"）
+          if (player) player.element.alg = "";
+          stepMoveIndex = 0;
         }
       } else {
         previewFrame.value -= 1;
@@ -836,12 +839,13 @@ onMounted(() => {
         renderPreview();
         return;
       }
-      // 倒放：退出已应用步骤区间时撤销该步（重设"已完成部分"公式，稳定无动画队列错乱）
+      // 倒放：退出已应用步骤区间时撤销该步（undoLastMove 带动画；
+      // 公式已拆分复合动作，setMoves 整段 + 逐个撤销稳定）
       while (stepMoveIndex > 0) {
         const m = tech.value.stepMapping[stepMoveIndex - 1];
         if (previewFrame.value < m.startFrame) {
           stepMoveIndex--;
-          if (player) player.element.alg = formulaMoves.slice(0, stepMoveIndex).join(" ");
+          player?.undoLastMove();
         } else {
           break;
         }
