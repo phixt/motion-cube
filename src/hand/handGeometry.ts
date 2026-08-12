@@ -6,6 +6,7 @@
  */
 import {
   BoxGeometry,
+  Color,
   CylinderGeometry,
   Group,
   Mesh,
@@ -19,6 +20,20 @@ import type { HandRigConfig } from "./handRigStore";
 export const SKIN = 0xcfc0a8;
 export const PAD = 0x4ade80;
 export const BACK = 0xf59e0b;
+
+/**
+ * cubing 渲染器线性输出（renderer.outputColorSpace = linearSRGBColorSpace），
+ * 材质色若按 sRGB 十六进制传入会被转成线性存储、再原样输出，导致中明度颜色明显变暗
+ * （肤色 #CFC0A8 实际渲染为 #9F8664）。这里直接用 setRGB 写入期望的 sRGB 数值，
+ * 使最终渲染颜色与设计一致（toneMapped=false 不参与此问题，仅为保险）。
+ */
+function srgbColor(hex: number): Color {
+  return new Color().setRGB(
+    ((hex >> 16) & 0xff) / 255,
+    ((hex >> 8) & 0xff) / 255,
+    (hex & 0xff) / 255,
+  );
+}
 
 export type SegmentNode = { joint: Group; len: number; radius: number };
 export type FingerNodes = { root: Group; joints: Group[]; segments: SegmentNode[] };
@@ -39,9 +54,11 @@ export function buildHandGeometry(
   withMarks = true,
 ): HandGeometry {
   const H = cfg.handScale;
-  const skin = new MeshBasicMaterial({ color: SKIN });
-  const pad = new MeshBasicMaterial({ color: PAD });
-  const back = new MeshBasicMaterial({ color: BACK });
+  // cubing 渲染器启用 ACES 色调映射，会明显压暗中明度颜色（肤色尤其明显）；
+  // 关闭 toneMapped 让手部按材质原色输出，避免在浅色背景/魔方旁显得暗脏。
+  const skin = new MeshBasicMaterial({ color: srgbColor(SKIN), toneMapped: false });
+  const pad = new MeshBasicMaterial({ color: srgbColor(PAD), toneMapped: false });
+  const back = new MeshBasicMaterial({ color: srgbColor(BACK), toneMapped: false });
   const root = new Group();
 
   // 手掌：宽（拇指↔小指）× 厚 × 长；前表面落在 mcpZ，手指/拇指从掌前缘伸出

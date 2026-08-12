@@ -8,6 +8,7 @@
  * 拇指根默认放在手掌拇指侧角落（thumbBase 为其相对偏移）。
  */
 import {
+  Color,
   Group,
   Mesh,
   MeshBasicMaterial,
@@ -29,8 +30,6 @@ import { createRigFromConfig, loadHandRigConfig, type HandRigConfig } from "./ha
 
 /** 1 魔方单位（块边长）≈ cubing 世界单位（sticker 面内间距 ±0.33 ↔ 规范 ±1 推出） */
 export const CUBE_UNIT_WORLD = 0.33;
-
-const CONTACT = 0xffffff;
 
 const degToRad = (d: number) => (d * Math.PI) / 180;
 
@@ -167,7 +166,10 @@ export class HandRigView {
       if (!seg) continue;
       const marker = new Mesh(
         new SphereGeometry(0.045 * H, 8, 8),
-        new MeshBasicMaterial({ color: CONTACT }),
+        new MeshBasicMaterial({
+          color: new Color().setRGB(1, 1, 1),
+          toneMapped: false,
+        }),
       );
       marker.position.copy(contactLocalPoint(c, seg, this.sideSign, H));
       seg.joint.add(marker);
