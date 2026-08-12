@@ -314,6 +314,18 @@ if (!kfFramesAuto.includes("15") || !kfFramesAuto.includes("45")) {
 }
 console.log(`auto path ok: ${kfFramesAuto.join(",")}`);
 
+// 8f) 姿态坐标编辑：选中关键帧 30，改手掌 X → 姿态摘要同步
+await page.click('#tl-track .tl-kf[data-frame="30"]');
+await sleep(200);
+await page.$eval("#kf-pose-x", (el) => {
+  el.value = "1";
+  el.dispatchEvent(new Event("input"));
+});
+await sleep(250);
+const poseText = await page.$eval("#kf-pose", (el) => el.textContent ?? "");
+if (!poseText.includes("palm pos (1.00")) throw new Error(`姿态坐标未更新：${poseText.split("\n").slice(-1)}`);
+console.log("pose edit ok");
+
 await page.$eval("#editor-view", (el) => el.scrollIntoView({ block: "center" }));
 await sleep(400);
 await shot("ui-16-editor-view");

@@ -7,6 +7,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import WinButton from "../../vendor/winui-on-web/components/WinButton.vue";
 import WinTextBlock from "../../vendor/winui-on-web/components/WinTextBlock.vue";
+import WinToggleSwitch from "../../vendor/winui-on-web/components/WinToggleSwitch.vue";
 import { CubePlayer } from "../../cube/CubePlayer";
 import { loadLibrary, saveLibrary, upsertTechniqueInLib } from "../../data/libraryStore";
 import {
@@ -32,6 +33,7 @@ const { t } = useI18n();
 const PX_PER_FRAME = 2;
 const PREVIEW_SAMPLE_STEP = 15;
 const AUTO_PATH_STEP = 15; // 自动路径中间关键帧间隔（帧）
+const SNAP_STEP = 1 / 3; // 吸附步长：1/3 块边长（sticker 网格）
 
 const lib = ref(loadLibrary());
 const tech = ref<Technique | null>(null);
@@ -57,6 +59,9 @@ const kfFrameEl = ref<HTMLInputElement | null>(null);
 const kfEasingEl = ref<HTMLSelectElement | null>(null);
 const kfDeleteEl = ref<HTMLButtonElement | null>(null);
 const kfPoseEl = ref<HTMLElement | null>(null);
+const kfPoseXEl = ref<HTMLInputElement | null>(null);
+const kfPoseYEl = ref<HTMLInputElement | null>(null);
+const kfPoseZEl = ref<HTMLInputElement | null>(null);
 const addFrameEl = ref<HTMLInputElement | null>(null);
 const btnPlayEl = ref<HTMLButtonElement | null>(null);
 const pvSliderEl = ref<HTMLInputElement | null>(null);
@@ -66,6 +71,7 @@ const pvPoseEl = ref<HTMLElement | null>(null);
 let player: CubePlayer | null = null;
 let handView: HandRigView | null = null;
 let timer: number | null = null;
+const snapOn = ref(true);
 
 const totalFrames = computed(() => {
   if (!tech.value || tech.value.keyframes.length === 0) return 0;
@@ -200,6 +206,10 @@ function renderSelected(): void {
         ? t("editor.noKfSelected")
         : "";
   }
+  const pos = kf?.pose.palm.transform.position;
+  if (kfPoseXEl.value) kfPoseXEl.value.value = pos ? pos.x.toFixed(2) : "";
+  if (kfPoseYEl.value) kfPoseYEl.value.value = pos ? pos.y.toFixed(2) : "";
+  if (kfPoseZEl.value) kfPoseZEl.value.value = pos ? pos.z.toFixed(2) : "";
   if (kfDeleteEl.value) kfDeleteEl.value.disabled = !kf;
 }
 
@@ -361,6 +371,31 @@ const onKfDelete = (): void => {
   commit((t2) => removeKeyframe(t2, selectedFrame.value!));
   selectedFrame.value = null;
   renderAll();
+};
+
+/** 姿态坐标编辑（手掌位置 X/Y/Z；吸附开启时按 1/3 块边长取整） */
+const onPoseInput = (e: Event, axis: "x" | "y" | "z"): void => {
+  if (!tech.value || selectedFrame.value === null) return;
+  let v = Number((e.target as HTMLInputElement).value);
+  if (!Number.isFinite(v)) return;
+  if (snapOn.value) v = Math.round(v / SNAP_STEP) * SNAP_STEP;
+  commit((t2) => {
+    const k2 = t2.keyframes.find((k) => k.frame === selectedFrame.value);
+    if (!k2) return t2;
+    return upsertKeyframe(t2, {
+      ...k2,
+      pose: {
+        ...k2.pose,
+        palm: {
+          ...k2.pose.palm,
+          transform: {
+            ...k2.pose.palm.transform,
+            position: { ...k2.pose.palm.transform.position, [axis]: v },
+          },
+        },
+      },
+    });
+  });
 };
 
 const onKfAdd = (): void => {
@@ -569,6 +604,22 @@ onBeforeUnmount(() => {
         </select>
         <WinButton id="kf-delete" ref="kfDeleteEl" class="del" :Content="t('editor.deleteKf')" :IsEnabled="kfDeleteEnabled" @Click="onKfDelete" />
       </div>
+      <div class="editor-kf-row pose-row">
+        <WinToggleSwitch v-model:IsOn="snapOn" :OnContent="t('editor.snapOn')" :OffContent="t('editor.snapOff')" />
+        <WinTextBlock class="editor-label" :Text="t('editor.pose')" FontSize="14" />
+        <label class="pose-axis">
+          {{ t("editor.posX") }}
+          <input id="kf-pose-x" ref="kfPoseXEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'x')" />
+        </label>
+        <label class="pose-axis">
+          {{ t("editor.posY") }}
+          <input id="kf-pose-y" ref="kfPoseYEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'y')" />
+        </label>
+        <label class="pose-axis">
+          {{ t("editor.posZ") }}
+          <input id="kf-pose-z" ref="kfPoseZEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'z')" />
+        </label>
+      </div>
       <pre id="kf-pose" ref="kfPoseEl" class="kf-pose"></pre>
     </section>
 
@@ -645,6 +696,18 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.pose-row {
+  margin-top: 8px;
+}
+
+.pose-axis {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-size: 13px;
 }
 
 .editor-label {
