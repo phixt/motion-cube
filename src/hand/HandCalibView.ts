@@ -53,6 +53,8 @@ export class HandCalibView {
   private dragGrabU = 0;
   private dragGrabV = 0;
   private ctrlActive = false;
+  /** 当前活跃的 window 级拖拽监听清理器（dispose 时移除，防切页泄漏） */
+  private dragCleanup: (() => void) | null = null;
 
   constructor(
     container: HTMLElement,
@@ -179,6 +181,9 @@ export class HandCalibView {
   }
 
   dispose(): void {
+    this.dragCleanup?.();
+    this.dragCleanup = null;
+    this.dragging = null;
     this.resizeObserver.disconnect();
     this.rebuild();
     this.renderer.dispose();
@@ -420,9 +425,8 @@ export class HandCalibView {
     };
     const onUp = (): void => {
       this.dragging = null;
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
+      this.dragCleanup?.();
+      this.dragCleanup = null;
     };
     g.addEventListener("pointerdown", (e) => {
       e.preventDefault();
@@ -441,6 +445,11 @@ export class HandCalibView {
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
       window.addEventListener("pointercancel", onUp);
+      this.dragCleanup = () => {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        window.removeEventListener("pointercancel", onUp);
+      };
     });
     // 悬停（非拖拽）：Ctrl 接近标尺时显示旋转指示
     g.addEventListener("pointermove", (e) => {

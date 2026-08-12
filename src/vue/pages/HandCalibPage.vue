@@ -52,12 +52,14 @@ const applyRuler = (): void => {
 };
 
 const onKeyDown = (e: KeyboardEvent): void => {
-  // Shift 快速切换水平(0°)/竖直(90°)
-  if (e.key === "Shift") {
-    cfg.value.rulerAngle = cfg.value.rulerAngle === 0 ? 90 : 0;
-    syncInputs();
-    applyRuler();
-  }
+  // Shift 快速切换水平(0°)/竖直(90°)；输入框内按 Shift 不触发（避免误改写数值）
+  if (e.key !== "Shift") return;
+  const el = e.target as HTMLElement | null;
+  if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) return;
+  e.preventDefault();
+  cfg.value.rulerAngle = cfg.value.rulerAngle === 0 ? 90 : 0;
+  syncInputs();
+  applyRuler();
 };
 
 const onRulerAngleChange = (angle: number): void => {
@@ -120,7 +122,9 @@ const onFieldInput = (e: Event): void => {
   const set = fieldSetters.get(el.id);
   if (!set) return;
   const v = Number((e.target as HTMLInputElement).value);
-  if (Number.isFinite(v) && v >= 0) set(v);
+  // 按字段 min 放行（thumb-x/y/z 允许负值）；NaN/空串被挡
+  const min = el.min !== "" ? Number(el.min) : 0;
+  if (Number.isFinite(v) && v >= min) set(v);
 };
 
 const syncInputs = (): void => {
