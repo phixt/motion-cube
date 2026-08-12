@@ -219,6 +219,10 @@ export const en: Record<string, string> = {
   "editor.deleteKf": "Delete keyframe",
   "editor.pose": "Palm position",
   "editor.poseNeedKf": "Select a keyframe on the timeline first, then edit the pose",
+  "editor.poseRot": "Palm rotation (°)",
+  "editor.posRx": "RX",
+  "editor.posRy": "RY",
+  "editor.posRz": "RZ",
   "editor.addKf": "Add keyframe",
   "editor.addKfHint":
     "Copies the pose of the selected keyframe (or the closest keyframe before the target frame) to the given frame. Direct pose editing ships with the 3D hand milestone.",

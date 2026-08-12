@@ -8,6 +8,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import WinButton from "../../vendor/winui-on-web/components/WinButton.vue";
 import WinTextBlock from "../../vendor/winui-on-web/components/WinTextBlock.vue";
 import WinToggleSwitch from "../../vendor/winui-on-web/components/WinToggleSwitch.vue";
+import { Euler, Quaternion } from "three";
 import { CubePlayer } from "../../cube/CubePlayer";
 import { GrayOverlay } from "../../cube/GrayOverlay";
 import { createGrayState, presetGrayState, type GrayPreset, type GrayState } from "../../cube/stickering";
@@ -75,6 +76,9 @@ const kfPoseEl = ref<HTMLElement | null>(null);
 const kfPoseXEl = ref<HTMLInputElement | null>(null);
 const kfPoseYEl = ref<HTMLInputElement | null>(null);
 const kfPoseZEl = ref<HTMLInputElement | null>(null);
+const kfPoseRxEl = ref<HTMLInputElement | null>(null);
+const kfPoseRyEl = ref<HTMLInputElement | null>(null);
+const kfPoseRzEl = ref<HTMLInputElement | null>(null);
 const addFrameEl = ref<HTMLInputElement | null>(null);
 const pvSliderEl = ref<HTMLInputElement | null>(null);
 const pvReadoutEl = ref<HTMLElement | null>(null);
@@ -240,8 +244,21 @@ function renderSelected(keepInputs = false): void {
     if (kfPoseXEl.value) kfPoseXEl.value.value = pos ? pos.x.toFixed(2) : "";
     if (kfPoseYEl.value) kfPoseYEl.value.value = pos ? pos.y.toFixed(2) : "";
     if (kfPoseZEl.value) kfPoseZEl.value.value = pos ? pos.z.toFixed(2) : "";
+    const rot = kf ? poseRotationDeg(kf.pose) : null;
+    if (kfPoseRxEl.value) kfPoseRxEl.value.value = rot ? rot.x.toFixed(0) : "";
+    if (kfPoseRyEl.value) kfPoseRyEl.value.value = rot ? rot.y.toFixed(0) : "";
+    if (kfPoseRzEl.value) kfPoseRzEl.value.value = rot ? rot.z.toFixed(0) : "";
   }
   if (kfDeleteEl.value) kfDeleteEl.value.disabled = !kf;
+}
+
+const degToRad = (d: number): number => (d * Math.PI) / 180;
+
+/** 手掌四元数 → 欧拉角（度，three XYZ 顺序）；quaternion 字段序 {w,x,y,z} */
+function poseRotationDeg(pose: Pose): { x: number; y: number; z: number } {
+  const q = pose.palm.transform.quaternion;
+  const e = new Euler().setFromQuaternion(new Quaternion(q.x, q.y, q.z, q.w));
+  return { x: (e.x * 180) / Math.PI, y: (e.y * 180) / Math.PI, z: (e.z * 180) / Math.PI };
 }
 
 function renderPreview(): void {
@@ -451,6 +468,37 @@ const onPoseInput = (e: Event, axis: "x" | "y" | "z"): void => {
           transform: {
             ...k2.pose.palm.transform,
             position: { ...k2.pose.palm.transform.position, [axis]: v },
+          },
+        },
+      },
+    });
+  }, true);
+};
+
+/** 手掌三方向旋转（欧拉角，度）：三输入合成为四元数写入关键帧 */
+const onPoseRotInput = (): void => {
+  if (!tech.value) return;
+  if (selectedFrame.value === null) {
+    statusText.value = t("editor.poseNeedKf");
+    return;
+  }
+  const rx = Number(kfPoseRxEl.value?.value ?? "0");
+  const ry = Number(kfPoseRyEl.value?.value ?? "0");
+  const rz = Number(kfPoseRzEl.value?.value ?? "0");
+  if (![rx, ry, rz].every((v) => Number.isFinite(v))) return;
+  const q = new Quaternion().setFromEuler(new Euler(degToRad(rx), degToRad(ry), degToRad(rz)));
+  commit((t2) => {
+    const k2 = t2.keyframes.find((k) => k.frame === selectedFrame.value);
+    if (!k2) return t2;
+    return upsertKeyframe(t2, {
+      ...k2,
+      pose: {
+        ...k2.pose,
+        palm: {
+          ...k2.pose.palm,
+          transform: {
+            ...k2.pose.palm.transform,
+            quaternion: { w: q.w, x: q.x, y: q.y, z: q.z },
           },
         },
       },
@@ -975,6 +1023,21 @@ onBeforeUnmount(() => {
         <label class="pose-axis">
           {{ t("editor.posZ") }}
           <input id="kf-pose-z" ref="kfPoseZEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'z')" />
+        </label>
+      </div>
+      <div class="editor-kf-row pose-row">
+        <WinTextBlock class="editor-label" :Text="t('editor.poseRot')" FontSize="14" />
+        <label class="pose-axis">
+          {{ t("editor.posRx") }}
+          <input id="kf-pose-rx" ref="kfPoseRxEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
+        </label>
+        <label class="pose-axis">
+          {{ t("editor.posRy") }}
+          <input id="kf-pose-ry" ref="kfPoseRyEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
+        </label>
+        <label class="pose-axis">
+          {{ t("editor.posRz") }}
+          <input id="kf-pose-rz" ref="kfPoseRzEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
         </label>
       </div>
       <pre id="kf-pose" ref="kfPoseEl" class="kf-pose"></pre>

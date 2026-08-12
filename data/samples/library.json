@@ -29,7 +29,7 @@
   ],
   "formulas": [
     {
-      "id": "fef0ec0c-9e1d-4a7e-b52c-9386e33732c2",
+      "id": "b4b24457-14a2-4d33-b1f6-9ff561b9511f",
       "name": "V Perm",
       "moves": "(R' U R' U') (R D' R' D) R' UD' (R2 U' R2' D R2)",
       "tags": [
@@ -38,7 +38,7 @@
       "categoryId": "cat-pll"
     },
     {
-      "id": "0cb866f6-a7dc-41da-8666-8d3bdc09d0cf",
+      "id": "7a1c12b0-3d94-45bd-ad50-4dbab6ae8a9b",
       "name": "OLL 21",
       "moves": "R U2 R' U' R U' R'",
       "tags": [
@@ -47,7 +47,7 @@
       "categoryId": "cat-oll"
     },
     {
-      "id": "f50badd7-18df-4875-b5d5-ae2ff610a1ee",
+      "id": "7f4efdd0-fee6-4b34-8d40-7b542f968cd5",
       "name": "H Perm",
       "moves": "M2 U M2 U2 M2 U M2",
       "tags": [
@@ -56,7 +56,7 @@
       "categoryId": "cat-pll"
     },
     {
-      "id": "7463951f-8e2a-43c1-aa67-29d5caeb9b32",
+      "id": "c9631abb-da0f-498a-ba37-8e8c270f7b36",
       "name": "ZBLL（示例）",
       "moves": "R U R' U R U2 R'",
       "tags": [
@@ -66,7 +66,7 @@
       "categoryId": "cat-zbll"
     },
     {
-      "id": "d52d9c72-3a57-4edf-b0f0-9dd3fcf35268",
+      "id": "75b93e37-2201-4aa2-9b43-cbfdf8a92959",
       "name": "OLL 1（速拧参考）",
       "moves": "R U2 R2 F R F' U2 R' F R F'",
       "tags": [
@@ -76,7 +76,7 @@
       "categoryId": "cat-oll"
     },
     {
-      "id": "69c12586-5894-4059-b3cc-75a80ee67fac",
+      "id": "50d59860-672f-4bb0-9e7f-7fe9ad15c740",
       "name": "PLL Aa（速拧参考）",
       "moves": "x (R' U R' D2) (R U' R' D2) R2 x'",
       "tags": [
@@ -86,7 +86,7 @@
       "categoryId": "cat-pll"
     },
     {
-      "id": "32cc6897-621c-49d0-a770-a4def0036bcc",
+      "id": "9cbe29fb-e4e1-476e-8dbe-22e1b738cec9",
       "name": "CMLL O Adjacent（速拧参考）",
       "moves": "R U R' F' R U R' U' R' F R2 U' R'",
       "tags": [
@@ -96,7 +96,7 @@
       "categoryId": "cat-cmll"
     },
     {
-      "id": "a4a95755-80cc-49fe-bbfc-54527468e6ec",
+      "id": "2f823133-ed46-4d04-9903-b27a7137ce1f",
       "name": "ZBLL U 1（速拧参考）",
       "moves": "(R' U' R U' R' U2' R2) (U' L' U R' U' L)",
       "tags": [
@@ -106,7 +106,7 @@
       "categoryId": "cat-zbll"
     },
     {
-      "id": "32ba0686-29c9-49aa-9896-68cd1fdad0d6",
+      "id": "ee0baac8-f879-4549-ad8f-cb6b0dba6316",
       "name": "1LLL 1 1（速拧参考）",
       "moves": "U' (F' U' L' U L F) (L' U' L U' L' U B' U B L)",
       "tags": [
@@ -116,7 +116,7 @@
       "categoryId": "cat-1lll"
     },
     {
-      "id": "bf2460eb-0ddb-4c30-a822-142ecf9b0b93",
+      "id": "56b06ad7-3c13-49bd-9c35-2b4ba686fbac",
       "name": "单拨 U",
       "moves": "U",
       "tags": [
@@ -127,9 +127,9 @@
   ],
   "techniques": [
     {
-      "id": "673d7756-d3f9-48ed-b7b4-158fd3688806",
+      "id": "37413502-c1ce-48da-92c5-1992596c219a",
       "name": "单拨 U（示例）",
-      "formulaId": "bf2460eb-0ddb-4c30-a822-142ecf9b0b93",
+      "formulaId": "56b06ad7-3c13-49bd-9c35-2b4ba686fbac",
       "frameRate": 60,
       "keyframes": [
         {
@@ -138,13 +138,13 @@
             "palm": {
               "transform": {
                 "position": {
-                  "x": 5,
-                  "y": 0.5,
-                  "z": 0
+                  "x": 0,
+                  "y": 0,
+                  "z": -2.2
                 },
                 "quaternion": {
                   "w": 0.5,
-                  "x": 0,
+                  "x": -0.5,
                   "y": -0.5,
                   "z": 0.5
                 }
@@ -203,13 +203,13 @@
             "palm": {
               "transform": {
                 "position": {
-                  "x": 5,
-                  "y": 0.5,
-                  "z": 0
+                  "x": 0,
+                  "y": 0,
+                  "z": -2.2
                 },
                 "quaternion": {
                   "w": 0.5,
-                  "x": 0,
+                  "x": -0.5,
                   "y": -0.5,
                   "z": 0.5
                 }
@@ -268,13 +268,13 @@
             "palm": {
               "transform": {
                 "position": {
-                  "x": 5,
-                  "y": 0.5,
-                  "z": 0
+                  "x": 0,
+                  "y": 0,
+                  "z": -2.2
                 },
                 "quaternion": {
                   "w": 0.5,
-                  "x": 0,
+                  "x": -0.5,
                   "y": -0.5,
                   "z": 0.5
                 }
@@ -361,9 +361,9 @@
       ]
     },
     {
-      "id": "1612e367-e5f4-4a8d-a5e8-53df2dd0f341",
+      "id": "49388769-3b4b-4d1c-acc2-1bd1f9d20bdb",
       "name": "V Perm（手法）",
-      "formulaId": "fef0ec0c-9e1d-4a7e-b52c-9386e33732c2",
+      "formulaId": "b4b24457-14a2-4d33-b1f6-9ff561b9511f",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
@@ -451,9 +451,9 @@
       "contactTracks": []
     },
     {
-      "id": "4b28cd7d-2024-47c0-88b2-6dbaebc0fc89",
+      "id": "af911eba-bf95-4ed5-bdcc-86d5449546e6",
       "name": "OLL 21（手法）",
-      "formulaId": "0cb866f6-a7dc-41da-8666-8d3bdc09d0cf",
+      "formulaId": "7a1c12b0-3d94-45bd-ad50-4dbab6ae8a9b",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
@@ -496,9 +496,9 @@
       "contactTracks": []
     },
     {
-      "id": "7e3be99b-0902-4c7a-ba81-78ae55d4e090",
+      "id": "e9ef92e9-ca1f-441a-ab40-e55e6c1b2969",
       "name": "H Perm（手法）",
-      "formulaId": "f50badd7-18df-4875-b5d5-ae2ff610a1ee",
+      "formulaId": "7f4efdd0-fee6-4b34-8d40-7b542f968cd5",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
@@ -541,9 +541,9 @@
       "contactTracks": []
     },
     {
-      "id": "c1ea88b3-8038-4e96-b896-9706e4d9a1cf",
+      "id": "02bedeb4-2dc9-462d-b2fe-f05df4cf24f4",
       "name": "ZBLL（示例）（手法）",
-      "formulaId": "7463951f-8e2a-43c1-aa67-29d5caeb9b32",
+      "formulaId": "c9631abb-da0f-498a-ba37-8e8c270f7b36",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
@@ -586,9 +586,9 @@
       "contactTracks": []
     },
     {
-      "id": "5b9b0c0a-3be4-473a-8f73-2c3573cd1cba",
+      "id": "61de6c92-6fc4-43b2-b29e-97f32b4ce8f8",
       "name": "OLL 1（速拧参考）（手法）",
-      "formulaId": "d52d9c72-3a57-4edf-b0f0-9dd3fcf35268",
+      "formulaId": "75b93e37-2201-4aa2-9b43-cbfdf8a92959",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
@@ -651,9 +651,9 @@
       "contactTracks": []
     },
     {
-      "id": "322f3eab-a848-4e80-a7c0-1391a09432dc",
+      "id": "e35da879-41c1-4464-b776-e5550ab0af8c",
       "name": "PLL Aa（速拧参考）（手法）",
-      "formulaId": "69c12586-5894-4059-b3cc-75a80ee67fac",
+      "formulaId": "50d59860-672f-4bb0-9e7f-7fe9ad15c740",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
@@ -716,9 +716,9 @@
       "contactTracks": []
     },
     {
-      "id": "3270e728-dfa4-4b81-9c4c-78fbdf058db7",
+      "id": "da09dc60-8b41-45ca-9483-eb57b8fe5501",
       "name": "CMLL O Adjacent（速拧参考）（手法）",
-      "formulaId": "32cc6897-621c-49d0-a770-a4def0036bcc",
+      "formulaId": "9cbe29fb-e4e1-476e-8dbe-22e1b738cec9",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
@@ -791,9 +791,9 @@
       "contactTracks": []
     },
     {
-      "id": "8509d796-5e54-4fdd-8684-fd9893037e81",
+      "id": "9ddb627c-18aa-4819-b4f6-4c1a6516f1c0",
       "name": "ZBLL U 1（速拧参考）（手法）",
-      "formulaId": "a4a95755-80cc-49fe-bbfc-54527468e6ec",
+      "formulaId": "2f823133-ed46-4d04-9903-b27a7137ce1f",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
@@ -866,9 +866,9 @@
       "contactTracks": []
     },
     {
-      "id": "0c8afb12-46cb-4d1a-bbd3-fa42826b9c13",
+      "id": "7b10e6c0-8f02-4974-a48b-762e92a09812",
       "name": "1LLL 1 1（速拧参考）（手法）",
-      "formulaId": "32ba0686-29c9-49aa-9896-68cd1fdad0d6",
+      "formulaId": "ee0baac8-f879-4549-ad8f-cb6b0dba6316",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
