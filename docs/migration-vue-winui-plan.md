@@ -1,7 +1,7 @@
 # motion-cube 迁移评估与实施计划：Vue 3 + WinUIonWeb
 
 > 来源：agent-bridge 任务 `84bd26ed78fa45719aa4739adc233da9`（迁移评估与实施：Vue 3 + WinUIonWeb）
-> 状态：阶段 1–4 全部完成（7/7 页迁移，playtest 全量通过）；高 DPI 适配已完成；剩余可选打磨
+> 状态：阶段 1–4 全部完成（7/7 页迁移，playtest 全量通过）；高 DPI 适配完成；打磨完成；GPL-3.0 授权；分支已合并 main
 > 日期：2026-08-11（初稿）/ 2026-08-12（决策与阶段 1-2 + 阶段 3 准备）
 
 ## 0.1 已确认决策（2026-08-12）
@@ -65,6 +65,14 @@
 - 标题栏新增「缩放」按钮：100% / 125% / 150% / 175% / 200%（默认 150%）。
 - 实现：`document.documentElement.style.zoom` 全局缩放（`src/vue/theme.ts` 的 `UiScale` + `applyUiScale`），文本/图标/布局/3D 画布统一放大；持久化 `motion-cube.uiScale`。
 - 验证：zoom 1.5 下 playtest-ui 全量通过（点击坐标、画布尺寸断言均正常）；视觉确认字号/图标显著放大、无布局溢出。
+
+## 5.6 打磨收尾（2026-08-12 ✅）
+
+- **游戏页 HUD WinUI 化**：`src/game/session.ts`（会话逻辑与 HUD 解耦，hooks 同步日志/状态/播放态）+ GamePage.vue 用 WinTextBox/WinButton/WinSlider 渲染控制条，毛玻璃面板（flyout-backdrop），保留 `#btn-gray`/`#move-log`/`#gray-panel` 测试结构；删除 ui/hud.ts、game.css。
+- **编辑器全量 Vue 重写**：EditorPage.vue 声明式时间线（标尺刻度/步骤带/关键帧标记）、关键帧编辑、补帧预览表、3D 视口（CubePlayer + HandRigView）全部迁移；测试控件保持原生（select/number/range）；删除 pages/editor.ts、ui/nav.ts、editor.css、pages.css（ui/dom.ts 因 grayPanel 依赖保留）。
+- **许可证**：根目录新增 LICENSE（GPL-3.0 全文）；THIRD_PARTY_NOTICES.md 与 README 注明项目整体 GPL-3.0 授权。
+- **验证**：typecheck/build 绿；playtest-ui 全量通过（游戏 HUD + 编辑器重写后）；视觉确认游戏控制条、编辑器 3D 视口与时间线正常。
+- **分支合并**：`codex/vue-winui-migration` 已合并回 main。
 
 ## 0. 结论摘要
 

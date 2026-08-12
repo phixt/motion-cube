@@ -1,5 +1,10 @@
 # Third-Party Notices
 
+## motion-cube
+
+- 许可证：GNU GPL v3（见 [LICENSE](LICENSE)）
+- 说明：项目整体以 GPL-3.0 授权（因其包含 GPL-3.0 的 WinUIonWeb 控件源码，copyleft 传染）。
+
 ## WinUIonWeb (Vue WinUI 控件库)
 
 - 项目：https://github.com/Furry-Xiyi/WinUIonWeb

@@ -2,6 +2,8 @@
 
 魔方动作播放 / 编辑 / 查看工具：3D 魔方操控（cubing.js）、公式库 / 手法库管理、手法动画编辑器、手部模型标定。
 
+> **许可证**：本项目以 [GNU GPL v3](LICENSE) 授权（因包含 GPL-3.0 的 WinUIonWeb 控件源码）。
+
 ## 技术栈
 
 - Vite 8 + TypeScript + Vue 3.5（vue-router 4，hash 路由）

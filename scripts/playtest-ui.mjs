@@ -201,7 +201,7 @@ await shot("ui-14-pseudo3d-flip");
 
 // 7) 动画编辑占位页 + 说明页
 await clickNav("动画编辑");
-await page.waitForSelector(".page h1");
+await page.waitForSelector(".editor-page");
 console.log("editor page ok");
 await shot("ui-07-editor");
 await clickNav("说明");
