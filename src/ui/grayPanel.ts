@@ -31,7 +31,6 @@ const GRAY_IMMUTABLE = "#565c66";
 const BODY_BG = "#16161c";
 const PROJECT_OUT = 2.0;
 const DRAG_FLIP_PX = 44;
-const RING_OUTSET = 26; // 滑环相对魔方投影轮廓的外扩距离
 const ISO_S = 26;
 
 type V3 = { x: number; y: number; z: number };
@@ -72,37 +71,6 @@ function iso(p: V3): { x: number; y: number } {
     x: (p.x - p.z) * 0.866 * ISO_S,
     y: (p.x + p.z) * 0.5 * ISO_S - p.y * ISO_S,
   };
-}
-
-/** 立方体 8 角在当前视图下的投影，取外轮廓 6 角（Andrew 凸包），保留立方角身份 */
-type HullPt = { p: { x: number; y: number }; id: string };
-function cubeHullCorners(viewRot: Mat3): HullPt[] {
-  const pts: HullPt[] = [];
-  for (const sx of [-1, 1]) {
-    for (const sy of [-1, 1]) {
-      for (const sz of [-1, 1]) {
-        const v = applyMat(viewRot, { x: sx * 1.5, y: sy * 1.5, z: sz * 1.5 });
-        pts.push({ p: iso(v), id: `${sx},${sy},${sz}` });
-      }
-    }
-  }
-  pts.sort((a, b) => a.p.x - b.p.x || a.p.y - b.p.y);
-  const cross = (o: HullPt, a: HullPt, b: HullPt): number =>
-    (a.p.x - o.p.x) * (b.p.y - o.p.y) - (a.p.y - o.p.y) * (b.p.x - o.p.x);
-  const lower: HullPt[] = [];
-  for (const t of pts) {
-    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], t) <= 0) lower.pop();
-    lower.push(t);
-  }
-  const upper: HullPt[] = [];
-  for (let i = pts.length - 1; i >= 0; i--) {
-    const t = pts[i];
-    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], t) <= 0) upper.pop();
-    upper.push(t);
-  }
-  lower.pop();
-  upper.pop();
-  return [...lower, ...upper];
 }
 
 const VIEW_NORMALS: Record<Face, V3> = {
@@ -236,9 +204,9 @@ export function renderGrayPanel(
     }
   }
 
-  // 魔方外换面滑环：随视图更新的六边形环（魔方投影轮廓外扩）+ 6 个方向点，
-  // 分别贴合正交视图六边形的 6 个角（换面与涂灰完全分离）
-  const ring = document.createElementNS(NS, "polygon");
+  // 魔方外换面滑环：圆形环（按全部小面含外投影的外扩 30 单位，不遮挡投影面）
+  // + 6 个方向点固定在环上（默认视图六边形的 6 角方位，不随视图翻转而消失）
+  const ring = document.createElementNS(NS, "ellipse");
   ring.classList.add("gray-ring");
   ring.setAttribute("fill", "none");
   ring.style.stroke = "var(--accent-base, #8ab4f8)";
@@ -246,7 +214,7 @@ export function renderGrayPanel(
   ring.setAttribute("opacity", "0.75");
   ring.setAttribute("pointer-events", "none");
 
-  const ringHit = document.createElementNS(NS, "polygon");
+  const ringHit = document.createElementNS(NS, "ellipse");
   ringHit.classList.add("gray-ring-hit");
   ringHit.setAttribute("fill", "none");
   ringHit.setAttribute("stroke", "transparent");
@@ -254,21 +222,22 @@ export function renderGrayPanel(
   ringHit.setAttribute("pointer-events", "stroke");
   ringHit.style.cursor = "grab";
 
-  // 立方角 → 轴方向：默认视图下 右下/左上 = X、上/下 = Y、右上/左下 = Z
-  const CORNER_DIRS: [string, string][] = [
-    ["1,-1,-1", "x+"], // (1.5,-1.5,-1.5) → 右下
-    ["-1,1,1", "x-"], //  (-1.5,1.5,1.5) → 左上
-    ["-1,1,-1", "y-"], // (-1.5,1.5,-1.5) → 上
-    ["1,-1,1", "y+"], //  (1.5,-1.5,1.5) → 下
-    ["1,1,-1", "z-"], //  (1.5,1.5,-1.5) → 右上
-    ["-1,-1,1", "z+"], // (-1.5,-1.5,1.5) → 左下
+  // 6 个方向点：角度对应默认视图六边形的 6 角方位（上/右上/右下/下/左下/左上）
+  // 轴映射：右下/左上 = X、上/下 = Y、右上/左下 = Z
+  const HANDLE_SLOTS: [string, number][] = [
+    ["y-", -90], // 上
+    ["z-", -30], // 右上
+    ["x+", 30], //  右下
+    ["y+", 90], //  下
+    ["z+", 150], // 左下
+    ["x-", 210], // 左上
   ];
   const handles: SVGCircleElement[] = [];
-  for (const [corner, dir] of CORNER_DIRS) {
+  for (const [dir, angle] of HANDLE_SLOTS) {
     const h = document.createElementNS(NS, "circle");
     h.classList.add("gray-handle");
-    h.dataset.corner = corner;
     h.dataset.dir = dir;
+    h.dataset.angle = String(angle);
     h.setAttribute("r", "7");
     h.style.fill = "var(--accent-base, #8ab4f8)";
     h.style.stroke = "var(--text-primary, #ffffff)";
@@ -363,29 +332,21 @@ export function renderGrayPanel(
     const pad = 52; // 容纳魔方外换面滑环
     svg.setAttribute("viewBox", `${minX - pad} ${minY - pad} ${maxX - minX + pad * 2} ${maxY - minY + pad * 2}`);
 
-    // 六边形滑环：当前视图魔方投影外轮廓 6 角，沿径向外扩 RING_OUTSET
-    const hull = cubeHullCorners(viewRot);
+    // 圆形滑环：按全部小面（含外投影）包围盒外扩 30 单位，落在投影面之外不挡涂灰
     const cx = (minX + maxX) / 2;
     const cy = (minY + maxY) / 2;
-    const ringPts: { x: number; y: number }[] = [];
-    const handlePts = new Map<string, { x: number; y: number }>();
-    for (const h of hull) {
-      const dx = h.p.x - cx;
-      const dy = h.p.y - cy;
-      const r = Math.hypot(dx, dy) || 1;
-      const k = (r + RING_OUTSET) / r;
-      const out = { x: cx + dx * k, y: cy + dy * k };
-      ringPts.push(out);
-      handlePts.set(h.id, out);
+    const rx = (maxX - minX) / 2 + 30;
+    const ry = (maxY - minY) / 2 + 30;
+    for (const el of [ring, ringHit]) {
+      el.setAttribute("cx", cx.toFixed(1));
+      el.setAttribute("cy", cy.toFixed(1));
+      el.setAttribute("rx", rx.toFixed(1));
+      el.setAttribute("ry", ry.toFixed(1));
     }
-    const ptsAttr = ringPts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
-    ring.setAttribute("points", ptsAttr);
-    ringHit.setAttribute("points", ptsAttr);
     for (const h of handles) {
-      const pos = handlePts.get(h.dataset.corner ?? "");
-      if (!pos) continue;
-      h.setAttribute("cx", pos.x.toFixed(1));
-      h.setAttribute("cy", pos.y.toFixed(1));
+      const a = ((Number(h.dataset.angle) || 0) * Math.PI) / 180;
+      h.setAttribute("cx", (cx + Math.cos(a) * rx).toFixed(1));
+      h.setAttribute("cy", (cy + Math.sin(a) * ry).toFixed(1));
     }
   }
 
