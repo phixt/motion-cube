@@ -13,6 +13,10 @@ export const zhCN: Record<string, string> = {
   "game.title": "Motion Cube",
   "hand.viewTop": "俯视图（掌背）",
   "hand.viewLeft": "左视图（拇指侧）",
+  "hand.ruler": "标尺",
+  "hand.rulerOn": "开",
+  "hand.rulerOff": "关",
+  "hand.rulerHint": "按住 Shift 切换标尺方向（水平/竖直，不持久化）",
 
   // WinUI 预览页（src/preview，阶段 3 壳验证载体）
   "placeholder.hint": "这是 WinUIonWeb 控件预览：控件由 Vue 3 渲染，主题走 WinUI 风格。",
@@ -110,6 +114,11 @@ export const zhCN: Record<string, string> = {
   "keymap.baseTitle": "全局底色（六色底适配）",
   "keymap.baseNote": "预设（初始十字 / 桥式左右桥）按底色适配；编辑器内可另设起始底。",
   "keymap.randomBase": "随机底",
+  "keymap.rulerTitle": "标尺",
+  "keymap.rulerEnabled": "标尺默认显示",
+  "keymap.rulerAxis": "标尺默认方向",
+  "keymap.rulerVertical": "竖直",
+  "keymap.rulerHorizontal": "水平",
 
   // 标灰
   "gray.title": "标灰",

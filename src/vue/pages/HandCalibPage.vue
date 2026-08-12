@@ -7,6 +7,7 @@
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import WinButton from "../../vendor/winui-on-web/components/WinButton.vue";
 import WinTextBlock from "../../vendor/winui-on-web/components/WinTextBlock.vue";
+import WinToggleSwitch from "../../vendor/winui-on-web/components/WinToggleSwitch.vue";
 import { FINGER_ORDER, type FingerName } from "../../hand/HandRig";
 import { HandCalibView } from "../../hand/HandCalibView";
 import {
@@ -15,6 +16,7 @@ import {
   saveHandRigConfig,
   type HandRigConfig,
 } from "../../hand/handRigStore";
+import { loadSettings, type RulerAxis } from "../../settings";
 import { useI18n } from "../i18n";
 
 const { t } = useI18n();
@@ -40,8 +42,23 @@ const statusText = ref("");
 const scaleReadout = ref("");
 const previewRef = ref<HTMLElement | null>(null);
 const sidePreviewRef = ref<HTMLElement | null>(null);
+const rulerEnabled = ref(loadSettings().rulerEnabled);
+const rulerAxis = ref<RulerAxis>(loadSettings().rulerAxis);
 let calib: HandCalibView | null = null;
 let calibSide: HandCalibView | null = null;
+
+const applyRuler = (): void => {
+  calib?.setRuler({ enabled: rulerEnabled.value, axis: rulerAxis.value });
+  calibSide?.setRuler({ enabled: rulerEnabled.value, axis: rulerAxis.value });
+};
+
+const onKeyDown = (e: KeyboardEvent): void => {
+  // Shift 切换标尺方向（不持久化；再次点击标尺开关/刷新页面回到设置默认值）
+  if (e.key === "Shift") {
+    rulerAxis.value = rulerAxis.value === "horizontal" ? "vertical" : "horizontal";
+    applyRuler();
+  }
+};
 
 const setStatus = (s: string): void => {
   statusText.value = s;
@@ -131,9 +148,12 @@ onMounted(() => {
   (globalThis as { __motionCubeHandCalib?: unknown }).__motionCubeHandCalib = { calib, calibSide };
   syncInputs();
   refresh();
+  applyRuler();
+  window.addEventListener("keydown", onKeyDown);
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener("keydown", onKeyDown);
   calib?.dispose();
   calibSide?.dispose();
   calib = null;
@@ -247,9 +267,14 @@ onBeforeUnmount(() => {
         </section>
 
         <div class="hand-actions">
+          <div class="hand-ruler-row">
+            <WinTextBlock class="editor-label" :Text="t('hand.ruler')" FontSize="14" />
+            <WinToggleSwitch v-model:IsOn="rulerEnabled" :OnContent="t('hand.rulerOn')" :OffContent="t('hand.rulerOff')" @Toggled="applyRuler" />
+          </div>
           <WinButton id="hand-save" :Content="t('hand.save')" Style="AccentButtonStyle" @Click="save" />
           <WinButton id="hand-reset" :Content="t('hand.reset')" @Click="reset" />
         </div>
+        <WinTextBlock class="page-note" :Text="t('hand.rulerHint')" />
       </div>
     </div>
   </div>
@@ -397,6 +422,14 @@ onBeforeUnmount(() => {
 .hand-actions {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.hand-ruler-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .page-note {

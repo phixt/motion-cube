@@ -94,7 +94,7 @@ const contactOnL: Contact[] = [
   { finger: "index", segmentIndex: 0, side: "back", t: 0.45, target: "L 面" },
 ];
 function pose(pip: number, dip: number, contacts: Contact[] = []) {
-  const p = defaultHandPose("left");
+  const p = defaultHandPose("right");
   p.bends.index[1] = pip;
   p.bends.index[2] = dip;
   p.contacts = contacts;

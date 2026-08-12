@@ -16,7 +16,7 @@ export type HandRigConfig = {
   fingerSpacing: number;
   /** 手掌盒体（数据单位）；前表面落在 mcpZ，手指/拇指从掌前缘伸出 */
   palm: { width: number; height: number; length: number; mcpZ: number };
-  /** 四指根相对手掌中心（左手 +X 为拇指侧；右手渲染时 X 取反） */
+  /** 四指根相对手掌中心（右手 +X 为拇指侧；左手渲染时 X 取反） */
   bases: Record<"index" | "middle" | "ring" | "pinky", { x: number; y: number }>;
   /** 拇指根锚点相对手掌中心（数据单位；掌根/腕侧，x 渲染时按手型取反） */
   thumbCorner: { x: number; y: number; z: number };
@@ -143,7 +143,7 @@ export function saveHandRigConfig(cfg: HandRigConfig): void {
 }
 
 /** 按标定配置构建手骨架（关节表/默认 bend 取 createDefaultRig） */
-export function createRigFromConfig(cfg: HandRigConfig, handType: HandType = "left"): HandRig {
+export function createRigFromConfig(cfg: HandRigConfig, handType: HandType = "right"): HandRig {
   const base = createDefaultRig(handType);
   const fingers = { ...base.fingers } as HandRig["fingers"];
   for (const name of FINGER_ORDER) {

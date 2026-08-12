@@ -49,7 +49,7 @@ export class HandRigView {
 
   constructor(
     private readonly player: CubePlayer,
-    handType: HandType = "left",
+    handType: HandType = "right",
   ) {
     this.handType = handType;
     this.config = loadHandRigConfig();
@@ -113,7 +113,8 @@ export class HandRigView {
   }
 
   private get sideSign(): number {
-    return this.handType === "left" ? 1 : -1;
+    // 命名对调（2026-08-12）：模型里拇指在 +X 的手渲染为右手 → "right" 对应 +X
+    return this.handType === "right" ? 1 : -1;
   }
 
   private applyPose(): void {
@@ -145,7 +146,7 @@ export class HandRigView {
       tb.position.z + tc.z * H,
     );
     this.thumbRoot.quaternion.set(tb.quaternion.x, tb.quaternion.y, tb.quaternion.z, tb.quaternion.w);
-    // CMC 展收（右手镜像）/ 对掌旋转
+    // CMC 展收（左手镜像）/ 对掌旋转
     this.thumbDof.rotation.z = degToRad(pose.thumbCMC.abduction * this.sideSign);
     this.thumbDof.rotation.y = degToRad(pose.thumbCMC.rotation);
 

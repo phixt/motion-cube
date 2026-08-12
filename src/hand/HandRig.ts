@@ -114,7 +114,7 @@ function standardFinger(name: FingerName, lengths: number[], widths: number[]): 
  * - 锚点：小指总长保持 1.33（对应 HAND_SCALE = 2.1/1.33，小指 ≈ 2.1 块边长；
  *   2026-08-06 目测回调：3.1 渲染后整体过大，中指 4.1 块超出魔方面）
  */
-export function createDefaultRig(handType: HandType = "left"): HandRig {
+export function createDefaultRig(handType: HandType = "right"): HandRig {
   return {
     handType,
     fingers: {
@@ -161,9 +161,9 @@ export function createDefaultPose(rig: HandRig): Pose {
  * 编辑器默认手位：手掌置于魔方前方（+Z），绕 Y 转 180° 使手指指向魔方。
  * 用于新建手法/添加关键帧的默认姿态，避免默认位姿（原点）把手埋在魔方里。
  */
-export function defaultHandPose(handType: HandType = "left"): Pose {
+export function defaultHandPose(handType: HandType = "right"): Pose {
   const pose = createDefaultPose(createDefaultRig(handType));
-  // 手掌置于魔方左前方稍远处（左手：拇指侧朝魔方，四指伸向前表面），
+  // 手掌置于魔方左前方稍远处（右手：拇指侧朝魔方，四指伸向前表面），
   // 拉开距离避免遮挡魔方主体；放大后中指全长 ≈ 2.8 块（用户后续自行调整位姿）
   pose.palm.transform.position = { x: -3.0, y: 0.5, z: 9.0 };
   pose.palm.transform.quaternion = { w: 0, x: 0, y: 1, z: 0 }; // rotY 180°

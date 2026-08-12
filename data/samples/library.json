@@ -29,7 +29,7 @@
   ],
   "formulas": [
     {
-      "id": "9ad66343-531a-41fb-b34e-203b4f34e6ba",
+      "id": "a835b7c0-7df8-4fd4-8afe-b95d906622ea",
       "name": "V Perm",
       "moves": "(R' U R' U') (R D' R' D) R' UD' (R2 U' R2' D R2)",
       "tags": [
@@ -38,7 +38,7 @@
       "categoryId": "cat-pll"
     },
     {
-      "id": "d134eb3d-a9cd-4d6f-b9d0-af9922a47ff1",
+      "id": "0a44e5fa-afdb-4df8-badc-24a9c5b4f6db",
       "name": "OLL 21",
       "moves": "R U2 R' U' R U' R'",
       "tags": [
@@ -47,7 +47,7 @@
       "categoryId": "cat-oll"
     },
     {
-      "id": "f9b4f0c7-5df5-48d2-a5db-37188a7203be",
+      "id": "4d7955ac-df9c-45fe-aa20-51a620dfdb71",
       "name": "H Perm",
       "moves": "M2 U M2 U2 M2 U M2",
       "tags": [
@@ -56,7 +56,7 @@
       "categoryId": "cat-pll"
     },
     {
-      "id": "d681f767-0655-4a58-b162-fa3010ad35db",
+      "id": "60ee60d0-48b8-4a49-a460-658a806fc359",
       "name": "ZBLL（示例）",
       "moves": "R U R' U R U2 R'",
       "tags": [
@@ -66,7 +66,7 @@
       "categoryId": "cat-zbll"
     },
     {
-      "id": "d4a761fc-c028-42cd-8f9e-82598158796c",
+      "id": "b62d7e95-731d-40c9-91d2-ea4baccba46e",
       "name": "OLL 1（速拧参考）",
       "moves": "R U2 R2 F R F' U2 R' F R F'",
       "tags": [
@@ -76,7 +76,7 @@
       "categoryId": "cat-oll"
     },
     {
-      "id": "618887d9-0a8e-4178-8e70-09be52206504",
+      "id": "90129812-6dfa-46ca-b822-98d2f02ef852",
       "name": "PLL Aa（速拧参考）",
       "moves": "x (R' U R' D2) (R U' R' D2) R2 x'",
       "tags": [
@@ -86,7 +86,7 @@
       "categoryId": "cat-pll"
     },
     {
-      "id": "fa9e2dce-adb0-4b93-a51b-f60cf0d0a98b",
+      "id": "d5c647e0-704c-42df-9dca-5c5cd5b90f44",
       "name": "CMLL O Adjacent（速拧参考）",
       "moves": "R U R' F' R U R' U' R' F R2 U' R'",
       "tags": [
@@ -96,7 +96,7 @@
       "categoryId": "cat-cmll"
     },
     {
-      "id": "a7214631-420d-45ed-9624-45d218cfedbe",
+      "id": "1a8040b0-d58e-49f5-b7c8-d9ce65dfe49f",
       "name": "ZBLL U 1（速拧参考）",
       "moves": "(R' U' R U' R' U2' R2) (U' L' U R' U' L)",
       "tags": [
@@ -106,7 +106,7 @@
       "categoryId": "cat-zbll"
     },
     {
-      "id": "9b050561-7431-422a-8191-00f0dcfa1859",
+      "id": "f7752c54-d957-4d21-82a1-7cf700c64e01",
       "name": "1LLL 1 1（速拧参考）",
       "moves": "U' (F' U' L' U L F) (L' U' L U' L' U B' U B L)",
       "tags": [
@@ -116,7 +116,7 @@
       "categoryId": "cat-1lll"
     },
     {
-      "id": "6889b909-9edb-499d-9457-6bc3f141b7cc",
+      "id": "a98623c7-8423-4c1b-b96d-51cedbfefc7e",
       "name": "单拨 U",
       "moves": "U",
       "tags": [
@@ -127,9 +127,9 @@
   ],
   "techniques": [
     {
-      "id": "9277a7d8-6171-46dc-8748-b2b122bca757",
+      "id": "366a26fc-9d02-4237-8543-a2bc17431310",
       "name": "单拨 U（示例）",
-      "formulaId": "6889b909-9edb-499d-9457-6bc3f141b7cc",
+      "formulaId": "a98623c7-8423-4c1b-b96d-51cedbfefc7e",
       "frameRate": 60,
       "keyframes": [
         {

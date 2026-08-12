@@ -1,6 +1,6 @@
 /**
  * 手部标定视图（docs/todo.md：手部标定页）。
- * 独立 three.js 场景：正交相机「俯视 XZ 平面」（top）或「左视 YZ 平面」（left，左手拇指侧）；
+ * 独立 three.js 场景：正交相机「俯视 XZ 平面」（top）或「左视 YZ 平面」（left，右手拇指侧）；
  * 手掌平铺、四指伸直（几何默认 bend 180），拇指应用自然外翻（CMC 默认展收/对掌）。
  * 1 数据单位 = 1 块边长；根组按 CUBE_UNIT_WORLD 缩放 → 场景中 1 块边长 = CUBE_UNIT_WORLD。
  * 标尺为叠加在画布上的 SVG：网格每 1 块边长一格，宽/长两条轴线带刻度数字。
@@ -29,7 +29,19 @@ const RULER_COLOR = "#8fa3b8";
 const GRID_COLOR = "#66707f";
 const LABEL_COLOR = "#9aa0aa";
 
+/** 半格刻度序列（大格=整数，从半格起点开始，避免 0.5 步进浮点漂移漏标整数格） */
+function rulerTicks(min: number, max: number): { t: number; major: boolean }[] {
+  const out: { t: number; major: boolean }[] = [];
+  const start = Math.ceil(min * 2) / 2;
+  for (let t = start; t <= max + 1e-9; t += 0.5) {
+    out.push({ t, major: Math.abs(t - Math.round(t)) < 1e-6 });
+  }
+  return out;
+}
+
 export type HandCalibViewKind = "top" | "left";
+export type RulerAxis = "horizontal" | "vertical";
+export type RulerOptions = { enabled: boolean; axis: RulerAxis };
 
 export class HandCalibView {
   private readonly renderer: WebGLRenderer;
@@ -42,6 +54,7 @@ export class HandCalibView {
   private readonly disposables: { obj: Object3D }[] = [];
   private readonly resizeObserver: ResizeObserver;
   private handBox: Box3 | null = null;
+  private ruler: RulerOptions = { enabled: true, axis: "vertical" };
 
   constructor(
     container: HTMLElement,
@@ -59,7 +72,7 @@ export class HandCalibView {
 
     this.camera = new OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
     if (view === "left") {
-      // 左视图：从 +X（左手拇指侧）看向 -X，屏幕上方 = 世界 +Y（指背）
+      // 左视图：从 +X（右手拇指侧）看向 -X，屏幕上方 = 世界 +Y（指背）
       this.camera.position.set(10, 0, 0);
       this.camera.up.set(0, 1, 0);
       this.camera.lookAt(0, 0, 0);
@@ -89,6 +102,12 @@ export class HandCalibView {
     this.cfg = cfg;
     this.rebuild();
     this.render();
+  }
+
+  /** 标尺显示与方向（半透明 + 大格数字；方向切换不持久化，由页面按钮/Shift 控制） */
+  setRuler(opts: RulerOptions): void {
+    this.ruler = opts;
+    this.drawRuler();
   }
 
   dispose(): void {
@@ -154,7 +173,7 @@ export class HandCalibView {
     for (const child of [...this.rootGroup.children]) {
       this.rootGroup.remove(child);
     }
-    const rig = createRigFromConfig(this.cfg, "left");
+    const rig = createRigFromConfig(this.cfg, "right");
     const built = buildHandGeometry(this.cfg, rig, 1, false, false, this.view === "left");
     // 拇指应用自然外翻（CMC 默认展收/对掌），手指保持伸直（测量用途）
     const cmc = rig.fingers.thumb.joints[0];
@@ -201,6 +220,7 @@ export class HandCalibView {
 
   private drawRuler(): void {
     this.overlay.replaceChildren();
+    if (!this.ruler.enabled) return;
     const w = this.renderer.domElement.clientWidth;
     const h = this.renderer.domElement.clientHeight;
     if (w === 0 || h === 0) return;
@@ -223,7 +243,9 @@ export class HandCalibView {
       t.setAttribute("y", String(y));
       t.setAttribute("text-anchor", anchor);
       t.setAttribute("fill", LABEL_COLOR);
-      t.setAttribute("font-size", "10");
+      t.setAttribute("font-size", "13");
+      t.setAttribute("font-weight", "600");
+      t.setAttribute("opacity", "0.6");
       t.setAttribute("font-family", "ui-monospace, Consolas, monospace");
       t.textContent = s;
       this.overlay.appendChild(t);
@@ -238,40 +260,37 @@ export class HandCalibView {
       for (let gy = gyMin; gy <= gyMax; gy++) {
         const a = this.project(0, gy * EDGE, box.min.z);
         const b = this.project(0, gy * EDGE, box.max.z);
-        line(a.x, a.y, b.x, b.y, GRID_COLOR, 0.5, 0.12);
+        line(a.x, a.y, b.x, b.y, GRID_COLOR, 0.5, 0.2);
       }
       const gzMin = Math.ceil(box.min.z / EDGE);
       const gzMax = Math.floor(box.max.z / EDGE);
       for (let gz = gzMin; gz <= gzMax; gz++) {
         const a = this.project(0, box.min.y, gz * EDGE);
         const b = this.project(0, box.max.y, gz * EDGE);
-        line(a.x, a.y, b.x, b.y, GRID_COLOR, 0.5, 0.12);
+        line(a.x, a.y, b.x, b.y, GRID_COLOR, 0.5, 0.2);
       }
-      // 高轴（沿 Y，z = -1.25）
-      {
+      if (this.ruler.axis === "vertical") {
+        // 竖直：高轴（沿 Y，z = -1.25）
         const a = this.project(0, L_RULE_LEFT.yMin * EDGE, -1.25 * EDGE);
         const b = this.project(0, L_RULE_LEFT.yMax * EDGE, -1.25 * EDGE);
-        line(a.x, a.y, b.x, b.y, RULER_COLOR, 1.2, 0.85);
-        for (let t = L_RULE_LEFT.yMin; t <= L_RULE_LEFT.yMax; t += 0.5) {
+        line(a.x, a.y, b.x, b.y, RULER_COLOR, 1.2, 0.55);
+        for (const { t, major } of rulerTicks(L_RULE_LEFT.yMin, L_RULE_LEFT.yMax)) {
           const p = this.project(0, t * EDGE, -1.25 * EDGE);
-          const major = Math.abs(t % 1) < 1e-6;
-          const len = major ? 8 : 4;
-          line(p.x - len / 2, p.y, p.x + len / 2, p.y, RULER_COLOR, major ? 1.2 : 0.8, 0.85);
-          if (major && Math.abs(t) >= 0.5) text(p.x + 5, p.y + 3, String(t), "start");
+          const len = major ? 12 : 5;
+          line(p.x - len / 2, p.y, p.x + len / 2, p.y, RULER_COLOR, major ? 1.4 : 0.8, 0.55);
+          if (major && Math.abs(t) >= 0.5) text(p.x + 6, p.y + 4, String(t), "start");
         }
         text(a.x + 8, a.y - 6, "高 (块边长)", "start");
-      }
-      // 长轴（沿 Z，y = -1.25）
-      {
+      } else {
+        // 水平：长轴（沿 Z，y = -1.25）
         const a = this.project(0, -1.25 * EDGE, L_RULE_LEFT.zMin * EDGE);
         const b = this.project(0, -1.25 * EDGE, L_RULE_LEFT.zMax * EDGE);
-        line(a.x, a.y, b.x, b.y, RULER_COLOR, 1.2, 0.85);
-        for (let t = L_RULE_LEFT.zMin; t <= L_RULE_LEFT.zMax; t += 0.5) {
+        line(a.x, a.y, b.x, b.y, RULER_COLOR, 1.2, 0.55);
+        for (const { t, major } of rulerTicks(L_RULE_LEFT.zMin, L_RULE_LEFT.zMax)) {
           const p = this.project(0, -1.25 * EDGE, t * EDGE);
-          const major = Math.abs(t % 1) < 1e-6;
-          const len = major ? 8 : 4;
-          line(p.x, p.y - len / 2, p.x, p.y + len / 2, RULER_COLOR, major ? 1.2 : 0.8, 0.85);
-          if (major && Math.abs(t) >= 0.5) text(p.x, p.y + 14, String(t));
+          const len = major ? 12 : 5;
+          line(p.x, p.y - len / 2, p.x, p.y + len / 2, RULER_COLOR, major ? 1.4 : 0.8, 0.55);
+          if (major && Math.abs(t) >= 0.5) text(p.x, p.y + 18, String(t));
         }
         text(a.x + 8, a.y - 6, "长 (块边长)", "start");
       }
@@ -282,42 +301,38 @@ export class HandCalibView {
       for (let gx = gxMin; gx <= gxMax; gx++) {
         const a = this.project(gx * EDGE, 0, box.min.z);
         const b = this.project(gx * EDGE, 0, box.max.z);
-        line(a.x, a.y, b.x, b.y, GRID_COLOR, 0.5, 0.12);
+        line(a.x, a.y, b.x, b.y, GRID_COLOR, 0.5, 0.2);
       }
       const gzMin = Math.ceil(box.min.z / EDGE);
       const gzMax = Math.floor(box.max.z / EDGE);
       for (let gz = gzMin; gz <= gzMax; gz++) {
         const a = this.project(box.min.x, 0, gz * EDGE);
         const b = this.project(box.max.x, 0, gz * EDGE);
-        line(a.x, a.y, b.x, b.y, GRID_COLOR, 0.5, 0.12);
+        line(a.x, a.y, b.x, b.y, GRID_COLOR, 0.5, 0.2);
       }
 
-      // 宽向轴线（沿 X，z = W_RULE.z）
-      {
+      if (this.ruler.axis === "horizontal") {
+        // 水平：宽向轴线（沿 X，z = W_RULE.z）
         const a = this.project(W_RULE.xMin * EDGE, 0, W_RULE.z * EDGE);
         const b = this.project(W_RULE.xMax * EDGE, 0, W_RULE.z * EDGE);
-        line(a.x, a.y, b.x, b.y, RULER_COLOR, 1.2, 0.85);
-        for (let t = W_RULE.xMin; t <= W_RULE.xMax; t += 0.5) {
+        line(a.x, a.y, b.x, b.y, RULER_COLOR, 1.2, 0.55);
+        for (const { t, major } of rulerTicks(W_RULE.xMin, W_RULE.xMax)) {
           const p = this.project(t * EDGE, 0, W_RULE.z * EDGE);
-          const major = Math.abs(t % 1) < 1e-6;
-          const len = major ? 8 : 4;
-          line(p.x, p.y - len / 2, p.x, p.y + len / 2, RULER_COLOR, major ? 1.2 : 0.8, 0.85);
-          if (major && Math.abs(t) >= 0.5) text(p.x, p.y + 14, String(t));
+          const len = major ? 12 : 5;
+          line(p.x, p.y - len / 2, p.x, p.y + len / 2, RULER_COLOR, major ? 1.4 : 0.8, 0.55);
+          if (major && Math.abs(t) >= 0.5) text(p.x, p.y + 18, String(t));
         }
         text(a.x + 8, a.y - 6, "宽 (块边长)", "start");
-      }
-
-      // 长向轴线（沿 Z，x = L_RULE.x）
-      {
+      } else {
+        // 竖直：长向轴线（沿 Z，x = L_RULE.x）
         const a = this.project(L_RULE.x * EDGE, 0, L_RULE.zMin * EDGE);
         const b = this.project(L_RULE.x * EDGE, 0, L_RULE.zMax * EDGE);
-        line(a.x, a.y, b.x, b.y, RULER_COLOR, 1.2, 0.85);
-        for (let t = L_RULE.zMin; t <= L_RULE.zMax; t += 0.5) {
+        line(a.x, a.y, b.x, b.y, RULER_COLOR, 1.2, 0.55);
+        for (const { t, major } of rulerTicks(L_RULE.zMin, L_RULE.zMax)) {
           const p = this.project(L_RULE.x * EDGE, 0, t * EDGE);
-          const major = Math.abs(t % 1) < 1e-6;
-          const len = major ? 8 : 4;
-          line(p.x - len / 2, p.y, p.x + len / 2, p.y, RULER_COLOR, major ? 1.2 : 0.8, 0.85);
-          if (major && Math.abs(t) >= 0.5) text(p.x + 5, p.y + 3, String(t), "start");
+          const len = major ? 12 : 5;
+          line(p.x - len / 2, p.y, p.x + len / 2, p.y, RULER_COLOR, major ? 1.4 : 0.8, 0.55);
+          if (major && Math.abs(t) >= 0.5) text(p.x + 6, p.y + 4, String(t), "start");
         }
         text(a.x + 8, a.y - 6, "长 (块边长)", "start");
       }

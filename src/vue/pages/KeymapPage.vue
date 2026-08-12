@@ -4,6 +4,7 @@ import WinButton from "../../vendor/winui-on-web/components/WinButton.vue";
 import WinInfoBar from "../../vendor/winui-on-web/components/WinInfoBar.vue";
 import WinSlider from "../../vendor/winui-on-web/components/WinSlider.vue";
 import WinTextBlock from "../../vendor/winui-on-web/components/WinTextBlock.vue";
+import WinToggleSwitch from "../../vendor/winui-on-web/components/WinToggleSwitch.vue";
 import { FACES, type Face } from "../../cube/stickering";
 import {
   DEFAULT_KEYMAP,
@@ -144,6 +145,19 @@ const randomBase = (): void => {
   pickBase(faces[Math.floor(Math.random() * faces.length)]);
 };
 
+const rulerEnabled = computed({
+  get: () => settings.value.rulerEnabled,
+  set: (v: boolean) => {
+    settings.value.rulerEnabled = v;
+    saveSettings(settings.value);
+  },
+});
+
+const toggleRulerAxis = (): void => {
+  settings.value.rulerAxis = settings.value.rulerAxis === "vertical" ? "horizontal" : "vertical";
+  saveSettings(settings.value);
+};
+
 onBeforeUnmount(stopCapture);
 </script>
 
@@ -211,6 +225,21 @@ onBeforeUnmount(stopCapture);
     </div>
     <WinButton class="random-base" :Content="t('keymap.randomBase')" @Click="randomBase" />
     <WinTextBlock class="page-note" :Text="t('keymap.baseNote')" />
+
+    <WinTextBlock class="page-title base-title" :Text="t('keymap.rulerTitle')" FontSize="20" FontWeight="SemiBold" />
+    <div class="settings-box">
+      <WinTextBlock class="cooldown-label" :Text="t('keymap.rulerEnabled')" FontSize="14" />
+      <WinToggleSwitch v-model:IsOn="rulerEnabled" :OnContent="t('hand.rulerOn')" :OffContent="t('hand.rulerOff')" />
+    </div>
+    <div class="settings-box">
+      <WinTextBlock class="cooldown-label" :Text="t('keymap.rulerAxis')" FontSize="14" />
+      <WinToggleSwitch
+        :IsOn="settings.rulerAxis === 'vertical'"
+        :OnContent="t('keymap.rulerVertical')"
+        :OffContent="t('keymap.rulerHorizontal')"
+        @Toggled="toggleRulerAxis" />
+    </div>
+
     <WinTextBlock class="page-note" :Text="t('keymap.note')" />
     <WinTextBlock class="page-note" :Text="t('keymap.scopeNote')" />
   </div>

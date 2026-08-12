@@ -105,8 +105,8 @@ const formulaOptions = computed(() => [
 ]);
 
 const handTypeOptions = [
-  { value: "left", label: t("editor.handLeft") },
   { value: "right", label: t("editor.handRight") },
+  { value: "left", label: t("editor.handLeft") },
 ];
 
 const pvHeaders = computed(() => [
@@ -205,7 +205,7 @@ function renderPreview(): void {
   const pose = previewPose();
   if (pvPoseEl.value) pvPoseEl.value.textContent = pose ? poseSummary(pose) : t("editor.needKf");
   if (handView) {
-    handView.setPose(pose ?? defaultHandPose((handTypeSelectEl.value?.value as HandType) ?? "left"));
+  handView.setPose(pose ?? defaultHandPose((handTypeSelectEl.value?.value as HandType) ?? "right"));
   }
 }
 
@@ -365,7 +365,7 @@ const onKfAdd = (): void => {
       }
       if (prev) src = prev;
     }
-    const pose = src ?? defaultHandPose((handTypeSelectEl.value?.value as HandType) ?? "left");
+    const pose = src ?? defaultHandPose((handTypeSelectEl.value?.value as HandType) ?? "right");
     return upsertKeyframe(t2, { frame: target, pose });
   });
   selectedFrame.value = target;
