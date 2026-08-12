@@ -54,6 +54,8 @@ export class HandCalibView {
   ) {
     this.wrapper = container;
     this.cfg = cfg;
+    // 初始标尺位置：俯视图竖直=右侧（x=1.55），左视图=左侧（-1.25）
+    this.ruler.offset = view === "left" ? -1.25 : 1.55;
 
     // preserveDrawingBuffer：静态测量视图按需渲染，保留缓冲便于像素级 QA/截图
     this.renderer = new WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
@@ -97,15 +99,12 @@ export class HandCalibView {
 
   /** 标尺显示与方向（可拖拽移动、十等分刻度；方向切换不持久化，由页面按钮/Shift 控制） */
   setRuler(opts: RulerOptions): void {
-    if (opts.axis !== this.ruler.axis) {
-      this.ruler.offset = this.rulerDefaultOffset(opts.axis);
-    }
+    this.switchAxis(opts.axis);
     this.ruler.enabled = opts.enabled;
-    this.ruler.axis = opts.axis;
     this.drawRuler();
   }
 
-  /** 拖拽移动标尺（offset 为固定坐标，单位 = 块边长） */
+  /** 拖拽移动标尺（连续无极；offset 为固定坐标，单位 = 块边长） */
   moveRuler(offset: number): void {
     const box = this.contentBox();
     const EDGE = CUBE_UNIT_WORLD;
@@ -130,26 +129,54 @@ export class HandCalibView {
     this.drawRuler();
   }
 
+  /** 方向切换：保持标尺屏幕中心位置不变（原地旋转 90°），不重置到默认位置 */
+  private switchAxis(newAxis: RulerAxis): void {
+    if (newAxis === this.ruler.axis) return;
+    const oldAxis = this.ruler.axis;
+    const { min, max } = this.rulerRangeFor(oldAxis);
+    const center = this.pointAt(oldAxis, (min + max) / 2);
+    // pointAt 返回画布布局坐标，screenToNormal 按视口坐标归一，需乘缩放比
+    const zoom =
+      this.renderer.domElement.getBoundingClientRect().width /
+      this.renderer.domElement.clientWidth;
+    this.ruler.axis = newAxis;
+    this.ruler.offset = this.screenToNormal(center.x * zoom, center.y * zoom, newAxis);
+  }
+
+  /** 标尺上某刻度 t（沿标尺方向）的屏幕位置（块边长坐标投影） */
+  private pointAt(axis: RulerAxis, t: number): { x: number; y: number } {
+    const EDGE = CUBE_UNIT_WORLD;
+    if (this.view === "left") {
+      return axis === "horizontal"
+        ? this.project(0, this.ruler.offset * EDGE, t * EDGE)
+        : this.project(0, t * EDGE, this.ruler.offset * EDGE);
+    }
+    return axis === "horizontal"
+      ? this.project(t * EDGE, 0, this.ruler.offset * EDGE)
+      : this.project(this.ruler.offset * EDGE, 0, t * EDGE);
+  }
+
+  /** 屏幕坐标 → 标尺法向坐标（块边长）；用容器 rect 尺寸归一，兼容全局 zoom */
+  private screenToNormal(sx: number, sy: number, axis: RulerAxis): number {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const ndcX = (sx / rect.width) * 2 - 1;
+    const ndcY = 1 - (sy / rect.height) * 2;
+    const v = new Vector3(ndcX, ndcY, 0).unproject(this.camera);
+    const EDGE = CUBE_UNIT_WORLD;
+    if (this.view === "left") return (axis === "horizontal" ? v.y : v.z) / EDGE;
+    return (axis === "horizontal" ? v.z : v.x) / EDGE;
+  }
+
   getRuler(): RulerState {
     return { ...this.ruler };
   }
 
-  /** 标尺沿固定坐标轴的默认位置（块边长） */
-  private rulerDefaultOffset(axis: RulerAxis): number {
-    if (this.view === "left") return -1.25;
-    return axis === "horizontal" ? W_RULE.z : L_RULE.x;
-  }
-
-  /** 标尺刻度范围（沿标尺方向，块边长） */
-  private rulerRange(): { min: number; max: number } {
+  /** 标尺刻度范围（沿标尺方向，整数起点/终点，块边长） */
+  private rulerRangeFor(axis: RulerAxis): { min: number; max: number } {
     if (this.view === "left") {
-      return this.ruler.axis === "horizontal"
-        ? { min: L_RULE_LEFT.zMin, max: L_RULE_LEFT.zMax }
-        : { min: L_RULE_LEFT.yMin, max: L_RULE_LEFT.yMax };
+      return axis === "horizontal" ? { min: -1, max: 3 } : { min: -1, max: 1 };
     }
-    return this.ruler.axis === "horizontal"
-      ? { min: W_RULE.xMin, max: W_RULE.xMax }
-      : { min: L_RULE.zMin, max: L_RULE.zMax };
+    return axis === "horizontal" ? { min: -2, max: 2 } : { min: -1, max: 4 };
   }
 
   dispose(): void {
@@ -323,7 +350,7 @@ export class HandCalibView {
     // ---- 标尺：可拖拽的独立标尺条（大格 1 块边长 + 十等分小格） ----
     if (!this.ruler.enabled) return;
 
-    const { min, max } = this.rulerRange();
+    const { min, max } = this.rulerRangeFor(this.ruler.axis);
     const horizontal = this.ruler.axis === "horizontal"; // 屏幕方向
     const g = document.createElementNS(svgNS, "g");
     g.setAttribute("class", "calib-ruler");
@@ -331,16 +358,8 @@ export class HandCalibView {
     g.style.touchAction = "none";
     g.style.pointerEvents = "auto";
 
-    const pointAt = (t: number): { x: number; y: number } => {
-      if (this.view === "left") {
-        return horizontal
-          ? this.project(0, this.ruler.offset * EDGE, t * EDGE)
-          : this.project(0, t * EDGE, this.ruler.offset * EDGE);
-      }
-      return horizontal
-        ? this.project(t * EDGE, 0, this.ruler.offset * EDGE)
-        : this.project(this.ruler.offset * EDGE, 0, t * EDGE);
-    };
+    const pointAt = (t: number): { x: number; y: number } =>
+      this.pointAt(this.ruler.axis, t);
 
     const a = pointAt(min);
     const b = pointAt(max);
@@ -365,7 +384,7 @@ export class HandCalibView {
       const p = pointAt(t);
       if (horizontal) line(g, p.x, p.y - len / 2, p.x, p.y + len / 2, RULER_COLOR, major ? 1.4 : 0.7, 0.55);
       else line(g, p.x - len / 2, p.y, p.x + len / 2, p.y, RULER_COLOR, major ? 1.4 : 0.7, 0.55);
-      if (major && Math.abs(t) >= 0.5) {
+      if (major) {
         if (horizontal) text(g, p.x + 5, p.y + 18, String(Math.round(t)), "start");
         else text(g, p.x + 7, p.y + 4, String(Math.round(t)), "start");
       }
@@ -380,31 +399,34 @@ export class HandCalibView {
     g.appendChild(grip);
     this.overlay.appendChild(g);
 
-    // 拖拽：按指针位置移动标尺固定坐标（offset，块边长）
+    // 拖拽：window 级监听（避免 headless 下 setPointerCapture 不可靠），
+    // 按指针位置连续移动标尺固定坐标（offset，块边长；无极不吸附）；
+    // 记录抓取偏移，拖动不跳变
     let dragging = false;
-    const rect = this.wrapper.getBoundingClientRect();
-    const unprojectOffset = (sx: number, sy: number): number => {
-      const ndcX = (sx / w) * 2 - 1;
-      const ndcY = 1 - (sy / h) * 2;
-      const v = new Vector3(ndcX, ndcY, 0).unproject(this.camera);
-      if (this.view === "left") return (horizontal ? v.y : v.z) / EDGE;
-      return (horizontal ? v.z : v.x) / EDGE;
-    };
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    let grabDelta = 0;
     const onMove = (e: PointerEvent): void => {
       if (!dragging) return;
-      this.moveRuler(unprojectOffset(e.clientX - rect.left, e.clientY - rect.top));
+      this.moveRuler(
+        this.screenToNormal(e.clientX - rect.left, e.clientY - rect.top, this.ruler.axis) - grabDelta,
+      );
+    };
+    const onUp = (): void => {
+      dragging = false;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
     };
     g.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       dragging = true;
-      g.setPointerCapture(e.pointerId);
+      grabDelta =
+        this.screenToNormal(e.clientX - rect.left, e.clientY - rect.top, this.ruler.axis) -
+        this.ruler.offset;
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+      window.addEventListener("pointercancel", onUp);
     });
-    g.addEventListener("pointermove", onMove);
-    const stop = (): void => {
-      dragging = false;
-    };
-    g.addEventListener("pointerup", stop);
-    g.addEventListener("pointercancel", stop);
   }
 }
 
