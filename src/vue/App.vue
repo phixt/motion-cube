@@ -2,10 +2,13 @@
 import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import WinButton from "../vendor/winui-on-web/components/WinButton.vue";
+import WinComboBox from "../vendor/winui-on-web/components/WinComboBox.vue";
 import WinNavigationView from "../vendor/winui-on-web/components/WinNavigationView.vue";
 import WinTitleBar from "../vendor/winui-on-web/components/WinTitleBar.vue";
 import WinToolTipService from "../vendor/winui-on-web/components/WinToolTipService.vue";
-import { useI18n } from "./i18n";
+import { isLocale } from "../i18n";
+import { loadSettings, saveSettings } from "../settings";
+import { localeRef, setMotionCubeLocale, useI18n } from "./i18n";
 import { APP_ROUTES } from "./router";
 import {
   applyMaterial,
@@ -31,6 +34,18 @@ const isPaneOpen = ref(true);
 const themeMode = ref<ThemeMode>(loadTheme());
 const materialMode = ref<MaterialMode>(loadMaterial());
 const uiScale = ref<UiScale>(loadUiScale());
+const locale = localeRef;
+
+const langOptions = [
+  { label: "中文", value: "zh-CN" },
+  { label: "English", value: "en" },
+];
+
+const onLocaleChange = (v: unknown): void => {
+  if (!isLocale(v)) return;
+  setMotionCubeLocale(v);
+  saveSettings({ ...loadSettings(), locale: v });
+};
 
 watch(
   themeMode,
@@ -102,6 +117,14 @@ const uiScaleLabel = computed(() => `${t("uiScale.label")}: ${Math.round(uiScale
     TitleBarContentHorizontalAlignment="Stretch"
     @PaneToggleRequested="onPaneToggle">
     <div class="titlebar-actions">
+      <WinComboBox
+        class="lang-combo"
+        :ItemsSource="langOptions"
+        DisplayMemberPath="label"
+        SelectedValuePath="value"
+        :SelectedValue="locale"
+        Width="96"
+        @update:SelectedValue="onLocaleChange" />
       <WinButton :Content="`${t('theme.label')}: ${themeLabel}`" @Click="cycleTheme" />
       <WinButton :Content="`${t('material.label')}: ${materialLabel}`" @Click="cycleMaterial" />
       <WinButton :Content="uiScaleLabel" @Click="cycleUiScale" />
@@ -161,6 +184,10 @@ const uiScaleLabel = computed(() => `${t("uiScale.label")}: ${Math.round(uiScale
   gap: 8px;
   margin-left: auto;
   align-items: center;
+}
+
+.lang-combo {
+  min-width: 96px;
 }
 
 /* 材质：mica = 实色背景；acrylic = 半透明 + 磨砂 */
