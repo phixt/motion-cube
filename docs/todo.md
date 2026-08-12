@@ -12,8 +12,8 @@
 
 ### P0（推进准备中）
 
-- **拇指根独立建模 + 大鱼际凸块**（用户两次反馈；手部模型是一切手法动画的地基，现有姿态/接触数据还少，越晚改迁移成本越高）
-- **播放器整合：公式播放 + 手法 stepMapping 帧级同步**（产品核心演示；stepMapping 数据已就绪）
+- ✅ **拇指根独立建模 + 大鱼际凸块**（2026-08-12 完成：thumbCorner 改掌根锚点 v2 + thenar 椭球凸块 + v1 迁移；标定/编辑器视图验证 + 像素测试通过）
+- ✅ **播放器整合：公式播放 + 手法 stepMapping 帧级同步**（2026-08-12 完成：编辑器播放时按 stepMapping 对魔方逐步骤 applyMove，tempoScale 校准步进时长；playtest 断言"播放后魔方执行公式步"通过）
 
 ### P1（紧随 P0）
 
@@ -39,6 +39,8 @@
 
 ### P0-A 拇指根独立建模 + 大鱼际
 
+> ✅ 已完成（2026-08-12）：锚点改掌根（0.55,-0.05,-0.45）、thenar 参数与凸块、v1 配置迁移；发现并修复双渲染器色彩空间差异（cubing 线性输出 vs HandCalibView sRGB 输出）；verify-hand-calib 像素测试与 playtest 全绿。
+
 现状摸底：
 - `thumbCorner`（config 级，默认 0.68,-0.14,0.5）决定拇指根相对手掌中心位置；渲染时 X 按手型取反
 - 拇指链：thumbRoot → thumbDof（CMC 展收/对掌）→ 2 段 3 关节（CMC/MCP/IP）
@@ -54,6 +56,8 @@
 5. 回归：verify-hand-calib（像素居中）、playtest（标定/编辑器全量）
 
 ### P0-B 播放器整合（公式播放 + stepMapping 帧级同步）
+
+> ✅ 已完成（2026-08-12）：编辑器播放循环按 stepMapping 边界对魔方 applyMove（公式 moves 与 stepIndex 对齐），tempoScale = 基准 0.3s/步进时长 校准；playtest 新增断言全量通过。
 
 现状摸底：
 - 编辑器已有 60fps 预览循环（pv-play：previewFrame++ → renderPreview → handView.setPose）

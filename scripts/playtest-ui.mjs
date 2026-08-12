@@ -286,6 +286,24 @@ await page.$eval("#pv-slider", (el) => {
 });
 await sleep(300);
 console.log("editor 3d viewport ok");
+
+// 8d) 播放器整合：播放时魔方按 stepMapping 执行公式步（单拨 U → U）
+await page.click("#pv-play");
+await sleep(2600);
+const cubeAlg = await page.evaluate(async () => {
+  const el = globalThis.__motionCubeEditor?.player?.element;
+  if (!el) return "";
+  try {
+    const r = await el.experimentalModel.alg.get();
+    return r?.alg?.toString() ?? "";
+  } catch (e) {
+    return `ERR:${e.message}`;
+  }
+});
+if (!String(cubeAlg).includes("U")) throw new Error(`播放后魔方未执行公式步：alg=${cubeAlg}`);
+await page.click("#pv-play"); // 暂停
+console.log(`player integration ok: cube alg = ${cubeAlg}`);
+
 await page.$eval("#editor-view", (el) => el.scrollIntoView({ block: "center" }));
 await sleep(400);
 await shot("ui-16-editor-view");

@@ -18,6 +18,7 @@ import {
 } from "../../data/technique";
 import { defaultHandPose, FINGER_ORDER, type HandType, type Pose } from "../../hand/HandRig";
 import { HandRigView } from "../../hand/HandRigView";
+import { parseMoves } from "../../notation/alg";
 import {
   applyEasing,
   interpolatePose,
@@ -37,6 +38,11 @@ const selectedFrame = ref<number | null>(null);
 const playing = ref(false);
 const previewFrame = ref(0);
 const statusText = ref("");
+
+/** 播放器整合：公式 step 与手法 stepMapping 帧级同步 */
+const CUBING_MOVE_SECONDS = 0.3; // cubing 单步动画基准时长（tempoScale=1 时，约 300ms）
+let formulaMoves: string[] = [];
+let stepMoveIndex = 0;
 
 const editorViewEl = ref<HTMLElement | null>(null);
 const tecSelectEl = ref<HTMLSelectElement | null>(null);
@@ -227,15 +233,51 @@ function selectTech(id: string): void {
   selectedFrame.value = null;
   previewFrame.value = 0;
   tech.value = lib.value.techniques.find((x) => x.id === id) ?? null;
+  computeFormulaMoves();
+  stepMoveIndex = 0;
   const f = tech.value ? lib.value.formulas.find((x) => x.id === tech.value!.formulaId) : undefined;
   player?.setMoves(f?.moves ?? "");
   renderAll();
+}
+
+/** 解析当前手法关联公式为单步 move 列表（与 stepMapping.stepIndex 对齐） */
+function computeFormulaMoves(): void {
+  formulaMoves = [];
+  if (!tech.value) return;
+  const f = lib.value.formulas.find((x) => x.id === tech.value!.formulaId);
+  if (!f) return;
+  const parsed = parseMoves(f.moves);
+  if (!parsed.ok) return;
+  formulaMoves = parsed.normalized.split(/\s+/).filter(Boolean);
+}
+
+/** 步进时长校准：让 cubing 单步动画时长 ≈ stepMapping 区间时长 */
+function syncStepSpeed(): void {
+  if (!tech.value) return;
+  const m0 = tech.value.stepMapping[0];
+  if (!m0) return;
+  const stepSec = (m0.endFrame - m0.startFrame) / tech.value.frameRate;
+  if (stepSec > 0) player?.setSpeed(CUBING_MOVE_SECONDS / stepSec);
+}
+
+/** 播放推进：previewFrame 进入 step 区间时对魔方执行对应公式步 */
+function applyStepAtFrame(frame: number): void {
+  if (!tech.value) return;
+  for (const m of tech.value.stepMapping) {
+    if (m.stepIndex !== stepMoveIndex) continue;
+    if (frame < m.startFrame) break;
+    const move = formulaMoves[m.stepIndex];
+    if (move) player?.applyMove(move);
+    stepMoveIndex++;
+  }
 }
 
 function commit(fn: (t2: Technique) => Technique): void {
   if (!tech.value) return;
   try {
     tech.value = fn(tech.value);
+    stepMoveIndex = 0;
+    computeFormulaMoves();
     renderAll();
   } catch (e) {
     statusText.value = t("editor.kfFail", { error: e instanceof Error ? e.message : String(e) });
@@ -332,6 +374,14 @@ const onKfAdd = (): void => {
 
 const onPvPlay = (): void => {
   if (!tech.value) return;
+  if (!playing.value) {
+    // 开始播放：魔方回到求解态，逐步骤驱动
+    player?.reset();
+    stepMoveIndex = 0;
+    computeFormulaMoves();
+    syncStepSpeed();
+    previewFrame.value = 0;
+  }
   playing.value = !playing.value;
   if (btnPlayEl.value) btnPlayEl.value.textContent = t(playing.value ? "editor.pause" : "editor.play");
 };
@@ -368,8 +418,14 @@ onMounted(() => {
   timer = window.setInterval(() => {
     if (!playing.value || !tech.value) return;
     const total = totalFrames.value;
-    if (previewFrame.value >= total) previewFrame.value = 0;
-    else previewFrame.value += 1;
+    if (previewFrame.value >= total) {
+      previewFrame.value = 0;
+      stepMoveIndex = 0;
+      player?.reset();
+    } else {
+      previewFrame.value += 1;
+    }
+    applyStepAtFrame(previewFrame.value);
     renderPreview();
   }, 1000 / 60);
 });
