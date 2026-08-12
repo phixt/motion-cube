@@ -26,8 +26,10 @@ button {
   cursor: pointer;
 }
 
-button:hover {
-  background: var(--ctrl-fill-secondary, #2e2e38);
+/* 原生按钮悬停：不覆盖 WinButton 等自带悬停的组件（.win-btn 有自己的主题悬停）。
+   颜色走 --btn-hover-bg：深色沿用原配置，浅色回调一档（两档对称，向中间靠一档）。 */
+button:not(.win-btn):hover {
+  background: var(--btn-hover-bg, #2e2e38);
 }
 
 button.primary {

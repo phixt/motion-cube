@@ -9,6 +9,15 @@
   font-display: block;
 }
 
+/* 原生按钮悬停色（深色沿用原 #2e2e38；浅色回调一档 #e5e5e5，形成对称） */
+:root {
+  --btn-hover-bg: #2e2e38;
+}
+
+html.theme-light {
+  --btn-hover-bg: #e5e5e5;
+}
+
 body .icon,
 body .icon-btn,
 body .ptr-icon-wrapper,

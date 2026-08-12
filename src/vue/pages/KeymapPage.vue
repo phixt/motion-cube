@@ -326,6 +326,11 @@ onBeforeUnmount(stopCapture);
   outline-offset: 1px;
 }
 
+/* 色块悬停保持在自身色系内（微调亮度，不变成灰/白） */
+.base-swatch:hover {
+  filter: brightness(0.88);
+}
+
 .page-note {
   color: var(--text-tertiary);
   font-size: 13px;
