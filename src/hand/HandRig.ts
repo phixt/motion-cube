@@ -125,9 +125,9 @@ export function createDefaultRig(handType: HandType = "left"): HandRig {
           { length: 0.53, width: 0.21 },
         ],
         joints: [
-          // 自然外翻：对掌 rotation 35°（掌面向外展开，正交视图可见、与食指不重叠），
-          // 展收 abduction 42°（抬离掌面，侧视与掌面约 25°）
-          { name: "CMC", bend: 160, range: { min: 60, max: 180 }, abduction: 42, rotation: 35 },
+          // 自然外翻：对掌 rotation 30°（掌面向外展开，正交视图可见、与食指不重叠），
+          // 展收 abduction 42°（抬离掌面，侧视与掌面约 21°）
+          { name: "CMC", bend: 160, range: { min: 60, max: 180 }, abduction: 42, rotation: 30 },
           { name: "MCP", bend: 160 },
           { name: "IP", bend: 165 },
         ],

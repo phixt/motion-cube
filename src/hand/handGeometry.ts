@@ -20,7 +20,8 @@ import type { FingerName } from "./HandRig";
 import type { HandRig } from "./HandRig";
 import type { HandRigConfig } from "./handRigStore";
 
-export const SKIN = 0xcfc0a8;
+/** 肤色（调亮后的暖米色；cubing/标定双渲染器均按此输出，明暗主题下观感统一） */
+export const SKIN = 0xe4d4bd;
 export const PAD = 0x4ade80;
 export const BACK = 0xf59e0b;
 export const OUTLINE = 0x2b2b33;
