@@ -426,12 +426,13 @@ export function renderGrayPanel(
       dragY += e.clientY - lastY;
       lastX = e.clientX;
       lastY = e.clientY;
+      // 拖拽方向：向右/向下时视图按对应轴正向旋转（2026-08-12 修正反向）
       if (Math.abs(dragX) >= DRAG_FLIP_PX) {
-        flipView("y", dragX > 0 ? -1 : 1);
+        flipView("y", dragX > 0 ? 1 : -1);
         dragX = 0;
       }
       if (Math.abs(dragY) >= DRAG_FLIP_PX) {
-        flipView("x", dragY > 0 ? 1 : -1);
+        flipView("x", dragY > 0 ? -1 : 1);
         dragY = 0;
       }
       return;
