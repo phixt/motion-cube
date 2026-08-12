@@ -105,6 +105,8 @@ export const zhCN: Record<string, string> = {
   "keymap.conflictShare": "共用",
   "keymap.cooldown": "连击冷却：{ms} ms",
   "keymap.reset": "恢复默认",
+  "keymap.presetBeginner": "新手直觉（方向键）",
+  "keymap.presetDefault": "默认（公式符号）",
   "keymap.note":
     "提示：Space 保留为“双层(wide)修饰键”，不能单独绑定；Shift 常作为反转修饰。连击冷却用于缓解快速按键导致的动画抽搐。",
   "keymap.scopeNote":

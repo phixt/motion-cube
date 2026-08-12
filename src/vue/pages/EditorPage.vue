@@ -20,6 +20,7 @@ import {
 import { defaultHandPose, FINGER_ORDER, type Contact, type HandType, type Pose } from "../../hand/HandRig";
 import { HandRigView } from "../../hand/HandRigView";
 import { parseMoves } from "../../notation/alg";
+import { loadSettings } from "../../settings";
 import {
   applyEasing,
   interpolatePose,
@@ -493,7 +494,11 @@ const selectKf = (frame: number): void => {
 
 onMounted(() => {
   if (!editorViewEl.value) return;
-  player = new CubePlayer(editorViewEl.value, { cameraDistance: 8 });
+  // 编辑器起始底色与游戏一致（设置页六色底）
+  player = new CubePlayer(editorViewEl.value, {
+    cameraDistance: 8,
+    baseFace: loadSettings().baseFace,
+  });
   handView = new HandRigView(player);
   void handView.init();
   (globalThis as { __motionCubeEditor?: unknown }).__motionCubeEditor = { player, handView };

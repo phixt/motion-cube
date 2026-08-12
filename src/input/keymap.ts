@@ -58,6 +58,28 @@ export function buildDefaultKeymap(): KeymapConfig {
 
 export const DEFAULT_KEYMAP: KeymapConfig = buildDefaultKeymap();
 
+/**
+ * 新手直觉预设：U/D/L/R 用方向键（↑↓←→ 对应上/下/左/右面），
+ * F/B 保留字母助记（Front/Back），M/E/S/x/y/z 与特殊键沿用默认。
+ */
+export const BEGINNER_KEYMAP: KeymapConfig = (() => {
+  const cfg = buildDefaultKeymap();
+  const arrowMap: Record<string, string> = {
+    U: "ArrowUp",
+    D: "ArrowDown",
+    L: "ArrowLeft",
+    R: "ArrowRight",
+  };
+  for (const [face, code] of Object.entries(arrowMap)) {
+    cfg.moves[face] = { code };
+    cfg.moves[`${face}'`] = { code, shift: true };
+    const wide = face.toLowerCase();
+    cfg.moves[wide] = { code, space: true };
+    cfg.moves[`${wide}'`] = { code, shift: true, space: true };
+  }
+  return cfg;
+})();
+
 export function bindingKey(b: KeyBinding): string {
   return `${b.code}|${b.shift ? 1 : 0}|${b.space ? 1 : 0}`;
 }

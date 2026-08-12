@@ -481,5 +481,18 @@ await page.click("#hand-reset");
 await sleep(250);
 await shot("ui-17-hand-calib");
 
+// 12) 键位预设：新手直觉（方向键）→ U 显示 ↑；切回默认恢复 KeyU
+await clickNav("设置");
+await page.waitForSelector('[data-action="U"] .binding', { timeout: 15000 });
+await page.click(".preset-beginner");
+await sleep(250);
+const upBinding = await page.$eval('[data-action="U"] .binding', (el) => el.textContent);
+if (upBinding !== "↑") throw new Error(`新手预设 U 应为方向键上：${upBinding}`);
+await page.click(".preset-default");
+await sleep(250);
+const defaultBinding = await page.$eval('[data-action="U"] .binding', (el) => el.textContent);
+if (defaultBinding !== "U") throw new Error(`默认预设 U 应回 KeyU：${defaultBinding}`);
+console.log("keymap presets ok");
+
 await browser.close();
 console.log(`\nSHOTS: ${shots.join(", ")}`);

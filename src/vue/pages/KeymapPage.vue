@@ -7,6 +7,7 @@ import WinTextBlock from "../../vendor/winui-on-web/components/WinTextBlock.vue"
 import WinToggleSwitch from "../../vendor/winui-on-web/components/WinToggleSwitch.vue";
 import { FACES, type Face } from "../../cube/stickering";
 import {
+  BEGINNER_KEYMAP,
   DEFAULT_KEYMAP,
   findConflicts,
   prettyBinding,
@@ -135,6 +136,11 @@ const resetAll = (): void => {
   persist();
 };
 
+const loadPreset = (preset: KeymapConfig): void => {
+  cfg.value = structuredClone(preset);
+  persist();
+};
+
 const pickBase = (face: Face): void => {
   settings.value.baseFace = face;
   saveSettings(settings.value);
@@ -203,6 +209,10 @@ onBeforeUnmount(stopCapture);
     </div>
 
     <WinButton class="reset-btn" :Content="t('keymap.reset')" @Click="resetAll" />
+    <div class="preset-row">
+      <WinButton class="preset-beginner" :Content="t('keymap.presetBeginner')" @Click="loadPreset(BEGINNER_KEYMAP)" />
+      <WinButton class="preset-default" :Content="t('keymap.presetDefault')" @Click="loadPreset(DEFAULT_KEYMAP)" />
+    </div>
 
     <WinTextBlock class="page-title base-title" :Text="t('keymap.baseTitle')" FontSize="20" FontWeight="SemiBold" />
     <div class="base-swatches">
@@ -297,6 +307,12 @@ onBeforeUnmount(stopCapture);
 .reset-btn,
 .random-base {
   margin-top: 16px;
+}
+
+.preset-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .base-title {

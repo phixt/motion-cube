@@ -4,13 +4,18 @@
  */
 import { createRouter, createWebHashHistory } from "vue-router";
 import type { Route } from "../router";
-import EditorPage from "./pages/EditorPage.vue";
-import GamePage from "./pages/GamePage.vue";
-import HandCalibPage from "./pages/HandCalibPage.vue";
-import HelpPage from "./pages/HelpPage.vue";
-import KeymapPage from "./pages/KeymapPage.vue";
-import LibraryPage from "./pages/LibraryPage.vue";
-import StartPage from "./pages/StartPage.vue";
+
+// 路由级懒加载：页面（尤其 cubing/three 重的 game/editor/library/hand）独立分包，
+// 首屏只加载壳（WinUI 组件），缓解 main chunk 过大
+const pages = {
+  StartPage: () => import("./pages/StartPage.vue"),
+  GamePage: () => import("./pages/GamePage.vue"),
+  KeymapPage: () => import("./pages/KeymapPage.vue"),
+  HelpPage: () => import("./pages/HelpPage.vue"),
+  LibraryPage: () => import("./pages/LibraryPage.vue"),
+  EditorPage: () => import("./pages/EditorPage.vue"),
+  HandCalibPage: () => import("./pages/HandCalibPage.vue"),
+};
 
 export const APP_ROUTES: { name: Route; titleKey: string; icon: string }[] = [
   { name: "start", titleKey: "nav.back", icon: "\uE80F" },
@@ -26,13 +31,13 @@ const router = createRouter({
   history: createWebHashHistory(import.meta.env.BASE_URL),
   routes: [
     { path: "/", redirect: "/start" },
-    { path: "/start", name: "start", component: StartPage },
-    { path: "/game", name: "game", component: GamePage },
-    { path: "/keymap", name: "keymap", component: KeymapPage },
-    { path: "/help", name: "help", component: HelpPage },
-    { path: "/library", name: "library", component: LibraryPage },
-    { path: "/editor", name: "editor", component: EditorPage },
-    { path: "/hand", name: "hand", component: HandCalibPage },
+    { path: "/start", name: "start", component: pages.StartPage },
+    { path: "/game", name: "game", component: pages.GamePage },
+    { path: "/keymap", name: "keymap", component: pages.KeymapPage },
+    { path: "/help", name: "help", component: pages.HelpPage },
+    { path: "/library", name: "library", component: pages.LibraryPage },
+    { path: "/editor", name: "editor", component: pages.EditorPage },
+    { path: "/hand", name: "hand", component: pages.HandCalibPage },
     { path: "/:pathMatch(.*)*", redirect: "/start" },
   ],
 });
