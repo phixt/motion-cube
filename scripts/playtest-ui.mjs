@@ -305,6 +305,15 @@ if (!String(cubeAlg).includes("U")) throw new Error(`播放后魔方未执行公
 await page.click("#pv-play"); // 暂停
 console.log(`player integration ok: cube alg = ${cubeAlg}`);
 
+// 8e) 起终自动路径：首末关键帧之间生成中间关键帧（单拨 U：0/30/60 → 含 15/45）
+await page.click("#auto-path");
+await sleep(300);
+const kfFramesAuto = await page.$$eval("#tl-track .tl-kf", (els) => els.map((e) => e.dataset.frame).sort());
+if (!kfFramesAuto.includes("15") || !kfFramesAuto.includes("45")) {
+  throw new Error(`自动路径未生成中间关键帧：${kfFramesAuto}`);
+}
+console.log(`auto path ok: ${kfFramesAuto.join(",")}`);
+
 await page.$eval("#editor-view", (el) => el.scrollIntoView({ block: "center" }));
 await sleep(400);
 await shot("ui-16-editor-view");

@@ -31,6 +31,7 @@ const { t } = useI18n();
 
 const PX_PER_FRAME = 2;
 const PREVIEW_SAMPLE_STEP = 15;
+const AUTO_PATH_STEP = 15; // 自动路径中间关键帧间隔（帧）
 
 const lib = ref(loadLibrary());
 const tech = ref<Technique | null>(null);
@@ -421,6 +422,34 @@ const onSave = (): void => {
   }
 };
 
+/** 起终自动路径：在首末关键帧之间用 slerp 插值生成中间关键帧（params.md path.auto） */
+const onAutoPath = (): void => {
+  if (!tech.value || tech.value.keyframes.length < 2) {
+    statusText.value = t("editor.autoPathNeed");
+    return;
+  }
+  const sorted = [...tech.value.keyframes].sort((a, b) => a.frame - b.frame);
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
+  if (last.frame - first.frame <= AUTO_PATH_STEP) {
+    statusText.value = t("editor.autoPathNeed");
+    return;
+  }
+  commit((t2) => {
+    let acc = t2;
+    for (let f = first.frame + AUTO_PATH_STEP; f < last.frame; f += AUTO_PATH_STEP) {
+      const t = (f - first.frame) / (last.frame - first.frame);
+      acc = upsertKeyframe(acc, {
+        frame: f,
+        pose: interpolatePose(first.pose, last.pose, t),
+        easing: first.easing ?? "linear",
+      });
+    }
+    return acc;
+  });
+  statusText.value = t("editor.autoPathDone");
+};
+
 const selectKf = (frame: number): void => {
   selectedFrame.value = frame;
   previewFrame.value = frame;
@@ -547,6 +576,7 @@ onBeforeUnmount(() => {
       <WinTextBlock class="editor-label" :Text="t('editor.frame')" />
       <input id="kf-add-frame" ref="addFrameEl" type="number" min="0" step="1" class="native-input num-input" value="30" />
       <WinButton id="kf-add" :Content="t('editor.addKf')" Style="AccentButtonStyle" @Click="onKfAdd" />
+      <WinButton id="auto-path" :Content="t('editor.autoPath')" @Click="onAutoPath" />
     </div>
     <WinTextBlock class="page-note" :Text="t('editor.addKfHint')" />
 

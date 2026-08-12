@@ -26,7 +26,7 @@
 - ✅ 四元数插值 nlerp → slerp（2026-08-12：Timeline.ts slerpQuat，近平行回退 nlerp；90° 插值中点恰 45°）
 - ✅ contact.lifetime 精确起止帧建模（2026-08-12：接触移到手法级 contactTracks（startFrame/endFrame），插值不再离散切换；编辑器按帧显示活跃接触；示例数据迁移）
 - 编辑器：坐标高度 / 吸附（手法可复现的关键交互）
-- 编辑器：起终自动路径（slerp 前置）
+- ✅ 编辑器：起终自动路径（2026-08-12：首末关键帧间 slerp 插值生成中间关键帧，15 帧间隔，playtest 断言）
 
 ### P2（打磨期）
 
