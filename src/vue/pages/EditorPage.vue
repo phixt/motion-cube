@@ -35,7 +35,10 @@ import { useI18n } from "../i18n";
 
 const { t } = useI18n();
 
-const PX_PER_FRAME = 2;
+const TL_ZOOM_MIN = 0.5;
+const TL_ZOOM_MAX = 16;
+/** 时间线像素/帧：默认 6（原 2 的 3 倍，长条更易读），Ctrl+滚轮在 0.5~16 缩放 */
+const pxPerFrame = ref(6);
 const PREVIEW_SAMPLE_STEP = 15;
 const AUTO_PATH_STEP = 15; // 自动路径中间关键帧间隔（帧）
 const SNAP_STEP = 1 / 3; // 吸附步长：1/3 块边长（sticker 网格）
@@ -68,7 +71,6 @@ const kfPoseXEl = ref<HTMLInputElement | null>(null);
 const kfPoseYEl = ref<HTMLInputElement | null>(null);
 const kfPoseZEl = ref<HTMLInputElement | null>(null);
 const addFrameEl = ref<HTMLInputElement | null>(null);
-const btnPlayEl = ref<HTMLButtonElement | null>(null);
 const pvSliderEl = ref<HTMLInputElement | null>(null);
 const pvReadoutEl = ref<HTMLElement | null>(null);
 const pvPoseEl = ref<HTMLElement | null>(null);
@@ -86,10 +88,17 @@ const grayPanelOpen = ref(false);
 const grayPanelEl = ref<HTMLElement | null>(null);
 let grayOverlay: GrayOverlay | null = null;
 let grayPanelApi: ReturnType<typeof renderGrayPanel> | null = null;
+const maskVisible = ref(false);
+let maskTimer: number | null = null;
 
 const totalFrames = computed(() => {
-  if (!tech.value || tech.value.keyframes.length === 0) return 0;
-  return Math.max(tech.value.keyframes[tech.value.keyframes.length - 1].frame, 60);
+  if (!tech.value) return 0;
+  // 允许无关键帧播放：时长取 最后关键帧 / 步骤区间终点 的最大值（至少 1 秒）
+  const kfLast = tech.value.keyframes.length
+    ? tech.value.keyframes[tech.value.keyframes.length - 1].frame
+    : 0;
+  const stepLast = tech.value.stepMapping.reduce((m, s) => Math.max(m, s.endFrame), 0);
+  return Math.max(kfLast, stepLast, 60);
 });
 
 const sortedKeyframes = computed(() =>
@@ -106,7 +115,7 @@ const rulerTicks = computed(() => {
   return ticks;
 });
 
-const tlWidth = computed(() => `${Math.max(totalFrames.value, 60) * PX_PER_FRAME}px`);
+const tlWidth = computed(() => `${Math.max(totalFrames.value, 60) * pxPerFrame.value}px`);
 
 const stepBands = computed(() => tech.value?.stepMapping ?? []);
 
@@ -206,7 +215,7 @@ const previewTableRows = computed(() => {
   return rows;
 });
 
-function renderSelected(): void {
+function renderSelected(keepInputs = false): void {
   const kf =
     selectedFrame.value === null
       ? null
@@ -221,9 +230,12 @@ function renderSelected(): void {
         : "";
   }
   const pos = kf?.pose.palm.transform.position;
-  if (kfPoseXEl.value) kfPoseXEl.value.value = pos ? pos.x.toFixed(2) : "";
-  if (kfPoseYEl.value) kfPoseYEl.value.value = pos ? pos.y.toFixed(2) : "";
-  if (kfPoseZEl.value) kfPoseZEl.value.value = pos ? pos.z.toFixed(2) : "";
+  // 坐标输入过程中不回写 value（对齐标定页手感，连续输入不被打断）
+  if (!keepInputs) {
+    if (kfPoseXEl.value) kfPoseXEl.value.value = pos ? pos.x.toFixed(2) : "";
+    if (kfPoseYEl.value) kfPoseYEl.value.value = pos ? pos.y.toFixed(2) : "";
+    if (kfPoseZEl.value) kfPoseZEl.value.value = pos ? pos.z.toFixed(2) : "";
+  }
   if (kfDeleteEl.value) kfDeleteEl.value.disabled = !kf;
 }
 
@@ -253,7 +265,7 @@ function renderPreview(): void {
   }
 }
 
-function renderAll(): void {
+function renderAll(keepInputs = false): void {
   if (tecSelectEl.value) tecSelectEl.value.value = tech.value?.id ?? "";
   if (formulaLabelEl.value) {
     formulaLabelEl.value.textContent = tech.value
@@ -269,7 +281,7 @@ function renderAll(): void {
         })} ｜ ${t("editor.steps", { n: tech.value.stepMapping.length })}`
       : "";
   }
-  renderSelected();
+  renderSelected(keepInputs);
   renderPreview();
 }
 
@@ -316,13 +328,13 @@ function applyStepAtFrame(frame: number): void {
   }
 }
 
-function commit(fn: (t2: Technique) => Technique): void {
+function commit(fn: (t2: Technique) => Technique, keepInputs = false): void {
   if (!tech.value) return;
   try {
     tech.value = fn(tech.value);
     stepMoveIndex = 0;
     computeFormulaMoves();
-    renderAll();
+    renderAll(keepInputs);
   } catch (e) {
     statusText.value = t("editor.kfFail", { error: e instanceof Error ? e.message : String(e) });
   }
@@ -390,7 +402,8 @@ const onKfDelete = (): void => {
 /** 姿态坐标编辑（手掌位置 X/Y/Z；吸附开启时按 1/3 块边长取整） */
 const onPoseInput = (e: Event, axis: "x" | "y" | "z"): void => {
   if (!tech.value || selectedFrame.value === null) return;
-  let v = Number((e.target as HTMLInputElement).value);
+  const raw = (e.target as HTMLInputElement).value;
+  let v = Number(raw);
   if (!Number.isFinite(v)) return;
   if (snapOn.value) v = Math.round(v / SNAP_STEP) * SNAP_STEP;
   commit((t2) => {
@@ -409,7 +422,7 @@ const onPoseInput = (e: Event, axis: "x" | "y" | "z"): void => {
         },
       },
     });
-  });
+  }, true);
 };
 
 const onKfAdd = (): void => {
@@ -442,7 +455,13 @@ const onKfAdd = (): void => {
 };
 
 const onPvPlay = (): void => {
-  if (!tech.value) return;
+  if (!tech.value) {
+    // 未选手法：半透明灰字蒙版提示
+    maskVisible.value = true;
+    if (maskTimer !== null) clearTimeout(maskTimer);
+    maskTimer = window.setTimeout(() => (maskVisible.value = false), 2600);
+    return;
+  }
   if (!playing.value) {
     // 开始播放：魔方回到求解态，逐步骤驱动
     player?.reset();
@@ -452,7 +471,14 @@ const onPvPlay = (): void => {
     previewFrame.value = 0;
   }
   playing.value = !playing.value;
-  if (btnPlayEl.value) btnPlayEl.value.textContent = t(playing.value ? "editor.pause" : "editor.play");
+};
+
+/** 时间线缩放：Ctrl+滚轮 */
+const onTlWheel = (e: WheelEvent): void => {
+  if (!e.ctrlKey) return;
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.2 : 1 / 1.2;
+  pxPerFrame.value = Math.min(TL_ZOOM_MAX, Math.max(TL_ZOOM_MIN, pxPerFrame.value * factor));
 };
 
 const onPvInput = (e: Event): void => {
@@ -720,7 +746,17 @@ onBeforeUnmount(() => {
         </div>
         <div ref="grayPanelEl" id="gray-panel" class="editor-gray-panel-box"></div>
       </div>
-      <div ref="editorViewEl" id="editor-view" class="editor-view"></div>
+      <div ref="editorViewEl" id="editor-view" class="editor-view">
+        <button
+          id="editor-big-play"
+          class="editor-big-play"
+          :class="{ playing }"
+          :title="t(playing ? 'editor.pause' : 'editor.play')"
+          @click="onPvPlay">
+          <span class="editor-big-play-icon" aria-hidden="true">{{ playing ? "\uE769" : "\uE768" }}</span>
+        </button>
+        <div v-show="maskVisible" id="editor-play-mask" class="editor-play-mask">{{ t("editor.playHint") }}</div>
+      </div>
       <WinTextBlock class="page-note" :Text="t('editor.viewHint')" />
     </section>
 
@@ -734,13 +770,13 @@ onBeforeUnmount(() => {
 
     <section class="editor-section">
       <WinTextBlock class="section-title" :Text="t('editor.timeline')" FontSize="20" FontWeight="SemiBold" />
-      <div class="tl-wrap">
+      <div class="tl-wrap" @wheel="onTlWheel">
         <div id="tl-ruler" class="tl-ruler" :style="{ width: tlWidth }">
           <span
             v-for="tick in rulerTicks"
             :key="tick.frame"
             :class="tick.major ? 'tl-tick-major' : 'tl-tick-minor'"
-            :style="{ left: `${tick.frame * PX_PER_FRAME}px` }">
+            :style="{ left: `${tick.frame * pxPerFrame}px` }">
             {{ tick.major ? `${(tick.frame / 60).toFixed(1)}s` : "" }}
           </span>
         </div>
@@ -749,7 +785,7 @@ onBeforeUnmount(() => {
             v-for="band in stepBands"
             :key="band.stepIndex"
             class="tl-step-band"
-            :style="{ left: `${band.startFrame * PX_PER_FRAME}px`, width: `${Math.max((band.endFrame - band.startFrame) * PX_PER_FRAME, 8)}px` }">
+            :style="{ left: `${band.startFrame * pxPerFrame}px`, width: `${Math.max((band.endFrame - band.startFrame) * pxPerFrame, 8)}px` }">
             S{{ band.stepIndex + 1 }}
           </span>
           <button
@@ -758,7 +794,7 @@ onBeforeUnmount(() => {
             class="tl-kf"
             :class="{ selected: selectedFrame === kf.frame }"
             :data-frame="kf.frame"
-            :style="{ left: `${kf.frame * PX_PER_FRAME - 6}px` }"
+            :style="{ left: `${kf.frame * pxPerFrame - 5}px` }"
             :title="`${kf.frame} (${(kf.frame / (tech?.frameRate ?? 60)).toFixed(2)}s)`"
             @click="selectKf(kf.frame)"></button>
         </div>
@@ -812,7 +848,6 @@ onBeforeUnmount(() => {
     <section class="editor-section">
       <WinTextBlock class="section-title" :Text="t('editor.preview')" FontSize="20" FontWeight="SemiBold" />
       <div class="editor-pv-controls">
-        <WinButton id="pv-play" ref="btnPlayEl" :Content="t('editor.play')" Style="AccentButtonStyle" @Click="onPvPlay" />
         <input id="pv-slider" ref="pvSliderEl" type="range" min="0" step="1" class="pv-slider" @input="onPvInput" />
         <span id="pv-readout" ref="pvReadoutEl" class="meta"></span>
       </div>
@@ -1000,14 +1035,16 @@ onBeforeUnmount(() => {
 
 .tl-ruler {
   position: relative;
-  height: 22px;
+  height: 24px;
+  background: var(--ctrl-fill-secondary, #26262c); /* 明显灰色标尺，与页面背景区分 */
+  border-radius: 4px 4px 0 0;
   border-bottom: 1px solid var(--stroke-divider);
 }
 
 .tl-tick-major,
 .tl-tick-minor {
   position: absolute;
-  top: 0;
+  top: 2px;
   font-size: 11px;
   color: var(--text-tertiary);
 }
@@ -1024,7 +1061,9 @@ onBeforeUnmount(() => {
 
 .tl-track {
   position: relative;
-  height: 34px;
+  height: 40px;
+  background: var(--ctrl-fill-default, rgba(128, 128, 138, 0.08));
+  border-radius: 0 0 4px 4px;
 }
 
 .tl-step-band {
@@ -1043,19 +1082,65 @@ onBeforeUnmount(() => {
 .tl-kf {
   position: absolute;
   top: 0;
-  width: 12px;
-  height: 100%;
+  width: 0;
+  height: 0;
   padding: 0;
-  border: 2px solid var(--accent-base);
-  border-radius: 4px;
-  background: var(--ctrl-solid-fill);
+  border: none;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 9px solid var(--accent-base); /* 蓝色小箭头，尖端朝上指向标尺 */
   cursor: pointer;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
 }
 
 .tl-kf.selected {
+  border-bottom-color: var(--accent-hover, #59d5ff);
+  border-bottom-width: 13px;
+}
+
+.editor-big-play {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 6;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
   background: var(--accent-base);
-  outline: 2px solid var(--accent-hover);
-  outline-offset: 1px;
+  color: var(--accent-text, #fff);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+}
+
+.editor-big-play:hover {
+  background: var(--accent-hover);
+}
+
+.editor-big-play-icon {
+  font-family: "WinUIOnWebIcons";
+  font-size: 22px;
+  line-height: 1;
+  transform: translateX(1px); /* 播放三角视觉居中 */
+}
+
+.editor-play-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ctrl-solid-fill, rgba(16, 16, 20, 0.72));
+  color: var(--text-tertiary);
+  font-size: 15px;
+  text-align: center;
+  padding: 0 24px;
+  pointer-events: none;
 }
 
 .kf-pose {

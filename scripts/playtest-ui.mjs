@@ -351,7 +351,7 @@ await sleep(300);
 console.log("editor 3d viewport ok");
 
 // 8d) 播放器整合：播放时魔方按 stepMapping 执行公式步（单拨 U → U）
-await page.click("#pv-play");
+await page.click("#editor-big-play");
 await sleep(2600);
 const cubeAlg = await page.evaluate(async () => {
   const el = globalThis.__motionCubeEditor?.player?.element;
@@ -364,7 +364,7 @@ const cubeAlg = await page.evaluate(async () => {
   }
 });
 if (!String(cubeAlg).includes("U")) throw new Error(`播放后魔方未执行公式步：alg=${cubeAlg}`);
-await page.click("#pv-play"); // 暂停
+await page.click("#editor-big-play"); // 暂停
 console.log(`player integration ok: cube alg = ${cubeAlg}`);
 
 // 8d2) 编辑器快捷键：U 拧视口魔方、Escape 重置（独立配置默认与游戏一致）

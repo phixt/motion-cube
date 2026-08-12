@@ -212,7 +212,7 @@ export const en: Record<string, string> = {
   "editor.newFailFormula": "Pick a linked formula first (add one in “Library”)",
   "editor.empty":
     "No techniques yet: load samples in “Library”, or create one in the panel below.",
-  "editor.timeline": "Timeline (sparse keyframes → 60fps interpolation)",
+  "editor.timeline": "Timeline (1 frame = 1/60 s; Ctrl+wheel to zoom)",
   "editor.selected": "Selected keyframe",
   "editor.frame": "Frame (1/60 s)",
   "editor.easing": "Easing",
@@ -220,9 +220,10 @@ export const en: Record<string, string> = {
   "editor.addKf": "Add keyframe",
   "editor.addKfHint":
     "Copies the pose of the selected keyframe (or the closest keyframe before the target frame) to the given frame. Direct pose editing ships with the 3D hand milestone.",
-  "editor.preview": "60fps interpolation preview",
+  "editor.preview": "Interpolation preview (drag slider per frame)",
   "editor.play": "Play",
   "editor.pause": "Pause",
+  "editor.playHint": "Select or create a technique above first, then play",
   "editor.frameOf": "Frame {frame} / {total} ({sec} s)",
   "editor.needKf": "At least 2 keyframes are needed for interpolation",
   "editor.noKfSelected": "Click a keyframe on the timeline to edit it",
