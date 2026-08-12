@@ -244,7 +244,7 @@ check("handRigStore: 非法配置拒绝 / 越界截断", () => {
   expect(normalizeHandRigConfig(null) === null, "null 应拒绝");
   expect(normalizeHandRigConfig({ version: 1, fingers: {} }) === null, "缺指段应拒绝");
   const badVer = structuredClone(DEFAULT_HAND_CONFIG) as { version: number; fingers: unknown };
-  badVer.version = 2;
+  badVer.version = 3; // 当前合法版本为 2,3 为未知版本
   expect(normalizeHandRigConfig(badVer) === null, "版本不符应拒绝");
   const bad = structuredClone(DEFAULT_HAND_CONFIG);
   bad.fingers.pinky[0].length = 999;
