@@ -21,12 +21,7 @@ export const SKIN = 0xcfc0a8;
 export const PAD = 0x4ade80;
 export const BACK = 0xf59e0b;
 
-/**
- * cubing 渲染器线性输出（renderer.outputColorSpace = linearSRGBColorSpace），
- * 材质色若按 sRGB 十六进制传入会被转成线性存储、再原样输出，导致中明度颜色明显变暗
- * （肤色 #CFC0A8 实际渲染为 #9F8664）。这里直接用 setRGB 写入期望的 sRGB 数值，
- * 使最终渲染颜色与设计一致（toneMapped=false 不参与此问题，仅为保险）。
- */
+/** 把 sRGB 十六进制色直接写入线性存储（用于线性输出渲染器，如 cubing 的 TwistyPlayer） */
 function srgbColor(hex: number): Color {
   return new Color().setRGB(
     ((hex >> 16) & 0xff) / 255,
@@ -52,13 +47,18 @@ export function buildHandGeometry(
   rig: HandRig,
   sideSign: number,
   withMarks = true,
+  /**
+   * 渲染器输出色彩空间：true = 线性输出（cubing TwistyPlayer，需 setRGB 直写 sRGB 值）；
+   * false = 默认 sRGB 输出（HandCalibView 自带渲染器，用标准 hex 让 ColorManagement 正确往返）
+   */
+  linearOutput = false,
 ): HandGeometry {
   const H = cfg.handScale;
   // cubing 渲染器启用 ACES 色调映射，会明显压暗中明度颜色（肤色尤其明显）；
   // 关闭 toneMapped 让手部按材质原色输出，避免在浅色背景/魔方旁显得暗脏。
-  const skin = new MeshBasicMaterial({ color: srgbColor(SKIN), toneMapped: false });
-  const pad = new MeshBasicMaterial({ color: srgbColor(PAD), toneMapped: false });
-  const back = new MeshBasicMaterial({ color: srgbColor(BACK), toneMapped: false });
+  const skin = new MeshBasicMaterial({ color: linearOutput ? srgbColor(SKIN) : new Color(SKIN), toneMapped: false });
+  const pad = new MeshBasicMaterial({ color: linearOutput ? srgbColor(PAD) : new Color(PAD), toneMapped: false });
+  const back = new MeshBasicMaterial({ color: linearOutput ? srgbColor(BACK) : new Color(BACK), toneMapped: false });
   const root = new Group();
 
   // 手掌：宽（拇指↔小指）× 厚 × 长；前表面落在 mcpZ，手指/拇指从掌前缘伸出
@@ -68,6 +68,20 @@ export function buildHandGeometry(
   );
   palmMesh.position.set(0, -0.02 * H, (cfg.palm.mcpZ - cfg.palm.length / 2) * H);
   root.add(palmMesh);
+
+  // 大鱼际（thenar eminence）：拇指根处椭球凸块，略超出拇指侧掌缘，形成"根部隆起"
+  const thenarMesh = new Mesh(new SphereGeometry(0.5, 20, 16), skin);
+  thenarMesh.scale.set(
+    cfg.thenar.width * H,
+    cfg.thenar.height * H,
+    cfg.thenar.length * H,
+  );
+  thenarMesh.position.set(
+    cfg.thenar.x * H,
+    cfg.thenar.y * H,
+    cfg.thenar.z * H,
+  );
+  root.add(thenarMesh);
 
   // 四指：沿掌宽展开（x × fingerSpacing），y 略偏向指背，z 在 MCP 线
   const fingers = {} as Record<FingerName, FingerNodes>;

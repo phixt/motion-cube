@@ -182,7 +182,8 @@ export class HandRigView {
     this.contactPool.forEach((m) => m.removeFromParent());
     this.contactPool.length = 0;
 
-    const built = buildHandGeometry(this.config, this.rig, this.sideSign, true);
+    // cubing 场景渲染器为线性输出（outputColorSpace = linearSRGBColorSpace）
+    const built = buildHandGeometry(this.config, this.rig, this.sideSign, true, true);
     this.root = built.root;
     this.fingers = built.fingers;
     this.thumbRoot = built.thumbRoot;

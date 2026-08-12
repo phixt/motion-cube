@@ -9,7 +9,7 @@ import { createDefaultRig, FINGER_ORDER, type FingerName, type HandRig, type Han
 export type SegmentCalib = { length: number; width: number };
 
 export type HandRigConfig = {
-  version: 1;
+  version: 2;
   /** 整体放大系数：数据单位 → 渲染倍数（1.33 单位小指 → ≈2.1 块边长） */
   handScale: number;
   /** 指根间距：四指根 X 的乘数（默认 1） */
@@ -18,8 +18,10 @@ export type HandRigConfig = {
   palm: { width: number; height: number; length: number; mcpZ: number };
   /** 四指根相对手掌中心（左手 +X 为拇指侧；右手渲染时 X 取反） */
   bases: Record<"index" | "middle" | "ring" | "pinky", { x: number; y: number }>;
-  /** 拇指根相对手掌中心（x 渲染时按手型取反） */
+  /** 拇指根锚点相对手掌中心（数据单位；掌根/腕侧，x 渲染时按手型取反） */
   thumbCorner: { x: number; y: number; z: number };
+  /** 大鱼际（thenar eminence）凸块：椭球尺寸与位置（相对手掌中心，数据单位） */
+  thenar: { width: number; height: number; length: number; x: number; y: number; z: number };
   /** 各指段（拇指 2 段，其余 3 段）：长度 / 粗细（数据单位，1 = 块边长） */
   fingers: Record<FingerName, SegmentCalib[]>;
 };
@@ -34,7 +36,7 @@ function defaultFingers(): Record<FingerName, SegmentCalib[]> {
 }
 
 export const DEFAULT_HAND_CONFIG: HandRigConfig = {
-  version: 1,
+  version: 2,
   handScale: 2.1 / 1.33,
   fingerSpacing: 1,
   palm: { width: 1.35, height: 0.45, length: 1.55, mcpZ: 0.4 },
@@ -44,7 +46,10 @@ export const DEFAULT_HAND_CONFIG: HandRigConfig = {
     ring: { x: -0.17, y: 0.1 },
     pinky: { x: -0.52, y: 0.06 },
   },
-  thumbCorner: { x: 0.68, y: -0.14, z: 0.5 },
+  // 拇指根锚在掌根/腕侧（不再从掌前缘角落伸出）：z 取手掌中后部、x 靠拇指侧边、y 略偏指腹
+  thumbCorner: { x: 0.55, y: -0.05, z: -0.45 },
+  // 大鱼际：拇指根处椭球凸块，略微超出掌缘形成"根部隆起"
+  thenar: { width: 0.62, height: 0.38, length: 0.9, x: 0.5, y: -0.02, z: -0.42 },
   fingers: defaultFingers(),
 };
 
@@ -59,7 +64,8 @@ const clampNum = (v: unknown, min: number, max: number, fallback: number): numbe
 export function normalizeHandRigConfig(input: unknown): HandRigConfig | null {
   if (!input || typeof input !== "object") return null;
   const obj = input as Record<string, unknown>;
-  if (obj.version !== 1 || typeof obj.fingers !== "object" || obj.fingers === null) return null;
+  const version = obj.version === 2 ? 2 : obj.version === 1 ? 1 : 0;
+  if (version === 0 || typeof obj.fingers !== "object" || obj.fingers === null) return null;
   const f = obj.fingers as Record<string, unknown>;
   const fingers = {} as Record<FingerName, SegmentCalib[]>;
   for (const name of FINGER_ORDER) {
@@ -82,8 +88,11 @@ export function normalizeHandRigConfig(input: unknown): HandRigConfig | null {
   const bases = (obj.bases ?? {}) as Record<string, unknown>;
   const base = (n: string) => (bases[n] ?? {}) as Record<string, unknown>;
   const tc = (obj.thumbCorner ?? {}) as Record<string, unknown>;
+  const th = (obj.thenar ?? {}) as Record<string, unknown>;
+  // version 1（拇指根仍在掌前缘角落的旧语义）→ 迁移到掌根锚点 + 大鱼际默认值
+  const legacy = version === 1;
   return {
-    version: 1,
+    version: 2,
     handScale: clampNum(obj.handScale, 0.3, 5, DEFAULT_HAND_CONFIG.handScale),
     fingerSpacing: clampNum(obj.fingerSpacing, 0.3, 2, DEFAULT_HAND_CONFIG.fingerSpacing),
     palm: {
@@ -98,11 +107,23 @@ export function normalizeHandRigConfig(input: unknown): HandRigConfig | null {
       ring: { x: clampNum(base("ring").x, -2, 2, -0.17), y: clampNum(base("ring").y, -1, 1, 0.1) },
       pinky: { x: clampNum(base("pinky").x, -2, 2, -0.52), y: clampNum(base("pinky").y, -1, 1, 0.06) },
     },
-    thumbCorner: {
-      x: clampNum(tc.x, -2, 2, 0.68),
-      y: clampNum(tc.y, -1, 1, -0.14),
-      z: clampNum(tc.z, -2, 3, 0.5),
-    },
+    thumbCorner: legacy
+      ? { ...DEFAULT_HAND_CONFIG.thumbCorner }
+      : {
+          x: clampNum(tc.x, -2, 2, DEFAULT_HAND_CONFIG.thumbCorner.x),
+          y: clampNum(tc.y, -1, 1, DEFAULT_HAND_CONFIG.thumbCorner.y),
+          z: clampNum(tc.z, -2, 3, DEFAULT_HAND_CONFIG.thumbCorner.z),
+        },
+    thenar: legacy
+      ? { ...DEFAULT_HAND_CONFIG.thenar }
+      : {
+          width: clampNum(th.width, 0.1, 2, DEFAULT_HAND_CONFIG.thenar.width),
+          height: clampNum(th.height, 0.05, 1, DEFAULT_HAND_CONFIG.thenar.height),
+          length: clampNum(th.length, 0.1, 2, DEFAULT_HAND_CONFIG.thenar.length),
+          x: clampNum(th.x, -2, 2, DEFAULT_HAND_CONFIG.thenar.x),
+          y: clampNum(th.y, -1, 1, DEFAULT_HAND_CONFIG.thenar.y),
+          z: clampNum(th.z, -2, 3, DEFAULT_HAND_CONFIG.thenar.z),
+        },
     fingers,
   };
 }
