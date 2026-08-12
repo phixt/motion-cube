@@ -163,15 +163,15 @@ export function createDefaultPose(rig: HandRig): Pose {
  */
 export function defaultHandPose(handType: HandType = "right"): Pose {
   const pose = createDefaultPose(createDefaultRig(handType));
-  // 基准：单拨 U 原始坐标（-3, 0.5, 9）+ 手指朝向调转、整手竖直：
-  // 手指朝上（+Y）、手掌朝魔方（-Z）、右手拇指朝左（-X）。
-  // 坐标待用户手动微调后定稿；左手暂为镜像占位（用户调完右手后对称定义）。
+  // 用户指定基准：掌面顺时针旋转 90°（手指从朝上转到朝右），归位到 0,0,0，坐标待手调。
+  // 右手当前姿态：手指朝 +X（右）、掌面朝魔方（-Z）、拇指朝上（+Y）。
   if (handType === "left") {
-    pose.palm.transform.position = { x: 3.0, y: 0.5, z: 9.0 };
-    pose.palm.transform.quaternion = { w: 0, x: 0, y: Math.SQRT1_2, z: Math.SQRT1_2 };
+    // 左手镜像占位（用户调完右手后对称定义）
+    pose.palm.transform.position = { x: 0, y: 0, z: 0 };
+    pose.palm.transform.quaternion = { w: 0.5, x: 0.5, y: -0.5, z: -0.5 };
   } else {
-    pose.palm.transform.position = { x: -3.0, y: 0.5, z: 9.0 };
-    pose.palm.transform.quaternion = { w: 0, x: 0, y: Math.SQRT1_2, z: -Math.SQRT1_2 };
+    pose.palm.transform.position = { x: 0, y: 0, z: 0 };
+    pose.palm.transform.quaternion = { w: 0.5, x: 0.5, y: 0.5, z: 0.5 };
   }
   return pose;
 }
