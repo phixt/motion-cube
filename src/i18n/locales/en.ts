@@ -143,7 +143,7 @@ export const en: Record<string, string> = {
   "library.techniques": "Technique library",
   "library.name": "Name",
   "library.moves": "Algorithm (standard R L notation)",
-  "library.tags": "Tags (comma or semicolon separated, max 4)",
+  "library.tags": "Tags (max 4)",
   "library.add": "Add",
   "library.update": "Update",
   "library.cancel": "Cancel",

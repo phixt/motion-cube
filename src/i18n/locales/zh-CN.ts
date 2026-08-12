@@ -142,7 +142,7 @@ export const zhCN: Record<string, string> = {
   "library.techniques": "手法库",
   "library.name": "名称",
   "library.moves": "公式（标准 R L 记法）",
-  "library.tags": "标签（, 或 ; 分隔，最多 4 个）",
+  "library.tags": "标签（最多 4 个）",
   "library.add": "添加",
   "library.update": "更新",
   "library.cancel": "取消",

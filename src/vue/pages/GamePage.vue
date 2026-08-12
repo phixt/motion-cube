@@ -99,13 +99,11 @@ watch(speed, (v) => session?.setSpeed(v));
   height: 100%;
   min-width: 0;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .game-header {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
   z-index: 35;
   display: flex;
   align-items: baseline;
@@ -120,15 +118,12 @@ watch(speed, (v) => session?.setSpeed(v));
 }
 
 .game-hud {
-  position: absolute;
-  top: 44px;
-  left: 0;
-  right: 0;
   z-index: 30;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+  margin-top: 6px;
   padding: 8px 14px;
   background: var(--ctrl-fill-default);
   -webkit-backdrop-filter: blur(18px) saturate(150%);
@@ -157,12 +152,10 @@ watch(speed, (v) => session?.setSpeed(v));
 }
 
 .key-help {
-  position: absolute;
-  top: 88px;
-  left: 14px;
   z-index: 29;
   color: var(--text-tertiary);
   pointer-events: none;
+  padding: 6px 14px 0;
 }
 
 .stage {
