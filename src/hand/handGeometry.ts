@@ -8,7 +8,10 @@ import {
   BoxGeometry,
   Color,
   CylinderGeometry,
+  EdgesGeometry,
   Group,
+  LineBasicMaterial,
+  LineSegments,
   Mesh,
   MeshBasicMaterial,
   SphereGeometry,
@@ -20,6 +23,7 @@ import type { HandRigConfig } from "./handRigStore";
 export const SKIN = 0xcfc0a8;
 export const PAD = 0x4ade80;
 export const BACK = 0xf59e0b;
+export const OUTLINE = 0x2b2b33;
 
 /** 把 sRGB 十六进制色直接写入线性存储（用于线性输出渲染器，如 cubing 的 TwistyPlayer） */
 function srgbColor(hex: number): Color {
@@ -52,6 +56,8 @@ export function buildHandGeometry(
    * false = 默认 sRGB 输出（HandCalibView 自带渲染器，用标准 hex 让 ColorManagement 正确往返）
    */
   linearOutput = false,
+  /** 网格描边（左视图等轮廓不清晰时启用） */
+  withOutline = false,
 ): HandGeometry {
   const H = cfg.handScale;
   // cubing 渲染器启用 ACES 色调映射，会明显压暗中明度颜色（肤色尤其明显）；
@@ -59,6 +65,11 @@ export function buildHandGeometry(
   const skin = new MeshBasicMaterial({ color: linearOutput ? srgbColor(SKIN) : new Color(SKIN), toneMapped: false });
   const pad = new MeshBasicMaterial({ color: linearOutput ? srgbColor(PAD) : new Color(PAD), toneMapped: false });
   const back = new MeshBasicMaterial({ color: linearOutput ? srgbColor(BACK) : new Color(BACK), toneMapped: false });
+  const outlineMat = withOutline ? new LineBasicMaterial({ color: OUTLINE, toneMapped: false }) : null;
+  const addOutline = (mesh: Mesh): void => {
+    if (!outlineMat) return;
+    mesh.add(new LineSegments(new EdgesGeometry(mesh.geometry), outlineMat));
+  };
   const root = new Group();
 
   // 手掌：宽（拇指↔小指）× 厚 × 长；前表面落在 mcpZ，手指/拇指从掌前缘伸出
@@ -68,6 +79,7 @@ export function buildHandGeometry(
   );
   palmMesh.position.set(0, -0.02 * H, (cfg.palm.mcpZ - cfg.palm.length / 2) * H);
   root.add(palmMesh);
+  addOutline(palmMesh);
 
   // 大鱼际（thenar eminence）：拇指根处椭球凸块，略超出拇指侧掌缘，形成"根部隆起"
   const thenarMesh = new Mesh(new SphereGeometry(0.5, 20, 16), skin);
@@ -82,12 +94,13 @@ export function buildHandGeometry(
     cfg.thenar.z * H,
   );
   root.add(thenarMesh);
+  addOutline(thenarMesh);
 
   // 四指：沿掌宽展开（x × fingerSpacing），y 略偏向指背，z 在 MCP 线
   const fingers = {} as Record<FingerName, FingerNodes>;
   for (const name of FOUR) {
     const base = cfg.bases[name];
-    const nodes = buildFingerChain(rig, name, H, skin, pad, back, withMarks);
+    const nodes = buildFingerChain(rig, name, H, skin, pad, back, withMarks, addOutline);
     nodes.root.position.set(base.x * cfg.fingerSpacing * H * sideSign, base.y * H, cfg.palm.mcpZ * H);
     root.add(nodes.root);
     fingers[name] = nodes;
@@ -99,7 +112,7 @@ export function buildHandGeometry(
   thumbRoot.add(thumbDof);
   const tc = cfg.thumbCorner;
   thumbRoot.position.set(tc.x * H * sideSign, tc.y * H, tc.z * H);
-  const thumbNodes = buildFingerChain(rig, "thumb", H, skin, pad, back, withMarks);
+  const thumbNodes = buildFingerChain(rig, "thumb", H, skin, pad, back, withMarks, addOutline);
   thumbDof.add(thumbNodes.root);
   root.add(thumbRoot);
   fingers.thumb = thumbNodes;
@@ -116,6 +129,7 @@ function buildFingerChain(
   pad: MeshBasicMaterial,
   back: MeshBasicMaterial,
   withMarks: boolean,
+  addOutline?: (mesh: Mesh) => void,
 ): FingerNodes {
   const def = rig.fingers[name];
   const root = new Group();
@@ -134,6 +148,7 @@ function buildFingerChain(
       mesh.rotation.x = Math.PI / 2; // 圆柱 Y 轴 → 指方向 Z
       mesh.position.z = len / 2;
       joint.add(mesh);
+      addOutline?.(mesh);
       if (withMarks) {
         // 腹（绿，-Y）/ 背（橙，+Y）标记
         const p = new Mesh(new SphereGeometry(0.04 * H, 8, 8), pad);

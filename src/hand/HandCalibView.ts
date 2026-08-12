@@ -9,7 +9,6 @@
 import {
   Box3,
   Group,
-  Mesh,
   OrthographicCamera,
   Scene,
   Vector3,
@@ -24,6 +23,8 @@ import { CUBE_UNIT_WORLD } from "./HandRigView";
 // 标尺范围（单位：块边长；场景坐标 = 块边长 × EDGE）
 const W_RULE = { xMin: -4, xMax: 4, z: -1.25 }; // 宽向轴线（掌宽方向），置于腕部下方
 const L_RULE = { zMin: -1.4, zMax: 4.6, x: 1.55 }; // 长向轴线（手指方向），置于手侧
+// 左视图标尺范围（贴合手部轮廓，避免长轴把手指挤小）
+const L_RULE_LEFT = { yMin: -1.4, yMax: 1.4, zMin: -1.4, zMax: 2.6 };
 const RULER_COLOR = "#8fa3b8";
 const GRID_COLOR = "#66707f";
 const LABEL_COLOR = "#9aa0aa";
@@ -115,27 +116,29 @@ export class HandCalibView {
     const hand = this.handBox;
     const center = hand && !hand.isEmpty() ? hand.getCenter(new Vector3()) : all.getCenter(new Vector3());
     const margin = 0.45 * CUBE_UNIT_WORLD; // 约半格边距
+    // 统一缩放：halfV 覆盖纵向内容，halfH = halfV * aspect 保证横纵 px/单位一致（不拉伸），
+    // 同时 halfV >= 横向内容/aspect 确保横向也完整覆盖（窄窗口时纵向留白而非变形）
     if (this.view === "left") {
       // 屏幕横向 = 世界 Z（指尖方向），屏幕纵向 = 世界 Y（指背方向）
-      const zSpan = Math.max(Math.abs(all.min.z - center.z), Math.abs(all.max.z - center.z));
-      const ySpan = Math.max(Math.abs(all.min.y - center.y), Math.abs(all.max.y - center.y));
-      const vy = ySpan + margin;
-      const hx = Math.max(zSpan + margin, vy * aspect);
-      this.camera.left = -hx;
-      this.camera.right = hx;
-      this.camera.top = vy;
-      this.camera.bottom = -vy;
+      const zHalf = (all.max.z - all.min.z) / 2 + margin;
+      const yHalf = (all.max.y - all.min.y) / 2 + margin;
+      const halfV = Math.max(yHalf, zHalf / aspect);
+      const halfH = halfV * aspect;
+      this.camera.left = -halfH;
+      this.camera.right = halfH;
+      this.camera.top = halfV;
+      this.camera.bottom = -halfV;
       this.camera.position.set(10, center.y, center.z);
       this.camera.lookAt(0, center.y, center.z);
     } else {
-      const zSpan = Math.max(Math.abs(all.min.z - center.z), Math.abs(all.max.z - center.z));
-      const xSpan = Math.max(Math.abs(all.min.x - center.x), Math.abs(all.max.x - center.x));
-      const vy = zSpan + margin;
-      const hx = Math.max(xSpan + margin, vy * aspect);
-      this.camera.left = -hx;
-      this.camera.right = hx;
-      this.camera.top = vy;
-      this.camera.bottom = -vy;
+      const zHalf = (all.max.z - all.min.z) / 2 + margin;
+      const xHalf = (all.max.x - all.min.x) / 2 + margin;
+      const halfV = Math.max(zHalf, xHalf / aspect);
+      const halfH = halfV * aspect;
+      this.camera.left = -halfH;
+      this.camera.right = halfH;
+      this.camera.top = halfV;
+      this.camera.bottom = -halfV;
       this.camera.position.set(center.x, 10, center.z);
       this.camera.lookAt(center.x, 0, center.z);
     }
@@ -152,7 +155,7 @@ export class HandCalibView {
       this.rootGroup.remove(child);
     }
     const rig = createRigFromConfig(this.cfg, "left");
-    const built = buildHandGeometry(this.cfg, rig, 1, false);
+    const built = buildHandGeometry(this.cfg, rig, 1, false, false, this.view === "left");
     // 拇指应用自然外翻（CMC 默认展收/对掌），手指保持伸直（测量用途）
     const cmc = rig.fingers.thumb.joints[0];
     built.thumbDof.rotation.z = degToRad(cmc.abduction ?? 0);
@@ -180,6 +183,14 @@ export class HandCalibView {
   /** 内容包围盒：手 ∪ 标尺（标尺锚定手掌根原点） */
   private contentBox(): Box3 {
     const EDGE = CUBE_UNIT_WORLD;
+    if (this.view === "left") {
+      const ruler = new Box3(
+        new Vector3(0, L_RULE_LEFT.yMin * EDGE, L_RULE_LEFT.zMin * EDGE),
+        new Vector3(0, L_RULE_LEFT.yMax * EDGE, L_RULE_LEFT.zMax * EDGE),
+      );
+      if (!this.handBox || this.handBox.isEmpty()) return ruler;
+      return this.handBox.clone().union(ruler);
+    }
     const ruler = new Box3(
       new Vector3(W_RULE.xMin * EDGE, 0, Math.min(W_RULE.z * EDGE, L_RULE.zMin * EDGE)),
       new Vector3(W_RULE.xMax * EDGE, 0, L_RULE.zMax * EDGE),
@@ -238,10 +249,10 @@ export class HandCalibView {
       }
       // 高轴（沿 Y，z = -1.25）
       {
-        const a = this.project(0, -1.4 * EDGE, -1.25 * EDGE);
-        const b = this.project(0, 2.6 * EDGE, -1.25 * EDGE);
+        const a = this.project(0, L_RULE_LEFT.yMin * EDGE, -1.25 * EDGE);
+        const b = this.project(0, L_RULE_LEFT.yMax * EDGE, -1.25 * EDGE);
         line(a.x, a.y, b.x, b.y, RULER_COLOR, 1.2, 0.85);
-        for (let t = -1; t <= 2.5; t += 0.5) {
+        for (let t = L_RULE_LEFT.yMin; t <= L_RULE_LEFT.yMax; t += 0.5) {
           const p = this.project(0, t * EDGE, -1.25 * EDGE);
           const major = Math.abs(t % 1) < 1e-6;
           const len = major ? 8 : 4;
@@ -252,10 +263,10 @@ export class HandCalibView {
       }
       // 长轴（沿 Z，y = -1.25）
       {
-        const a = this.project(0, -1.25 * EDGE, L_RULE.zMin * EDGE);
-        const b = this.project(0, -1.25 * EDGE, L_RULE.zMax * EDGE);
+        const a = this.project(0, -1.25 * EDGE, L_RULE_LEFT.zMin * EDGE);
+        const b = this.project(0, -1.25 * EDGE, L_RULE_LEFT.zMax * EDGE);
         line(a.x, a.y, b.x, b.y, RULER_COLOR, 1.2, 0.85);
-        for (let t = L_RULE.zMin; t <= L_RULE.zMax; t += 0.5) {
+        for (let t = L_RULE_LEFT.zMin; t <= L_RULE_LEFT.zMax; t += 0.5) {
           const p = this.project(0, -1.25 * EDGE, t * EDGE);
           const major = Math.abs(t % 1) < 1e-6;
           const len = major ? 8 : 4;
@@ -319,10 +330,15 @@ const degToRad = (d: number) => (d * Math.PI) / 180;
 function disposeObject(obj: Object3D): void {
   const materials = new Set<Material>();
   obj.traverse((node) => {
-    const mesh = node as Mesh;
-    if (mesh.isMesh) {
-      mesh.geometry?.dispose();
-      const m = mesh.material as Material | Material[] | undefined;
+    const drawable = node as unknown as {
+      isMesh?: boolean;
+      isLineSegments?: boolean;
+      geometry?: { dispose(): void };
+      material?: Material | Material[];
+    };
+    if (drawable.isMesh || drawable.isLineSegments) {
+      drawable.geometry?.dispose();
+      const m = drawable.material;
       if (Array.isArray(m)) m.forEach((x) => materials.add(x));
       else if (m) materials.add(m);
     }

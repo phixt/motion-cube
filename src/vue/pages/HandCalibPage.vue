@@ -286,7 +286,7 @@ onBeforeUnmount(() => {
 .hand-preview {
   position: relative;
   width: 100%;
-  min-height: 380px;
+  min-height: 340px;
   border: 1px solid var(--stroke-divider);
   border-radius: var(--ControlCornerRadius, 6px);
   background: var(--ctrl-solid-fill, #101014);
@@ -296,11 +296,20 @@ onBeforeUnmount(() => {
 .hand-views {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .hand-view-box {
-  flex: 1 1 0;
-  min-width: 0;
+  flex: 1 1 300px;
+  min-width: 280px;
+}
+
+.hand-view-box:first-child {
+  flex-basis: 280px; /* 俯视图：窄高 */
+}
+
+.hand-view-box:last-child {
+  flex-basis: 380px; /* 左视图：宽些，缓解手指长轴取景 */
 }
 
 .hand-view-label {

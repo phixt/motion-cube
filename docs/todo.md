@@ -40,7 +40,7 @@
 ### P0-A 拇指根独立建模 + 大鱼际
 
 > ✅ 已完成（2026-08-12）：锚点改掌根（0.55,-0.05,-0.45）、thenar 参数与凸块、v1 配置迁移；发现并修复双渲染器色彩空间差异（cubing 线性输出 vs HandCalibView sRGB 输出）；verify-hand-calib 像素测试与 playtest 全绿。
-> ✅ 迭代（2026-08-12）：标定页新增左视图（HandCalibView view="left"，左手拇指侧 YZ 剖面 + 高/长标尺）；拇指自然外翻（CMC 默认 rotation 45° 向外展开 + abduction 55° 抬离掌面，侧视约 135°），俯视不再被手掌遮挡；示例数据重新生成（thumbCMC 55/45）；编辑器默认手位同步。
+> ✅ 迭代（2026-08-12）：标定页新增左视图（HandCalibView view="left"，左手拇指侧 YZ 剖面 + 高/长标尺）；拇指自然外翻（CMC 默认 rotation 35° 向外展开 + abduction 42° 抬离掌面，侧视约 25°），俯视不再被手掌遮挡、与食指不重叠；左视图网格描边（EdgesGeometry）；统一正交相机缩放比例（修复窄窗口下左视图垂直拉伸）；示例数据重新生成（thumbCMC 42/35）；编辑器默认手位同步。
 
 现状摸底：
 - `thumbCorner`（config 级，默认 0.68,-0.14,0.5）决定拇指根相对手掌中心位置；渲染时 X 按手型取反
