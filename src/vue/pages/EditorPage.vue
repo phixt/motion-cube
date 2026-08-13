@@ -146,6 +146,12 @@ const groupOpen = ref<Record<string, boolean>>({
 const toggleGroup = (key: string): void => {
   groupOpen.value = { ...groupOpen.value, [key]: !groupOpen.value[key] };
 };
+/** 公式分类组折叠状态（默认全折叠；点组标题展开/收起，与公式库同步） */
+const formulaGroupOpen = ref<Record<string, boolean>>({});
+const isFormulaGroupOpen = (label: string): boolean => formulaGroupOpen.value[label] === true;
+const toggleFormulaGroup = (label: string): void => {
+  formulaGroupOpen.value = { ...formulaGroupOpen.value, [label]: !isFormulaGroupOpen(label) };
+};
 /** 自动添加关键帧：在无关键帧的帧位置修改姿态数值时自动建帧 */
 const autoKf = ref(false);
 watch(autoKf, (on) => {
@@ -1515,13 +1521,18 @@ onBeforeUnmount(() => {
             <input id="new-formula-search" v-model="formulaSearch" class="native-input" :placeholder="t('editor.formulaSearch')" />
             <div class="formula-list">
               <template v-for="g in groupedNewFormulas" :key="g.label || '__none__'">
-                <div class="formula-group-label">{{ g.label || t("editor.formulaNone") }}</div>
-                <button
-                  v-for="f in g.formulas"
-                  :key="f.id"
-                  class="tec-item"
-                  :class="{ active: selectedFormulaId === f.id }"
-                  @click="selectedFormulaId = f.id">{{ f.name }}</button>
+                <button class="formula-group-label" @click="toggleFormulaGroup(g.label)">
+                  <span>{{ g.label || t("editor.formulaNone") }}</span>
+                  <span class="sb-group-caret">{{ isFormulaGroupOpen(g.label) ? "\u25BE" : "\u25B8" }}</span>
+                </button>
+                <template v-if="isFormulaGroupOpen(g.label)">
+                  <button
+                    v-for="f in g.formulas"
+                    :key="f.id"
+                    class="tec-item"
+                    :class="{ active: selectedFormulaId === f.id }"
+                    @click="selectedFormulaId = f.id">{{ f.name }}</button>
+                </template>
               </template>
               <p v-if="groupedNewFormulas.length === 0" class="meta list-empty">{{ t("editor.searchEmpty") }}</p>
             </div>
@@ -2162,11 +2173,23 @@ onBeforeUnmount(() => {
 }
 
 .formula-group-label {
-  padding: 4px 8px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
   font-size: 11px;
+  font-family: inherit;
   color: var(--text-tertiary);
+  cursor: pointer;
   border-top: 1px solid var(--stroke-divider);
   margin-top: 2px;
+}
+
+.formula-group-label:hover {
+  color: var(--accent-base);
 }
 
 .formula-group-label:first-child {

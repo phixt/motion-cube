@@ -170,6 +170,7 @@ export const zhCN: Record<string, string> = {
   "library.categoryName": "分类名",
   "library.categoryParent": "父分类",
   "library.categoryNone": "（无）",
+  "library.formulaNone": "未分类",
   "library.categoryAdd": "添加分类",
   "library.categoryDelete": "删除",
   "library.categoryFail": "分类操作失败：{error}",

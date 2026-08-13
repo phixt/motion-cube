@@ -256,6 +256,36 @@ const pagedFormulas = computed(() => {
   return filteredFormulas.value.slice(start, start + pageSize.value);
 });
 
+/** 公式列表按分类分组（当前页内；默认折叠，点组标题展开/收起，与编辑器新建手法同步） */
+const formulaGroupOpen = ref<Record<string, boolean>>({});
+const isFormulaGroupOpen = (label: string): boolean => formulaGroupOpen.value[label] === true;
+const toggleFormulaGroup = (label: string): void => {
+  formulaGroupOpen.value = { ...formulaGroupOpen.value, [label]: !isFormulaGroupOpen(label) };
+};
+const groupedPagedFormulas = computed(() => {
+  const groups = new Map<string, { label: string; items: typeof pagedFormulas.value }>();
+  for (const row of pagedFormulas.value) {
+    let label = "";
+    if (row.f.categoryId) {
+      const cat = sorted.value.find((c) => c.id === row.f.categoryId);
+      if (cat) label = categoryLabelPath(cat, sorted.value);
+    }
+    const key = label || "\u0000"; // 未分类收尾
+    let g = groups.get(key);
+    if (!g) {
+      g = { label, items: [] };
+      groups.set(key, g);
+    }
+    g.items.push(row);
+  }
+  return [...groups.values()].sort((a, b) => {
+    if (!a.label && !b.label) return 0;
+    if (!a.label) return 1;
+    if (!b.label) return -1;
+    return a.label.localeCompare(b.label, "zh-CN");
+  });
+});
+
 watch([fSearch, pageSize], () => {
   page.value = 1;
 });
@@ -385,15 +415,23 @@ watch([tecSearch, pageSize], () => {
     </div>
     <div id="formula-rows" class="list-rows">
       <p v-if="filteredFormulas.length === 0" class="empty-note">{{ t("library.empty") }}</p>
-      <div v-for="{ f, catText, tagsText, techCount } in pagedFormulas" :key="f.id" class="lib-row" :data-name="f.name">
-        <span class="lib-name">{{ f.name }}</span>
-        <span class="moves">{{ f.moves }}</span>
-        <span class="tags">{{ catText }}</span>
-        <span class="tags">{{ tagsText }}</span>
-        <span class="meta">{{ techCount ? t("library.techniqueCount", { n: techCount }) : "" }}</span>
-        <WinButton class="edit" :Content="t('library.edit')" @Click="startEdit(f.id)" />
-        <WinButton class="del" :Content="t('library.delete')" @Click="removeFormula(f.id)" />
-      </div>
+      <template v-for="g in groupedPagedFormulas" :key="g.label || '__none__'">
+        <button class="formula-group-label" @click="toggleFormulaGroup(g.label)">
+          <span>{{ g.label || t("library.formulaNone") }}</span>
+          <span class="formula-group-caret">{{ isFormulaGroupOpen(g.label) ? "\u25BE" : "\u25B8" }}</span>
+        </button>
+        <template v-if="isFormulaGroupOpen(g.label)">
+          <div v-for="{ f, catText, tagsText, techCount } in g.items" :key="f.id" class="lib-row" :data-name="f.name">
+            <span class="lib-name">{{ f.name }}</span>
+            <span class="moves">{{ f.moves }}</span>
+            <span class="tags">{{ catText }}</span>
+            <span class="tags">{{ tagsText }}</span>
+            <span class="meta">{{ techCount ? t("library.techniqueCount", { n: techCount }) : "" }}</span>
+            <WinButton class="edit" :Content="t('library.edit')" @Click="startEdit(f.id)" />
+            <WinButton class="del" :Content="t('library.delete')" @Click="removeFormula(f.id)" />
+          </div>
+        </template>
+      </template>
     </div>
     <div v-if="totalPages > 1" class="pager">
       <WinButton :Content="t('library.prev')" :IsEnabled="page > 1" @Click="page--" />
@@ -555,6 +593,31 @@ watch([tecSearch, pageSize], () => {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.formula-group-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 5px 10px;
+  border: none;
+  border-radius: var(--ControlCornerRadius, 4px);
+  background: var(--ctrl-fill-secondary, rgba(128, 128, 138, 0.14));
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.formula-group-label:hover {
+  background: var(--ctrl-fill-tertiary, rgba(128, 128, 138, 0.24));
+}
+
+.formula-group-caret {
+  color: var(--text-tertiary);
+  font-size: 12px;
 }
 
 .lib-toolbar {

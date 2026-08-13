@@ -171,6 +171,7 @@ export const en: Record<string, string> = {
   "library.categoryName": "Category name",
   "library.categoryParent": "Parent category",
   "library.categoryNone": "(none)",
+  "library.formulaNone": "Uncategorized",
   "library.categoryAdd": "Add category",
   "library.categoryDelete": "Delete",
   "library.categoryFail": "Category operation failed: {error}",
