@@ -12,8 +12,7 @@ import { Euler, Quaternion } from "three";
 import { CubePlayer } from "../../cube/CubePlayer";
 import { GrayOverlay } from "../../cube/GrayOverlay";
 import { createGrayState, presetGrayState, type GrayPreset, type GrayState } from "../../cube/stickering";
-import { categoryLabelPath } from "../../data/category";
-import type { Formula } from "../../data/formula";
+import { buildCategoryTree, flattenCategoryTree } from "../../data/category";
 import { loadLibrary, saveLibrary, upsertTechniqueInLib } from "../../data/libraryStore";
 import {
   createTechnique,
@@ -501,29 +500,15 @@ const filteredNewFormulas = computed(() => {
   });
 });
 
-/** 新建手法：公式按分类分组（分类路径为组标题，未分类收尾；组内保持过滤顺序） */
-const groupedNewFormulas = computed(() => {
-  const groups = new Map<string, { label: string; formulas: Formula[] }>();
-  for (const f of filteredNewFormulas.value) {
-    let label = "";
-    if (f.categoryId) {
-      const cat = lib.value.categories.find((c) => c.id === f.categoryId);
-      if (cat) label = categoryLabelPath(cat, lib.value.categories);
-    }
-    const key = label || "\u0000"; // 未分类固定排最后
-    let g = groups.get(key);
-    if (!g) {
-      g = { label, formulas: [] };
-      groups.set(key, g);
-    }
-    g.formulas.push(f);
-  }
-  return [...groups.values()].sort((a, b) => {
-    if (!a.label && !b.label) return 0;
-    if (!a.label) return 1;
-    if (!b.label) return -1;
-    return a.label.localeCompare(b.label, "zh-CN");
-  });
+/** 新建手法：公式按分类树渲染（1LLL 展开 → 直属公式 + 子分类 ZBLL 组，层级缩进） */
+const formulaGroupRows = computed(() => {
+  const nodes = buildCategoryTree(
+    lib.value.categories,
+    filteredNewFormulas.value,
+    (f) => f.categoryId,
+    t("editor.formulaNone"),
+  );
+  return flattenCategoryTree(nodes, isFormulaGroupOpen, (f) => f.id);
 });
 
 const handTypeOptions = [
@@ -1520,21 +1505,23 @@ onBeforeUnmount(() => {
             <input id="tec-new-name" ref="newNameEl" class="native-input" :placeholder="t('editor.newName')" />
             <input id="new-formula-search" v-model="formulaSearch" class="native-input" :placeholder="t('editor.formulaSearch')" />
             <div class="formula-list">
-              <template v-for="g in groupedNewFormulas" :key="g.label || '__none__'">
-                <button class="formula-group-label" @click="toggleFormulaGroup(g.label)">
-                  <span>{{ g.label || t("editor.formulaNone") }}</span>
-                  <span class="sb-group-caret">{{ isFormulaGroupOpen(g.label) ? "\u25BE" : "\u25B8" }}</span>
+              <template v-for="row in formulaGroupRows" :key="`${row.kind}-${row.id}`">
+                <button
+                  v-if="row.kind === 'group'"
+                  class="formula-group-label"
+                  :style="{ paddingLeft: `${10 + row.depth * 14}px` }"
+                  @click="toggleFormulaGroup(row.id)">
+                  <span>{{ row.label }}</span>
+                  <span class="sb-group-caret">{{ isFormulaGroupOpen(row.id) ? "\u25BE" : "\u25B8" }}</span>
                 </button>
-                <template v-if="isFormulaGroupOpen(g.label)">
-                  <button
-                    v-for="f in g.formulas"
-                    :key="f.id"
-                    class="tec-item"
-                    :class="{ active: selectedFormulaId === f.id }"
-                    @click="selectedFormulaId = f.id">{{ f.name }}</button>
-                </template>
+                <button
+                  v-else
+                  class="tec-item"
+                  :style="{ paddingLeft: `${12 + row.depth * 14}px` }"
+                  :class="{ active: selectedFormulaId === row.id }"
+                  @click="selectedFormulaId = row.id">{{ row.item.name }}</button>
               </template>
-              <p v-if="groupedNewFormulas.length === 0" class="meta list-empty">{{ t("editor.searchEmpty") }}</p>
+              <p v-if="formulaGroupRows.length === 0" class="meta list-empty">{{ t("editor.searchEmpty") }}</p>
             </div>
             <WinButton id="tec-new-add" :Content="t('editor.newAdd')" Style="AccentButtonStyle" @Click="onNewAdd" />
           </div>
@@ -2164,7 +2151,7 @@ onBeforeUnmount(() => {
 .formula-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   max-height: 190px;
   overflow-y: auto;
   border: 1px solid var(--stroke-divider);
@@ -2177,10 +2164,11 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 4px 8px;
+  padding: 6px 8px;
   border: none;
   background: transparent;
   font-size: 11px;
+  line-height: 1.5;
   font-family: inherit;
   color: var(--text-tertiary);
   cursor: pointer;
@@ -2198,13 +2186,17 @@ onBeforeUnmount(() => {
 }
 
 .tec-item {
+  display: flex;
+  align-items: center;
   text-align: left;
-  padding: 4px 8px;
+  padding: 6px 8px;
+  min-height: 34px;
   border: none;
   border-radius: 4px;
   background: transparent;
   color: var(--text-primary);
   font-size: 13px;
+  line-height: 1.5;
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;

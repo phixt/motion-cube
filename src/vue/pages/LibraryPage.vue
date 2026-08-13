@@ -8,11 +8,13 @@ import { computed, ref, watch } from "vue";
 import WinButton from "../../vendor/winui-on-web/components/WinButton.vue";
 import WinTextBlock from "../../vendor/winui-on-web/components/WinTextBlock.vue";
 import {
+  buildCategoryTree,
   CategoryError,
   categoryDepth,
   categoryLabelPath,
   categoryPath,
   createCategory,
+  flattenCategoryTree,
   MAX_CATEGORY_DEPTH,
   sortCategories,
   type Category,
@@ -256,34 +258,20 @@ const pagedFormulas = computed(() => {
   return filteredFormulas.value.slice(start, start + pageSize.value);
 });
 
-/** 公式列表按分类分组（当前页内；默认折叠，点组标题展开/收起，与编辑器新建手法同步） */
+/** 公式列表按分类树分组（当前页内；默认折叠，层级缩进，与编辑器新建手法同步） */
 const formulaGroupOpen = ref<Record<string, boolean>>({});
 const isFormulaGroupOpen = (label: string): boolean => formulaGroupOpen.value[label] === true;
 const toggleFormulaGroup = (label: string): void => {
   formulaGroupOpen.value = { ...formulaGroupOpen.value, [label]: !isFormulaGroupOpen(label) };
 };
-const groupedPagedFormulas = computed(() => {
-  const groups = new Map<string, { label: string; items: typeof pagedFormulas.value }>();
-  for (const row of pagedFormulas.value) {
-    let label = "";
-    if (row.f.categoryId) {
-      const cat = sorted.value.find((c) => c.id === row.f.categoryId);
-      if (cat) label = categoryLabelPath(cat, sorted.value);
-    }
-    const key = label || "\u0000"; // 未分类收尾
-    let g = groups.get(key);
-    if (!g) {
-      g = { label, items: [] };
-      groups.set(key, g);
-    }
-    g.items.push(row);
-  }
-  return [...groups.values()].sort((a, b) => {
-    if (!a.label && !b.label) return 0;
-    if (!a.label) return 1;
-    if (!b.label) return -1;
-    return a.label.localeCompare(b.label, "zh-CN");
-  });
+const formulaGroupRows = computed(() => {
+  const nodes = buildCategoryTree(
+    lib.value.categories,
+    pagedFormulas.value,
+    (r) => r.f.categoryId,
+    t("library.formulaNone"),
+  );
+  return flattenCategoryTree(nodes, isFormulaGroupOpen, (r) => r.f.id);
 });
 
 watch([fSearch, pageSize], () => {
@@ -415,22 +403,28 @@ watch([tecSearch, pageSize], () => {
     </div>
     <div id="formula-rows" class="list-rows">
       <p v-if="filteredFormulas.length === 0" class="empty-note">{{ t("library.empty") }}</p>
-      <template v-for="g in groupedPagedFormulas" :key="g.label || '__none__'">
-        <button class="formula-group-label" @click="toggleFormulaGroup(g.label)">
-          <span>{{ g.label || t("library.formulaNone") }}</span>
-          <span class="formula-group-caret">{{ isFormulaGroupOpen(g.label) ? "\u25BE" : "\u25B8" }}</span>
+      <template v-for="row in formulaGroupRows" :key="`${row.kind}-${row.id}`">
+        <button
+          v-if="row.kind === 'group'"
+          class="formula-group-label"
+          :style="{ paddingLeft: `${10 + row.depth * 16}px` }"
+          @click="toggleFormulaGroup(row.id)">
+          <span>{{ row.label }}</span>
+          <span class="formula-group-caret">{{ isFormulaGroupOpen(row.id) ? "\u25BE" : "\u25B8" }}</span>
         </button>
-        <template v-if="isFormulaGroupOpen(g.label)">
-          <div v-for="{ f, catText, tagsText, techCount } in g.items" :key="f.id" class="lib-row" :data-name="f.name">
-            <span class="lib-name">{{ f.name }}</span>
-            <span class="moves">{{ f.moves }}</span>
-            <span class="tags">{{ catText }}</span>
-            <span class="tags">{{ tagsText }}</span>
-            <span class="meta">{{ techCount ? t("library.techniqueCount", { n: techCount }) : "" }}</span>
-            <WinButton class="edit" :Content="t('library.edit')" @Click="startEdit(f.id)" />
-            <WinButton class="del" :Content="t('library.delete')" @Click="removeFormula(f.id)" />
-          </div>
-        </template>
+        <div
+          v-else
+          class="lib-row"
+          :style="{ marginLeft: `${row.depth * 16}px` }"
+          :data-name="row.item.f.name">
+          <span class="lib-name">{{ row.item.f.name }}</span>
+          <span class="moves">{{ row.item.f.moves }}</span>
+          <span class="tags">{{ row.item.catText }}</span>
+          <span class="tags">{{ row.item.tagsText }}</span>
+          <span class="meta">{{ row.item.techCount ? t("library.techniqueCount", { n: row.item.techCount }) : "" }}</span>
+          <WinButton class="edit" :Content="t('library.edit')" @Click="startEdit(row.item.f.id)" />
+          <WinButton class="del" :Content="t('library.delete')" @Click="removeFormula(row.item.f.id)" />
+        </div>
       </template>
     </div>
     <div v-if="totalPages > 1" class="pager">
@@ -607,6 +601,7 @@ watch([tecSearch, pageSize], () => {
   color: var(--text-primary);
   font-size: 13px;
   font-weight: 600;
+  line-height: 1.5;
   font-family: inherit;
   cursor: pointer;
 }
@@ -645,7 +640,9 @@ watch([tecSearch, pageSize], () => {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  padding: 6px 10px;
+  padding: 8px 10px;
+  min-height: 40px;
+  line-height: 1.5;
   border: 1px solid var(--stroke-divider);
   border-radius: var(--ControlCornerRadius, 4px);
   background: var(--ctrl-fill-default);

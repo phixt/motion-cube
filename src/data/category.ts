@@ -116,3 +116,70 @@ export function categoryPath(categoryId: string, categories: readonly Category[]
   }
   return path;
 }
+
+/** 分类树节点：直属条目 + 子分类（供公式/手法等按分类分组的 UI 复用） */
+export type CategoryTreeNode<T> = {
+  id: string;
+  label: string;
+  depth: number;
+  items: T[];
+  children: CategoryTreeNode<T>[];
+};
+
+/** 按分类层级构建树（子分类嵌套在父分类下；未分类条目单独收尾一组） */
+export function buildCategoryTree<T>(
+  categories: readonly Category[],
+  entries: readonly T[],
+  categoryIdOf: (entry: T) => string | null | undefined,
+  uncategorizedLabel: string,
+): CategoryTreeNode<T>[] {
+  const byParent = new Map<string | null, Category[]>();
+  for (const c of categories) {
+    const list = byParent.get(c.parentId) ?? [];
+    list.push(c);
+    byParent.set(c.parentId, list);
+  }
+  const childrenOf = (pid: string | null) =>
+    (byParent.get(pid) ?? []).sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+  const build = (cat: Category, depth: number): CategoryTreeNode<T> => ({
+    id: cat.id,
+    label: cat.name,
+    depth,
+    items: entries.filter((e) => categoryIdOf(e) === cat.id),
+    children: childrenOf(cat.id).map((c) => build(c, depth + 1)),
+  });
+  const nodes = childrenOf(null).map((c) => build(c, 0));
+  const uncategorized = entries.filter((e) => {
+    const id = categoryIdOf(e);
+    return !id || !categories.some((c) => c.id === id);
+  });
+  if (uncategorized.length > 0) {
+    nodes.push({ id: "__none__", label: uncategorizedLabel, depth: 0, items: uncategorized, children: [] });
+  }
+  return nodes;
+}
+
+/** 分类树扁平化渲染行：组行 + 展开态下的直属条目行与子组行（带缩进深度） */
+export type CategoryTreeRow<T> =
+  | { kind: "group"; id: string; label: string; depth: number }
+  | { kind: "item"; id: string; depth: number; item: T };
+
+export function flattenCategoryTree<T>(
+  nodes: readonly CategoryTreeNode<T>[],
+  isOpen: (id: string) => boolean,
+  idOf: (item: T) => string,
+): CategoryTreeRow<T>[] {
+  const rows: CategoryTreeRow<T>[] = [];
+  const visit = (node: CategoryTreeNode<T>): void => {
+    if (node.items.length === 0 && node.children.length === 0) return;
+    rows.push({ kind: "group", id: node.id, label: node.label, depth: node.depth });
+    if (isOpen(node.id)) {
+      for (const item of node.items) {
+        rows.push({ kind: "item", id: idOf(item), depth: node.depth + 1, item });
+      }
+      for (const child of node.children) visit(child);
+    }
+  };
+  for (const n of nodes) visit(n);
+  return rows;
+}
