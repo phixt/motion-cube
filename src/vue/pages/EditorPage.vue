@@ -53,8 +53,10 @@ const SNAP_STEP = 1 / 3; // 吸附步长：1/3 块边长（sticker 网格）
 // 每动作默认时长（秒）：编辑器默认步时 0.3s（"正常动作"），与 cubing 基准 1s 分离；
 // 播放时 tempoScale = 1.0 / 步时，动画精确匹配
 const STEP_DEFAULT_SEC = 0.3;
-/** 拍：1 拍 = 默认步时（0.3s = 18 帧 @60fps）；事件（关键帧等）可按拍编辑/吸附 */
-const BEAT_FRAMES = Math.round(STEP_DEFAULT_SEC * 60);
+/** frameRate 预设挡位（避免罕见帧数；23.97/59.94 等也可用） */
+const FRAME_RATE_PRESETS = [23.97, 24, 29.97, 30, 59.94, 60, 120, 240, 1000] as const;
+/** 拍：1 拍 = 默认步时（0.3s），随 frameRate 换算帧数 */
+const beatFrames = computed(() => Math.round(STEP_DEFAULT_SEC * (tech.value?.frameRate ?? 60)));
 
 const lib = ref(loadLibrary());
 const tech = ref<Technique | null>(null);
@@ -339,7 +341,7 @@ const rulerTicks = computed(() => {
   const total = totalFrames.value;
   for (let f = 0; f <= total; f++) {
     if (f % 60 === 0) ticks.push({ frame: f, major: true });
-    else if (f % 15 === 0) ticks.push({ frame: f, major: false });
+    else if (f % 12 === 0) ticks.push({ frame: f, major: false }); // 秒 5 等分
   }
   return ticks;
 });
@@ -348,13 +350,17 @@ const rulerTicks = computed(() => {
 const beatTicks = computed(() => {
   const ticks: { frame: number; beat: number }[] = [];
   const total = totalFrames.value;
-  for (let f = 0; f <= total; f += BEAT_FRAMES) ticks.push({ frame: f, beat: f / BEAT_FRAMES });
+  for (let f = 0; f <= total; f += beatFrames.value) {
+    ticks.push({ frame: f, beat: beatFrames.value > 0 ? f / beatFrames.value : 0 });
+  }
   return ticks;
 });
 
-/** 当前选中关键帧对应的拍（1 拍 = BEAT_FRAMES 帧） */
+/** 当前选中关键帧对应的拍（1 拍 = beatFrames 帧） */
 const beatOfSelected = computed(() =>
-  selectedFrame.value === null ? "" : (selectedFrame.value / BEAT_FRAMES).toFixed(2),
+  selectedFrame.value === null || beatFrames.value <= 0
+    ? ""
+    : (selectedFrame.value / beatFrames.value).toFixed(2),
 );
 
 /** 拍 → 帧号并更新选中关键帧（复用帧号变更语义） */
@@ -365,8 +371,19 @@ const onKfBeatChange = (e: Event): void => {
     renderSelected();
     return;
   }
-  const target = Math.round(beat * BEAT_FRAMES);
+  const target = Math.round(beat * beatFrames.value);
   onKfFrameChangeFrom(target);
+};
+
+/** 切换 frameRate（预设挡位，最高 1000） */
+const onFrameRateChange = (e: Event): void => {
+  if (!tech.value) return;
+  const fr = Number((e.target as HTMLSelectElement).value);
+  if (!Number.isFinite(fr) || fr <= 0) {
+    renderAll();
+    return;
+  }
+  commit((t2) => ({ ...t2, frameRate: fr }));
 };
 
 const onKfFrameChangeFrom = (target: number): void => {
@@ -1357,6 +1374,58 @@ onBeforeUnmount(() => {
             @click="onPvPlay">
             <span class="editor-big-play-icon" aria-hidden="true">{{ playing ? "\uE769" : "\uE768" }}</span>
           </button>
+          <div class="pose-overlay">
+            <div class="pose-overlay-row">
+              <WinToggleSwitch v-model:IsOn="snapOn" :OnContent="t('editor.snapOn')" :OffContent="t('editor.snapOff')" />
+            </div>
+            <div class="pose-overlay-row">
+              <WinTextBlock class="editor-label" :Text="t('editor.pose')" FontSize="12" />
+              <label class="pose-axis">
+                {{ t("editor.posX") }}
+                <input id="kf-pose-x" ref="kfPoseXEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'x')" />
+              </label>
+              <label class="pose-axis">
+                {{ t("editor.posY") }}
+                <input id="kf-pose-y" ref="kfPoseYEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'y')" />
+              </label>
+              <label class="pose-axis">
+                {{ t("editor.posZ") }}
+                <input id="kf-pose-z" ref="kfPoseZEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'z')" />
+              </label>
+            </div>
+            <div class="pose-overlay-row">
+              <WinTextBlock class="editor-label" :Text="t('editor.poseRot')" FontSize="12" />
+              <label class="pose-axis">
+                {{ t("editor.posRx") }}
+                <input id="kf-pose-rx" ref="kfPoseRxEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
+              </label>
+              <label class="pose-axis">
+                {{ t("editor.posRy") }}
+                <input id="kf-pose-ry" ref="kfPoseRyEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
+              </label>
+              <label class="pose-axis">
+                {{ t("editor.posRz") }}
+                <input id="kf-pose-rz" ref="kfPoseRzEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
+              </label>
+            </div>
+            <div class="finger-joints">
+              <WinTextBlock class="editor-label" :Text="t('editor.fingers')" FontSize="12" />
+              <div v-for="name in FINGER_ORDER" :key="name" class="finger-row">
+                <span class="finger-name">{{ t(`hand.finger${name[0].toUpperCase()}${name.slice(1)}`) }}</span>
+                <label v-for="(jname, j) in FINGER_JOINTS[name]" :key="j" class="pose-axis">
+                  {{ jname }}
+                  <input
+                    :id="`kf-bend-${name}-${j}`"
+                    type="number"
+                    :min="FINGER_JOINT_RANGE[name][0]"
+                    :max="FINGER_JOINT_RANGE[name][1]"
+                    step="1"
+                    class="native-input num-input"
+                    @input="onBendInput($event, name, j)" />
+                </label>
+              </div>
+            </div>
+          </div>
           <div v-show="maskVisible" id="editor-play-mask" class="editor-play-mask">{{ t("editor.playHint") }}</div>
         </div>
 
@@ -1365,6 +1434,10 @@ onBeforeUnmount(() => {
           <div class="tl-playback-controls">
             <WinToggleSwitch v-model:IsOn="loopPlay" :OnContent="t('editor.loopOn')" :OffContent="t('editor.loopOff')" />
             <WinToggleSwitch v-model:IsOn="reversePlay" :OnContent="t('editor.reverseOn')" :OffContent="t('editor.reverseOff')" />
+            <WinTextBlock class="editor-label" :Text="t('editor.frameRate')" FontSize="13" />
+            <select id="kf-framerate" class="native-select" :value="tech?.frameRate ?? 60" @change="onFrameRateChange">
+              <option v-for="fr in FRAME_RATE_PRESETS" :key="fr" :value="fr">{{ fr }}</option>
+            </select>
           </div>
           <div class="tl-wrap" @wheel="onTlWheel">
             <div
@@ -1474,54 +1547,6 @@ onBeforeUnmount(() => {
                 <option value="easeInOut">easeInOut</option>
               </select>
               <WinButton id="kf-delete" ref="kfDeleteEl" class="del" :Content="t('editor.deleteKf')" :IsEnabled="kfDeleteEnabled" @Click="onKfDelete" />
-            </div>
-            <div class="editor-kf-row pose-row">
-              <WinToggleSwitch v-model:IsOn="snapOn" :OnContent="t('editor.snapOn')" :OffContent="t('editor.snapOff')" />
-              <WinTextBlock class="editor-label" :Text="t('editor.pose')" FontSize="14" />
-              <label class="pose-axis">
-                {{ t("editor.posX") }}
-                <input id="kf-pose-x" ref="kfPoseXEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'x')" />
-              </label>
-              <label class="pose-axis">
-                {{ t("editor.posY") }}
-                <input id="kf-pose-y" ref="kfPoseYEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'y')" />
-              </label>
-              <label class="pose-axis">
-                {{ t("editor.posZ") }}
-                <input id="kf-pose-z" ref="kfPoseZEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'z')" />
-              </label>
-            </div>
-            <div class="editor-kf-row pose-row">
-              <WinTextBlock class="editor-label" :Text="t('editor.poseRot')" FontSize="14" />
-              <label class="pose-axis">
-                {{ t("editor.posRx") }}
-                <input id="kf-pose-rx" ref="kfPoseRxEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
-              </label>
-              <label class="pose-axis">
-                {{ t("editor.posRy") }}
-                <input id="kf-pose-ry" ref="kfPoseRyEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
-              </label>
-              <label class="pose-axis">
-                {{ t("editor.posRz") }}
-                <input id="kf-pose-rz" ref="kfPoseRzEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
-              </label>
-            </div>
-            <div class="finger-joints">
-              <WinTextBlock class="editor-label" :Text="t('editor.fingers')" FontSize="13" />
-              <div v-for="name in FINGER_ORDER" :key="name" class="finger-row">
-                <span class="finger-name">{{ t(`hand.finger${name[0].toUpperCase()}${name.slice(1)}`) }}</span>
-                <label v-for="(jname, j) in FINGER_JOINTS[name]" :key="j" class="pose-axis">
-                  {{ jname }}
-                  <input
-                    :id="`kf-bend-${name}-${j}`"
-                    type="number"
-                    :min="FINGER_JOINT_RANGE[name][0]"
-                    :max="FINGER_JOINT_RANGE[name][1]"
-                    step="1"
-                    class="native-input num-input"
-                    @input="onBendInput($event, name, j)" />
-                </label>
-              </div>
             </div>
             <pre id="kf-pose" ref="kfPoseEl" class="kf-pose"></pre>
           </div>
@@ -2014,6 +2039,44 @@ html.theme-light .editor-save-btn:hover {
   font-family: "WinUIOnWebIcons";
   font-size: 18px;
   line-height: 1;
+}
+
+.pose-overlay {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
+  padding: 6px 8px;
+  border-radius: 8px;
+  color: var(--text-tertiary); /* 无背景、字略微灰色 */
+  font-size: 12px;
+}
+
+.pose-overlay .pose-axis {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  gap: 3px;
+}
+
+.pose-overlay .num-input {
+  width: 54px;
+  min-height: 22px;
+  padding: 1px 5px;
+  font-size: 12px;
+}
+
+.pose-overlay .finger-row {
+  gap: 6px;
+}
+
+.pose-overlay .finger-name {
+  font-size: 11px;
+  min-width: 30px;
 }
 
 .editor-play-mask {
