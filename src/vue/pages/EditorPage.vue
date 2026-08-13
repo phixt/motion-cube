@@ -36,6 +36,7 @@ import { loadEditorKeymap, loadSettings } from "../../settings";
 import { renderGrayPanel } from "../../ui/grayPanel";
 import {
   applyEasing,
+  DEFAULT_FRAME_RATE,
   interpolatePose,
   keyframeSegment,
   type EasingFn,
@@ -53,6 +54,8 @@ const SNAP_STEP = 1 / 3; // 吸附步长：1/3 块边长（sticker 网格）
 // 每动作默认时长（秒）：编辑器默认步时 0.3s（"正常动作"），与 cubing 基准 1s 分离；
 // 播放时 tempoScale = 1.0 / 步时，动画精确匹配
 const STEP_DEFAULT_SEC = 0.3;
+/** 最短单步时长（秒）：时间线总长下限，非定值——步长下探时同步调小 */
+const MIN_STEP_SEC = 0.01;
 /** frameRate 预设挡位（避免罕见帧数；23.97/59.94 等也可用） */
 const FRAME_RATE_PRESETS = [23.97, 24, 29.97, 30, 59.94, 60, 120, 240, 1000] as const;
 /** 拍：1 拍 = 默认步时（0.3s），随 frameRate 换算帧数 */
@@ -103,7 +106,6 @@ const kfPoseRzEl = ref<HTMLInputElement | null>(null);
 const addFrameEl = ref<HTMLInputElement | null>(null);
 const pvSliderEl = ref<HTMLInputElement | null>(null);
 const pvReadoutEl = ref<HTMLElement | null>(null);
-const pvPoseEl = ref<HTMLElement | null>(null);
 
 let player: CubePlayer | null = null;
 let handView: HandRigView | null = null;
@@ -127,9 +129,8 @@ let maskTimer: number | null = null;
 const selectedSteps = ref<number[]>([]);
 /** 关键帧编辑面板（左侧边栏顶部；点关键帧箭头/自动建帧时展开） */
 const kfPanelOpen = ref(false);
-const kfPanelEl = ref<HTMLElement | null>(null);
-/** 编辑面板显示：autoKf 开启即视为使用中（跟随播放头），否则需选中关键帧 */
-const kfPanelVisible = computed(() => kfPanelOpen.value && (selectedFrame.value !== null || autoKf.value));
+/** 编辑面板常驻：点时间线即展开，仅切换手法/手动关闭才收起 */
+const kfPanelVisible = computed(() => kfPanelOpen.value);
 /** 自动添加关键帧：在无关键帧的帧位置修改姿态数值时自动建帧 */
 const autoKf = ref(false);
 watch(autoKf, (on) => {
@@ -156,7 +157,7 @@ let rulerSeeking = false;
 /** 时间线播放头/轨道 seek：按点击位置换算帧号 */
 const seekFromEvent = (clientX: number, track: HTMLElement): void => {
   const rect = track.getBoundingClientRect();
-  const total = Math.max(totalFrames.value, Math.round(tech.value?.frameRate ?? 60));
+  const total = Math.max(totalFrames.value, minTimelineFrames.value);
   const frame = Math.max(0, Math.round(((clientX - rect.left) / Math.max(rect.width, 1)) * total));
   previewFrame.value = Math.min(frame, total);
   syncCubeToFrame(previewFrame.value);
@@ -192,6 +193,7 @@ const syncCubeToFrame = (frame: number): void => {
 const onTrackPointerDown = (e: PointerEvent): void => {
   e.preventDefault(); // 阻止文本选择/拖拽干扰
   if (playing.value) playing.value = false; // 点轨道停止播放
+  kfPanelOpen.value = true; // 点时间线 → 编辑面板常驻（姿态信息跟随播放头）
   // band 上按下即选中（Ctrl/Shift 多选立即生效，不依赖 click 松手）
   const band = (e.target as HTMLElement).closest?.(".tl-step-band");
   if (band) {
@@ -205,6 +207,7 @@ const onRulerSeek = (e: PointerEvent): void => {
   // 时间线上方（秒/拍刻度区域）点击跳转
   e.preventDefault();
   if (playing.value) playing.value = false;
+  kfPanelOpen.value = true; // 点时间线 → 编辑面板常驻
   rulerSeeking = true;
   seekFromEvent(e.clientX, e.currentTarget as HTMLElement);
 };
@@ -213,19 +216,6 @@ const onRulerMove = (e: PointerEvent): void => {
 };
 const onRulerEnd = (): void => {
   rulerSeeking = false;
-};
-
-/** 点面板以外（时间线/3D 视图等）→ 取消选中并自动隐藏编辑面板 */
-const onGlobalPointerDown = (e: PointerEvent): void => {
-  if (!kfPanelOpen.value) return;
-  const t = e.target as HTMLElement;
-  if (kfPanelEl.value?.contains(t)) return;
-  if (t.closest?.(".tl-kf")) return; // 关键帧箭头：由 selectKf 处理
-  if (t.closest?.(".editor-sidebar")) return; // 侧边栏内不自动隐藏
-  if (t.closest?.(".tl-playback-controls")) return; // 播放控制（循环/倒放/自动建帧/帧率）
-  if (autoKf.value) return; // 自动建帧模式视为使用中，保持展开
-  selectedFrame.value = null;
-  kfPanelOpen.value = false;
 };
 const selectStep = (i: number, e?: MouseEvent): void => {
   if (e?.ctrlKey || e?.metaKey) {
@@ -345,13 +335,19 @@ const onEditorKey = (e: KeyboardEvent): void => {
 
 const totalFrames = computed(() => {
   if (!tech.value) return 0;
-  // 允许无关键帧播放：时长取 最后关键帧 / 步骤区间终点 的最大值（至少 1 秒）
+  // 允许无关键帧播放：时长取 最后关键帧 / 步骤区间终点 的最大值（下限 = 最短单步 0.01s，
+  // 非定值，之后步长下探时同步调 MIN_STEP_SEC 即可）
   const kfLast = tech.value.keyframes.length
     ? tech.value.keyframes[tech.value.keyframes.length - 1].frame
     : 0;
   const stepLast = tech.value.stepMapping.reduce((m, s) => Math.max(m, s.endFrame), 0);
-  return Math.max(kfLast, stepLast, Math.round(tech.value.frameRate));
+  return Math.max(kfLast, stepLast, minTimelineFrames.value);
 });
+
+/** 时间线总长下限（帧）：最短单步 0.01s × frameRate，至少 1 帧 */
+const minTimelineFrames = computed(() =>
+  Math.max(1, Math.round(MIN_STEP_SEC * (tech.value?.frameRate ?? DEFAULT_FRAME_RATE))),
+);
 
 const sortedKeyframes = computed(() =>
   tech.value ? [...tech.value.keyframes].sort((a, b) => a.frame - b.frame) : [],
@@ -455,7 +451,7 @@ const onKfFrameChangeFrom = (target: number, src: number = shownFrame() ?? -1): 
   renderAll();
 };
 
-const tlWidth = computed(() => `${Math.max(totalFrames.value, Math.round(tech.value?.frameRate ?? 60)) * pxPerFrame.value}px`);
+const tlWidth = computed(() => `${Math.max(totalFrames.value, minTimelineFrames.value) * pxPerFrame.value}px`);
 
 const stepBands = computed(() => tech.value?.stepMapping ?? []);
 
@@ -519,20 +515,14 @@ function previewPose(): Pose | null {
   return interpolatePose(seg.a.pose, seg.b.pose, eased);
 }
 
-/** 编辑面板目标帧：autoKf 时跟随播放头，否则为选中关键帧 */
+/** 编辑面板目标帧：始终跟随播放头（点时间线/播放/步进即查看该帧姿态） */
 function shownFrame(): number | null {
-  if (!tech.value) return null;
-  return autoKf.value ? previewFrame.value : selectedFrame.value;
+  return tech.value ? previewFrame.value : null;
 }
 
-/** 编辑面板显示姿态：目标帧有关键帧则用关键帧姿态；autoKf 空白帧用插值姿态 */
+/** 编辑面板显示姿态：播放头处插值姿态（含端点关键帧），无关键帧时返回 null */
 function shownPose(): Pose | null {
-  const frame = shownFrame();
-  if (frame === null) return null;
-  const kf = tech.value?.keyframes.find((k) => k.frame === frame);
-  if (kf) return kf.pose;
-  if (autoKf.value) return previewPose();
-  return null;
+  return shownFrame() === null ? null : previewPose();
 }
 
 function renderSelected(keepInputs = false): void {
@@ -598,16 +588,17 @@ function renderPreview(): void {
       : "";
   }
   const pose = previewPose();
-  if (pvPoseEl.value) {
-    pvPoseEl.value.textContent = pose
-      ? poseSummary(pose, activeContactsAt(previewFrame.value))
-      : t("editor.needKf");
-  }
-  // autoKf：编辑目标 = 播放头帧；面板摘要与数值跟随播放头（正在输入的控件不覆盖）
-  if (autoKf.value) {
+  // 面板常驻时：帧号/缓动/删除/摘要/数值全部跟随播放头（姿态信息并入帧编辑器；
+  // 正在输入的数值框不覆盖）
+  if (kfPanelVisible.value) {
+    const frame = previewFrame.value;
+    const kf = tech.value?.keyframes.find((k) => k.frame === frame) ?? null;
+    if (kfFrameEl.value) kfFrameEl.value.value = String(frame);
+    if (kfEasingEl.value) kfEasingEl.value.value = kf?.easing ?? "linear";
+    if (kfDeleteEl.value) kfDeleteEl.value.disabled = !kf;
     if (kfPoseEl.value) {
       kfPoseEl.value.textContent = pose
-        ? poseSummary(pose, activeContactsAt(previewFrame.value))
+        ? poseSummary(pose, activeContactsAt(frame))
         : t("editor.needKf");
     }
     if (pose) {
@@ -660,6 +651,7 @@ function renderAll(keepInputs = false): void {
 function selectTech(id: string): void {
   selectedFrame.value = null;
   previewFrame.value = 0;
+  kfPanelOpen.value = false; // 切换手法 → 收起编辑面板（用户指定唯一关闭途径之一）
   tech.value = lib.value.techniques.find((x) => x.id === id) ?? null;
   computeFormulaMoves();
   // 补全动作刻度：stepMapping 为空时按 公式步数 × 每步默认时长 生成
@@ -821,9 +813,9 @@ const onKfDelete = (): void => {
 /** 姿态坐标编辑（手掌位置 X/Y/Z；吸附开启时按 1/3 块边长取整） */
 const onPoseInput = (e: Event, axis: "x" | "y" | "z"): void => {
   if (!tech.value) return;
-  // autoKf 开启时编辑目标 = 当前进度帧（空白帧自动建帧）；否则用选中帧
-  const target = autoKf.value ? previewFrame.value : selectedFrame.value;
-  if (target === null) {
+  const target = previewFrame.value; // 编辑目标 = 播放头帧（所见即所得）
+  const hasKf = tech.value.keyframes.some((k) => k.frame === target);
+  if (!hasKf && !autoKf.value) {
     statusText.value = t("editor.poseNeedKf");
     return;
   }
@@ -852,8 +844,9 @@ const onPoseInput = (e: Event, axis: "x" | "y" | "z"): void => {
 /** 手掌三方向旋转（欧拉角，度）：三输入合成为四元数写入关键帧 */
 const onPoseRotInput = (): void => {
   if (!tech.value) return;
-  const target = autoKf.value ? previewFrame.value : selectedFrame.value;
-  if (target === null) {
+  const target = previewFrame.value; // 编辑目标 = 播放头帧
+  const hasKf = tech.value.keyframes.some((k) => k.frame === target);
+  if (!hasKf && !autoKf.value) {
     statusText.value = t("editor.poseNeedKf");
     return;
   }
@@ -883,8 +876,9 @@ const onPoseRotInput = (): void => {
 /** 手指关节角度（bend，180=伸直）：目标帧更新，autoKf 空白帧自动建帧 */
 const onBendInput = (e: Event, name: FingerName, j: number): void => {
   if (!tech.value) return;
-  const target = autoKf.value ? previewFrame.value : selectedFrame.value;
-  if (target === null) {
+  const target = previewFrame.value; // 编辑目标 = 播放头帧
+  const hasKf = tech.value.keyframes.some((k) => k.frame === target);
+  if (!hasKf && !autoKf.value) {
     statusText.value = t("editor.poseNeedKf");
     return;
   }
@@ -1286,7 +1280,6 @@ onMounted(() => {
   editorKeymap.attach(window);
   window.addEventListener("keydown", onEditorKey);
   window.addEventListener("keyup", onEditorKey);
-  window.addEventListener("pointerdown", onGlobalPointerDown);
   (globalThis as { __motionCubeEditor?: unknown }).__motionCubeEditor = { player, handView };
   renderAll();
   // 视口渲染兜底：cubing 的 TwistyPlayer 用 IntersectionObserver 懒初始化，
@@ -1392,7 +1385,6 @@ onBeforeUnmount(() => {
   editorKeymap = null;
   window.removeEventListener("keydown", onEditorKey);
   window.removeEventListener("keyup", onEditorKey);
-  window.removeEventListener("pointerdown", onGlobalPointerDown);
   editorViewEl.value?.replaceChildren();
   delete (globalThis as { __motionCubeEditor?: unknown }).__motionCubeEditor;
   grayOverlay?.dispose();
@@ -1678,7 +1670,6 @@ onBeforeUnmount(() => {
           <div class="editor-pv-controls">
             <span id="pv-readout" ref="pvReadoutEl" class="meta"></span>
           </div>
-          <pre id="pv-pose" ref="pvPoseEl" class="kf-pose"></pre>
         </div>
       </main>
     </div>
