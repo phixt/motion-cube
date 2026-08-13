@@ -156,8 +156,9 @@ const syncCubeToFrame = (frame: number): void => {
 };
 
 const onTrackPointerDown = (e: PointerEvent): void => {
-  // 点到动作块：只选中不 seek；其余位置 seek 并进入拖动
-  if ((e.target as HTMLElement).closest?.(".tl-step-band")) return;
+  e.preventDefault(); // 阻止文本选择/拖拽干扰
+  // 统一 seek（含动作块区域——单步手法动作块占满轨道，否则无法拖动定位）；
+  // 动作块选中由 click（selectStep）处理
   if (selectedSteps.value.length > 0) selectedSteps.value = []; // 点空白取消多选
   if (playing.value) playing.value = false; // 定位先停止播放
   seeking = true;
@@ -745,17 +746,19 @@ const onPvPlay = (): void => {
     computeFormulaMoves();
     syncStepSpeed();
     if (reversePlay.value) {
-      // 倒放：从停止位置继续；仅当已在末尾时从头（reverseStart）倒放
-      if (previewFrame.value >= totalFrames.value) {
+      // 倒放：从停止位置继续；在末尾或开头时从头（reverseStart）倒放
+      if (previewFrame.value >= totalFrames.value || previewFrame.value <= 0) {
         setReverseStart();
+        previewFrame.value = totalFrames.value;
         stepMoveIndex = 0;
         moveCursor = 0;
         revApplied = tech.value.stepMapping.length;
       }
     } else {
-      // 正放：从停止位置继续；仅当在开头时设起始态
-      if (previewFrame.value <= 0) {
+      // 正放：从停止位置继续；在开头或播放完（末尾）时从头设起始态
+      if (previewFrame.value <= 0 || previewFrame.value >= totalFrames.value) {
         setStartState();
+        previewFrame.value = 0;
         stepMoveIndex = 0;
         moveCursor = 0;
       }
