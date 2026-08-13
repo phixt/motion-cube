@@ -265,6 +265,7 @@ export const en: Record<string, string> = {
   "editor.autoKfOff": "Auto keyframe off",
   "editor.fingers": "Finger joints (°)",
   "editor.frameRate": "Frame rate",
+  "editor.speed": "Speed",
   "editor.frameOf": "Frame {frame} / {total} ({sec} s)",
   "editor.needKf": "At least 2 keyframes are needed for interpolation",
   "editor.noKfSelected": "Click a keyframe on the timeline to edit it",

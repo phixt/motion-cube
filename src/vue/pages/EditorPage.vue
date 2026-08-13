@@ -58,6 +58,9 @@ const STEP_DEFAULT_SEC = 0.3;
 const MIN_STEP_SEC = 0.01;
 /** frameRate 预设挡位（避免罕见帧数；23.97/59.94 等也可用） */
 const FRAME_RATE_PRESETS = [23.97, 24, 29.97, 30, 59.94, 60, 120, 240, 1000] as const;
+/** 整体倍速预设（慢放/快放查看） */
+const PLAY_SPEED_PRESETS = [0.25, 0.5, 0.75, 1, 1.5, 2, 4] as const;
+const playSpeed = ref(1);
 /** 拍：1 拍 = 默认步时（0.3s），随 frameRate 换算帧数 */
 const beatFrames = computed(() => Math.round(STEP_DEFAULT_SEC * (tech.value?.frameRate ?? 60)));
 
@@ -709,14 +712,26 @@ function computeFormulaMoves(): void {
   formulaMoves = tokens.flatMap(splitCompoundMove);
 }
 
-/** 步进时长校准：让 cubing 单步动画时长 ≈ stepMapping 区间时长 */
+/** 步进时长校准：让 cubing 单步动画时长 = stepMapping 区间时长 ÷ 倍速
+ * （整体倍速同时作用于播放头推进与魔方动画，慢放/快放一致不跳变） */
 function syncStepSpeed(): void {
   if (!tech.value) return;
   const m0 = tech.value.stepMapping[0];
   if (!m0) return;
   const stepSec = (m0.endFrame - m0.startFrame) / tech.value.frameRate;
-  if (stepSec > 0) player?.setSpeed(CUBING_MOVE_SECONDS / stepSec);
+  if (stepSec > 0) player?.setSpeed((CUBING_MOVE_SECONDS / stepSec) * playSpeed.value);
 }
+
+/** 切换整体倍速：立即校准魔方动画速度（播放中亦生效，下一步起匹配） */
+const onPlaySpeedChange = (e: Event): void => {
+  const v = Number((e.target as HTMLSelectElement).value);
+  if (!Number.isFinite(v) || v <= 0) {
+    renderAll();
+    return;
+  }
+  playSpeed.value = v;
+  if (playing.value) syncStepSpeed();
+};
 
 /** 播放推进：previewFrame 进入 step 区间时对魔方执行对应公式步 */
 function applyStepAtFrame(frame: number): void {
@@ -1310,12 +1325,13 @@ onMounted(() => {
       frameAcc = 0;
       return;
     }
-    // 精度解耦：帧累加器按真实时间推进（dt × frameRate），任意帧率下播放速度恒定；
-    // 1 拍 = 0.3s 的动作在 60fps 为 18 帧、1000fps 为 300 帧，但真实时长始终一致。
+    // 精度解耦：帧累加器按真实时间推进（dt × frameRate × 倍速），任意帧率/倍速下
+    // 播放速度恒定；1 拍 = 0.3s 的动作在 60fps 为 18 帧、1000fps 为 300 帧，
+    // 真实时长始终一致（倍速 0.25x 慢放、4x 快放）。
     const now = performance.now();
     const dtSec = lastTickAt ? (now - lastTickAt) / 1000 : 1 / 60;
     lastTickAt = now;
-    frameAcc += dtSec * tech.value.frameRate;
+    frameAcc += dtSec * tech.value.frameRate * playSpeed.value;
     const stepFrames = Math.floor(frameAcc);
     frameAcc -= stepFrames;
     const total = totalFrames.value;
@@ -1561,6 +1577,10 @@ onBeforeUnmount(() => {
             <WinTextBlock class="editor-label" :Text="t('editor.frameRate')" FontSize="13" />
             <select id="kf-framerate" class="native-select" :value="tech?.frameRate ?? 60" @change="onFrameRateChange">
               <option v-for="fr in FRAME_RATE_PRESETS" :key="fr" :value="fr">{{ fr }}</option>
+            </select>
+            <WinTextBlock class="editor-label" :Text="t('editor.speed')" FontSize="13" />
+            <select id="play-speed" class="native-select" :value="playSpeed" @change="onPlaySpeedChange">
+              <option v-for="s in PLAY_SPEED_PRESETS" :key="s" :value="s">{{ s }}x</option>
             </select>
           </div>
           <div class="tl-wrap" @wheel="onTlWheel">
