@@ -106,8 +106,6 @@ const grayState = ref<GrayState>(createGrayState());
 const grayKind = ref<"mutable" | "immutable">("mutable");
 const grayPanelOpen = ref(false);
 const grayPanelEl = ref<HTMLElement | null>(null);
-/** 时间线展开（3D 视口下方显示，侧边栏按钮切换） */
-const timelineOpen = ref(false);
 /** 魔方/手显隐（快捷键 C/H + 侧边栏按钮） */
 const showCube = ref(true);
 const showHand = ref(true);
@@ -119,7 +117,13 @@ let maskTimer: number | null = null;
 const selectedSteps = ref<number[]>([]);
 /** 关键帧编辑折叠区（时间线内展开；点关键帧箭头自动展开） */
 const kfPanelOpen = ref(false);
-let seeking = false;
+/** 自动添加关键帧：在无关键帧的帧位置修改姿态数值时自动建帧 */
+const autoKf = ref(false);
+let seekDown = false;
+let seekDragging = false;
+let seekStartX = 0;
+let seekStartY = 0;
+const SEEK_DRAG_PX = 6;
 
 /** 时间线播放头/轨道 seek：按点击位置换算帧号 */
 const seekFromEvent = (clientX: number, track: HTMLElement): void => {
@@ -159,19 +163,33 @@ const syncCubeToFrame = (frame: number): void => {
 
 const onTrackPointerDown = (e: PointerEvent): void => {
   e.preventDefault(); // 阻止文本选择/拖拽干扰
-  // 统一 seek（含动作块区域——单步手法动作块占满轨道，否则无法拖动定位）；
-  // 动作块选中由 click（selectStep）处理
   if (selectedSteps.value.length > 0) selectedSteps.value = []; // 点空白取消多选
   if (playing.value) playing.value = false; // 定位先停止播放
-  seeking = true;
-  seekFromEvent(e.clientX, e.currentTarget as HTMLElement);
+  // 点击不立即跳转：band 上点击=选中（Ctrl/Shift 多选）；拖拽超过阈值才 seek
+  seekDown = true;
+  seekDragging = false;
+  seekStartX = e.clientX;
+  seekStartY = e.clientY;
 };
 const onTrackPointerMove = (e: PointerEvent): void => {
-  if (!seeking || !(e.buttons & 1)) return;
-  seekFromEvent(e.clientX, e.currentTarget as HTMLElement);
+  if (!seekDown || !(e.buttons & 1)) return;
+  if (!seekDragging && Math.abs(e.clientX - seekStartX) + Math.abs(e.clientY - seekStartY) >= SEEK_DRAG_PX) {
+    seekDragging = true;
+  }
+  if (seekDragging) seekFromEvent(e.clientX, e.currentTarget as HTMLElement);
+};
+const onTrackPointerUp = (e: PointerEvent): void => {
+  // 点击（未拖动）：band 上交给 click 选中；空白点击跳转
+  if (!seekDragging) {
+    const t = e.target as HTMLElement;
+    if (!t.closest?.(".tl-step-band")) seekFromEvent(e.clientX, e.currentTarget as HTMLElement);
+  }
+  seekDown = false;
+  seekDragging = false;
 };
 const endSeek = (): void => {
-  seeking = false;
+  seekDown = false;
+  seekDragging = false;
 };
 
 const selectStep = (i: number, e?: MouseEvent): void => {
@@ -213,6 +231,15 @@ const stepFrames = (dir: 1 | -1, jumpKf: boolean): void => {
   }
   syncCubeToFrame(previewFrame.value);
   renderPreview();
+};
+
+/** 姿态修改统一入口：目标帧有帧则更新；无帧且 autoKf 开启则自动建帧（以当前插值姿态为基底） */
+const ensureAutoKfPose = (t2: Technique, frame: number, patch: (pose: Pose) => Pose): Technique => {
+  const k2 = t2.keyframes.find((k) => k.frame === frame);
+  if (k2) return upsertKeyframe(t2, { ...k2, pose: patch(k2.pose) });
+  if (!autoKf.value) return t2;
+  const base = previewPose() ?? defaultHandPose((handTypeSelectEl.value?.value as HandType) ?? "right");
+  return upsertKeyframe(t2, { frame, pose: patch(base) });
 };
 
 const toggleShowCube = (): void => {
@@ -482,6 +509,10 @@ function poseRotationDeg(pose: Pose): { x: number; y: number; z: number } {
 
 function renderPreview(): void {
   const total = totalFrames.value;
+  // 添加关键帧目标帧跟随进度（用户聚焦输入框时不覆盖）
+  if (addFrameEl.value && document.activeElement !== addFrameEl.value) {
+    addFrameEl.value.value = String(previewFrame.value);
+  }
   if (pvSliderEl.value) {
     pvSliderEl.value.max = String(Math.max(total, 0));
     pvSliderEl.value.value = String(Math.min(previewFrame.value, total));
@@ -688,7 +719,9 @@ const onKfDelete = (): void => {
 /** 姿态坐标编辑（手掌位置 X/Y/Z；吸附开启时按 1/3 块边长取整） */
 const onPoseInput = (e: Event, axis: "x" | "y" | "z"): void => {
   if (!tech.value) return;
-  if (selectedFrame.value === null) {
+  // autoKf 开启时编辑目标 = 当前进度帧（空白帧自动建帧）；否则用选中帧
+  const target = autoKf.value ? previewFrame.value : selectedFrame.value;
+  if (target === null) {
     statusText.value = t("editor.poseNeedKf");
     return;
   }
@@ -697,28 +730,28 @@ const onPoseInput = (e: Event, axis: "x" | "y" | "z"): void => {
   if (!Number.isFinite(v)) return;
   if (snapOn.value) v = Math.round(v / SNAP_STEP) * SNAP_STEP;
   commit((t2) => {
-    const k2 = t2.keyframes.find((k) => k.frame === selectedFrame.value);
-    if (!k2) return t2;
-    return upsertKeyframe(t2, {
-      ...k2,
-      pose: {
-        ...k2.pose,
-        palm: {
-          ...k2.pose.palm,
-          transform: {
-            ...k2.pose.palm.transform,
-            position: { ...k2.pose.palm.transform.position, [axis]: v },
-          },
+    return ensureAutoKfPose(t2, target, (pose) => ({
+      ...pose,
+      palm: {
+        ...pose.palm,
+        transform: {
+          ...pose.palm.transform,
+          position: { ...pose.palm.transform.position, [axis]: v },
         },
       },
-    });
+    }));
   }, true);
+  if (autoKf.value && selectedFrame.value !== target) {
+    selectedFrame.value = target;
+    renderAll();
+  }
 };
 
 /** 手掌三方向旋转（欧拉角，度）：三输入合成为四元数写入关键帧 */
 const onPoseRotInput = (): void => {
   if (!tech.value) return;
-  if (selectedFrame.value === null) {
+  const target = autoKf.value ? previewFrame.value : selectedFrame.value;
+  if (target === null) {
     statusText.value = t("editor.poseNeedKf");
     return;
   }
@@ -728,22 +761,21 @@ const onPoseRotInput = (): void => {
   if (![rx, ry, rz].every((v) => Number.isFinite(v))) return;
   const q = new Quaternion().setFromEuler(new Euler(degToRad(rx), degToRad(ry), degToRad(rz)));
   commit((t2) => {
-    const k2 = t2.keyframes.find((k) => k.frame === selectedFrame.value);
-    if (!k2) return t2;
-    return upsertKeyframe(t2, {
-      ...k2,
-      pose: {
-        ...k2.pose,
-        palm: {
-          ...k2.pose.palm,
-          transform: {
-            ...k2.pose.palm.transform,
-            quaternion: { w: q.w, x: q.x, y: q.y, z: q.z },
-          },
+    return ensureAutoKfPose(t2, target, (pose) => ({
+      ...pose,
+      palm: {
+        ...pose.palm,
+        transform: {
+          ...pose.palm.transform,
+          quaternion: { w: q.w, x: q.x, y: q.y, z: q.z },
         },
       },
-    });
+    }));
   }, true);
+  if (autoKf.value && selectedFrame.value !== target) {
+    selectedFrame.value = target;
+    renderAll();
+  }
 };
 
 const onKfAdd = (): void => {
@@ -1232,8 +1264,6 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="editor-page">
-    <div id="editor-status" class="save-status">{{ statusText }}</div>
-
     <div class="editor-layout">
       <!-- 左侧侧边栏（PS 风格）：手法 / 手 / 标灰 / 时间线 -->
       <aside class="editor-sidebar">
@@ -1292,17 +1322,12 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div class="sb-group">
-          <WinButton
-            id="editor-timeline-toggle"
-            :Content="timelineOpen ? t('editor.timelineHide') : t('editor.timeline')"
-            @Click="timelineOpen = !timelineOpen" />
-        </div>
       </aside>
 
       <!-- 主区：3D 视图为中心 -->
       <main class="editor-main">
         <div ref="editorViewEl" id="editor-view" class="editor-view">
+          <div id="editor-status" class="save-status">{{ statusText }}</div>
           <button
             id="editor-big-play"
             class="editor-big-play"
@@ -1314,8 +1339,8 @@ onBeforeUnmount(() => {
           <div v-show="maskVisible" id="editor-play-mask" class="editor-play-mask">{{ t("editor.playHint") }}</div>
         </div>
 
-        <!-- 时间线（侧边栏按钮展开，显示在 3D 视图下方） -->
-        <div v-show="timelineOpen" class="editor-timeline-panel">
+        <!-- 时间线（默认显示在 3D 视图下方） -->
+        <div class="editor-timeline-panel">
           <div class="tl-playback-controls">
             <WinToggleSwitch v-model:IsOn="loopPlay" :OnContent="t('editor.loopOn')" :OffContent="t('editor.loopOff')" />
             <WinToggleSwitch v-model:IsOn="reversePlay" :OnContent="t('editor.reverseOn')" :OffContent="t('editor.reverseOff')" />
@@ -1352,7 +1377,7 @@ onBeforeUnmount(() => {
               :style="{ width: tlWidth }"
               @pointerdown="onTrackPointerDown"
               @pointermove="onTrackPointerMove"
-              @pointerup="endSeek"
+              @pointerup="onTrackPointerUp"
               @pointercancel="endSeek"
               @pointerleave="endSeek">
               <span
@@ -1408,6 +1433,7 @@ onBeforeUnmount(() => {
           <div v-show="kfPanelOpen" class="kf-edit-panel">
             <div class="kf-edit-head">
               <WinTextBlock class="editor-label" :Text="t('editor.kfEdit')" FontSize="13" />
+              <WinToggleSwitch v-model:IsOn="autoKf" :OnContent="t('editor.autoKfOn')" :OffContent="t('editor.autoKfOff')" />
               <WinButton id="kf-panel-close" :Content="t('editor.stepDone')" @Click="kfPanelOpen = false" />
             </div>
             <div class="editor-kf-row">
@@ -1577,9 +1603,13 @@ onBeforeUnmount(() => {
 }
 
 .save-status {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 7;
   color: var(--SystemFillColorSuccessBrush, #0f7b0f);
   font-size: 13px;
-  margin-top: 6px;
+  pointer-events: none;
 }
 
 .section-title {
