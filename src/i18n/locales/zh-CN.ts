@@ -254,6 +254,7 @@ export const zhCN: Record<string, string> = {
   "editor.hideHand": "隐藏手",
   "editor.showHand": "显示手",
   "editor.toggleHint": "快捷键：Space 播放 / C 魔方显隐 / H 手显隐",
+  "editor.viewToggle": "视口显隐",
   "editor.startState": "开始状态（自定义播放起始）",
   "editor.captureStart": "捕获正放起始态",
   "editor.captureReverse": "捕获倒放起始态",

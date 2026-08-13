@@ -134,6 +134,18 @@ const selectedSteps = ref<number[]>([]);
 const kfPanelOpen = ref(false);
 /** 编辑面板常驻：点时间线即展开，仅切换手法/手动关闭才收起 */
 const kfPanelVisible = computed(() => kfPanelOpen.value);
+/** 侧边栏分组折叠状态（默认全折叠，点标题展开/收起） */
+const groupOpen = ref<Record<string, boolean>>({
+  technique: false,
+  newAdd: false,
+  hand: false,
+  toggle: false,
+  startState: false,
+  gray: false,
+});
+const toggleGroup = (key: string): void => {
+  groupOpen.value = { ...groupOpen.value, [key]: !groupOpen.value[key] };
+};
 /** 自动添加关键帧：在无关键帧的帧位置修改姿态数值时自动建帧 */
 const autoKf = ref(false);
 watch(autoKf, (on) => {
@@ -1224,6 +1236,12 @@ const toggleGrayPanel = (): void => {
   });
 };
 
+/** 标灰组折叠 + 面板显隐联动（首次展开时懒初始化面板） */
+const onToggleGrayGroup = (): void => {
+  toggleGroup("gray");
+  toggleGrayPanel();
+};
+
 const toggleGrayKind = (): void => {
   grayKind.value = grayKind.value === "mutable" ? "immutable" : "mutable";
 };
@@ -1467,74 +1485,105 @@ onBeforeUnmount(() => {
           </div>
         </div>
         <div class="sb-group">
-          <WinTextBlock class="editor-label" :Text="t('editor.technique')" FontSize="13" />
-          <input id="tec-search" v-model="tecSearch" class="native-input" :placeholder="t('editor.tecSearch')" />
-          <div class="tec-list">
-            <button
-              v-for="t in filteredTechniques"
-              :key="t.id"
-              class="tec-item"
-              :class="{ active: tech?.id === t.id }"
-              @click="selectTech(t.id)">{{ t.name }}</button>
-            <p v-if="filteredTechniques.length === 0" class="meta list-empty">{{ t("editor.searchEmpty") }}</p>
-          </div>
-          <span id="tec-formula" ref="formulaLabelEl" class="meta"></span>
-          <p id="editor-empty" ref="emptyHintEl" class="page-note" hidden>{{ t("editor.empty") }}</p>
-        </div>
-
-        <div class="sb-group">
-          <WinTextBlock class="editor-label" :Text="t('editor.newAdd')" FontSize="13" />
-          <input id="tec-new-name" ref="newNameEl" class="native-input" :placeholder="t('editor.newName')" />
-          <input id="new-formula-search" v-model="formulaSearch" class="native-input" :placeholder="t('editor.formulaSearch')" />
-          <div class="formula-list">
-            <template v-for="g in groupedNewFormulas" :key="g.label || '__none__'">
-              <div class="formula-group-label">{{ g.label || t("editor.formulaNone") }}</div>
+          <button class="sb-group-head" @click="toggleGroup('technique')">
+            <span>{{ t("editor.technique") }}</span>
+            <span class="sb-group-caret">{{ groupOpen.technique ? "\u25BE" : "\u25B8" }}</span>
+          </button>
+          <div v-show="groupOpen.technique" class="sb-group-body">
+            <input id="tec-search" v-model="tecSearch" class="native-input" :placeholder="t('editor.tecSearch')" />
+            <div class="tec-list">
               <button
-                v-for="f in g.formulas"
-                :key="f.id"
+                v-for="t in filteredTechniques"
+                :key="t.id"
                 class="tec-item"
-                :class="{ active: selectedFormulaId === f.id }"
-                @click="selectedFormulaId = f.id">{{ f.name }}</button>
-            </template>
-            <p v-if="groupedNewFormulas.length === 0" class="meta list-empty">{{ t("editor.searchEmpty") }}</p>
-          </div>
-          <WinButton id="tec-new-add" :Content="t('editor.newAdd')" Style="AccentButtonStyle" @Click="onNewAdd" />
-        </div>
-
-        <div class="sb-group">
-          <WinTextBlock class="editor-label" :Text="t('editor.handType')" FontSize="13" />
-          <select id="view-hand" ref="handTypeSelectEl" class="native-select" @change="onHandTypeChange">
-            <option v-for="opt in handTypeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-          </select>
-        </div>
-
-        <div class="sb-group">
-          <WinButton id="editor-toggle-cube" :Content="showCube ? t('editor.hideCube') : t('editor.showCube')" @Click="toggleShowCube" />
-          <WinButton id="editor-toggle-hand" :Content="showHand ? t('editor.hideHand') : t('editor.showHand')" @Click="toggleShowHand" />
-          <WinTextBlock class="page-note" :Text="t('editor.toggleHint')" FontSize="11" />
-        </div>
-
-        <div class="sb-group">
-          <WinTextBlock class="editor-label" :Text="t('editor.startState')" FontSize="13" />
-          <WinButton id="capture-start" :Content="t('editor.captureStart')" @Click="captureStart('startState')" />
-          <WinButton id="capture-reverse" :Content="t('editor.captureReverse')" @Click="captureStart('reverseStart')" />
-          <WinButton id="clear-start" :Content="t('editor.clearStart')" @Click="clearStartStates" />
-          <span class="meta">{{ startStateLabel }}</span>
-        </div>
-
-        <div class="sb-group">
-          <WinButton id="editor-gray-toggle" :Content="t('gray.btn')" @Click="toggleGrayPanel" />
-          <div v-show="grayPanelOpen" class="editor-gray-panel">
-            <div class="editor-gray-kind-row">
-              <WinTextBlock class="editor-label" :Text="t('gray.title')" FontSize="12" />
-              <WinToggleSwitch
-                class="editor-gray-kind-toggle"
-                :IsOn="grayKind === 'immutable'"
-                :OnContent="t('gray.kind.immutable')"
-                :OffContent="t('gray.kind.mutable')"
-                @Toggled="toggleGrayKind" />
+                :class="{ active: tech?.id === t.id }"
+                @click="selectTech(t.id)">{{ t.name }}</button>
+              <p v-if="filteredTechniques.length === 0" class="meta list-empty">{{ t("editor.searchEmpty") }}</p>
             </div>
-            <div ref="grayPanelEl" id="gray-panel" class="editor-gray-panel-box"></div>
+            <span id="tec-formula" ref="formulaLabelEl" class="meta"></span>
+            <p id="editor-empty" ref="emptyHintEl" class="page-note" hidden>{{ t("editor.empty") }}</p>
+          </div>
+        </div>
+
+        <div class="sb-group">
+          <button class="sb-group-head" @click="toggleGroup('newAdd')">
+            <span>{{ t("editor.newAdd") }}</span>
+            <span class="sb-group-caret">{{ groupOpen.newAdd ? "\u25BE" : "\u25B8" }}</span>
+          </button>
+          <div v-show="groupOpen.newAdd" class="sb-group-body">
+            <input id="tec-new-name" ref="newNameEl" class="native-input" :placeholder="t('editor.newName')" />
+            <input id="new-formula-search" v-model="formulaSearch" class="native-input" :placeholder="t('editor.formulaSearch')" />
+            <div class="formula-list">
+              <template v-for="g in groupedNewFormulas" :key="g.label || '__none__'">
+                <div class="formula-group-label">{{ g.label || t("editor.formulaNone") }}</div>
+                <button
+                  v-for="f in g.formulas"
+                  :key="f.id"
+                  class="tec-item"
+                  :class="{ active: selectedFormulaId === f.id }"
+                  @click="selectedFormulaId = f.id">{{ f.name }}</button>
+              </template>
+              <p v-if="groupedNewFormulas.length === 0" class="meta list-empty">{{ t("editor.searchEmpty") }}</p>
+            </div>
+            <WinButton id="tec-new-add" :Content="t('editor.newAdd')" Style="AccentButtonStyle" @Click="onNewAdd" />
+          </div>
+        </div>
+
+        <div class="sb-group">
+          <button class="sb-group-head" @click="toggleGroup('hand')">
+            <span>{{ t("editor.handType") }}</span>
+            <span class="sb-group-caret">{{ groupOpen.hand ? "\u25BE" : "\u25B8" }}</span>
+          </button>
+          <div v-show="groupOpen.hand" class="sb-group-body">
+            <select id="view-hand" ref="handTypeSelectEl" class="native-select" @change="onHandTypeChange">
+              <option v-for="opt in handTypeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="sb-group">
+          <button class="sb-group-head" @click="toggleGroup('toggle')">
+            <span>{{ t("editor.viewToggle") }}</span>
+            <span class="sb-group-caret">{{ groupOpen.toggle ? "\u25BE" : "\u25B8" }}</span>
+          </button>
+          <div v-show="groupOpen.toggle" class="sb-group-body">
+            <WinButton id="editor-toggle-cube" :Content="showCube ? t('editor.hideCube') : t('editor.showCube')" @Click="toggleShowCube" />
+            <WinButton id="editor-toggle-hand" :Content="showHand ? t('editor.hideHand') : t('editor.showHand')" @Click="toggleShowHand" />
+            <WinTextBlock class="page-note" :Text="t('editor.toggleHint')" FontSize="11" />
+          </div>
+        </div>
+
+        <div class="sb-group">
+          <button class="sb-group-head" @click="toggleGroup('startState')">
+            <span>{{ t("editor.startState") }}</span>
+            <span class="sb-group-caret">{{ groupOpen.startState ? "\u25BE" : "\u25B8" }}</span>
+          </button>
+          <div v-show="groupOpen.startState" class="sb-group-body">
+            <WinButton id="capture-start" :Content="t('editor.captureStart')" @Click="captureStart('startState')" />
+            <WinButton id="capture-reverse" :Content="t('editor.captureReverse')" @Click="captureStart('reverseStart')" />
+            <WinButton id="clear-start" :Content="t('editor.clearStart')" @Click="clearStartStates" />
+            <span class="meta">{{ startStateLabel }}</span>
+          </div>
+        </div>
+
+        <div class="sb-group">
+          <button class="sb-group-head" @click="onToggleGrayGroup">
+            <span>{{ t("gray.btn") }}</span>
+            <span class="sb-group-caret">{{ groupOpen.gray ? "\u25BE" : "\u25B8" }}</span>
+          </button>
+          <div v-show="groupOpen.gray" class="sb-group-body">
+            <div v-show="grayPanelOpen" class="editor-gray-panel">
+              <div class="editor-gray-kind-row">
+                <WinTextBlock class="editor-label" :Text="t('gray.title')" FontSize="12" />
+                <WinToggleSwitch
+                  class="editor-gray-kind-toggle"
+                  :IsOn="grayKind === 'immutable'"
+                  :OnContent="t('gray.kind.immutable')"
+                  :OffContent="t('gray.kind.mutable')"
+                  @Toggled="toggleGrayKind" />
+              </div>
+              <div ref="grayPanelEl" id="gray-panel" class="editor-gray-panel-box"></div>
+            </div>
           </div>
         </div>
 
@@ -1706,11 +1755,41 @@ onBeforeUnmount(() => {
 .sb-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   padding: 12px;
   border: 1px solid var(--stroke-divider);
   border-radius: var(--ControlCornerRadius, 6px);
   background: var(--ctrl-fill-default);
+}
+
+.sb-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 2px 0;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.sb-group-head:hover {
+  color: var(--accent-base);
+}
+
+.sb-group-caret {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.sb-group-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .sb-group .native-select,
@@ -1883,6 +1962,7 @@ onBeforeUnmount(() => {
 .tl-playback-controls {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
   margin: 6px 0 8px;
 }
 

@@ -255,6 +255,7 @@ export const en: Record<string, string> = {
   "editor.hideHand": "Hide hand",
   "editor.showHand": "Show hand",
   "editor.toggleHint": "Keys: Space play / C cube / H hand",
+  "editor.viewToggle": "View toggles",
   "editor.startState": "Start states (custom play start)",
   "editor.captureStart": "Capture forward start",
   "editor.captureReverse": "Capture reverse start",
