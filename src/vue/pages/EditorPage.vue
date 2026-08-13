@@ -118,11 +118,8 @@ const selectedSteps = ref<number[]>([]);
 const kfPanelOpen = ref(false);
 /** 自动添加关键帧：在无关键帧的帧位置修改姿态数值时自动建帧 */
 const autoKf = ref(false);
-let seekDown = false;
-let seekDragging = false;
-let seekStartX = 0;
-let seekStartY = 0;
-const SEEK_DRAG_PX = 6;
+const saveFailed = ref(false);
+let rulerSeeking = false;
 
 /** 时间线播放头/轨道 seek：按点击位置换算帧号 */
 const seekFromEvent = (clientX: number, track: HTMLElement): void => {
@@ -162,37 +159,29 @@ const syncCubeToFrame = (frame: number): void => {
 
 const onTrackPointerDown = (e: PointerEvent): void => {
   e.preventDefault(); // 阻止文本选择/拖拽干扰
-  if (selectedSteps.value.length > 0) selectedSteps.value = []; // 点空白取消多选
-  if (playing.value) playing.value = false; // 定位先停止播放
-  // 点击不立即跳转：band 上点击=选中（Ctrl/Shift 多选）；拖拽超过阈值才 seek
-  seekDown = true;
-  seekDragging = false;
-  seekStartX = e.clientX;
-  seekStartY = e.clientY;
-};
-const onTrackPointerMove = (e: PointerEvent): void => {
-  if (!seekDown || !(e.buttons & 1)) return;
-  if (!seekDragging && Math.abs(e.clientX - seekStartX) + Math.abs(e.clientY - seekStartY) >= SEEK_DRAG_PX) {
-    seekDragging = true;
+  if (playing.value) playing.value = false; // 点轨道停止播放
+  // band 上按下即选中（Ctrl/Shift 多选立即生效，不依赖 click 松手）
+  const band = (e.target as HTMLElement).closest?.(".tl-step-band");
+  if (band) {
+    const idx = Number(band.getAttribute("data-step-index") ?? "-1");
+    if (idx >= 0) selectStep(idx, e);
+  } else if (selectedSteps.value.length > 0) {
+    selectedSteps.value = []; // 点空白取消多选
   }
-  if (seekDragging) seekFromEvent(e.clientX, e.currentTarget as HTMLElement);
-};
-const onTrackPointerUp = (): void => {
-  // 轨道点击只选中动作（click→selectStep）；跳转走标尺点击或拖拽
-  seekDown = false;
-  seekDragging = false;
 };
 const onRulerSeek = (e: PointerEvent): void => {
   // 时间线上方（秒/拍刻度区域）点击跳转
   e.preventDefault();
   if (playing.value) playing.value = false;
+  rulerSeeking = true;
   seekFromEvent(e.clientX, e.currentTarget as HTMLElement);
 };
-const endSeek = (): void => {
-  seekDown = false;
-  seekDragging = false;
+const onRulerMove = (e: PointerEvent): void => {
+  if (rulerSeeking && (e.buttons & 1)) seekFromEvent(e.clientX, e.currentTarget as HTMLElement);
 };
-
+const onRulerEnd = (): void => {
+  rulerSeeking = false;
+};
 const selectStep = (i: number, e?: MouseEvent): void => {
   if (e?.ctrlKey || e?.metaKey) {
     // Ctrl：切换加入/取消多选
@@ -302,6 +291,7 @@ const onEditorKey = (e: KeyboardEvent): void => {
     return;
   }
   if (e.code === "ArrowLeft" || e.code === "ArrowRight") {
+    e.preventDefault(); // 时间线不滚动（普通左右只在时间线上步进）
     stepFrames(e.code === "ArrowRight" ? 1 : -1, e.shiftKey);
     return;
   }
@@ -951,8 +941,10 @@ const onSave = (): void => {
     lib.value = upsertTechniqueInLib(lib.value, tech.value);
     saveLibrary(lib.value);
     statusText.value = t("editor.saved");
+    saveFailed.value = false;
   } catch (e) {
     statusText.value = t("editor.saveFail", { error: e instanceof Error ? e.message : String(e) });
+    saveFailed.value = true;
   }
 };
 
@@ -1296,6 +1288,7 @@ onBeforeUnmount(() => {
           <button
             id="editor-save"
             class="editor-save-btn"
+            :class="{ failed: saveFailed }"
             :title="t('editor.save')"
             @click="onSave">
             <span class="editor-save-icon" aria-hidden="true">\uE8A5</span>
@@ -1318,7 +1311,15 @@ onBeforeUnmount(() => {
             <WinToggleSwitch v-model:IsOn="reversePlay" :OnContent="t('editor.reverseOn')" :OffContent="t('editor.reverseOff')" />
           </div>
           <div class="tl-wrap" @wheel="onTlWheel">
-            <div id="tl-ruler" class="tl-ruler" :style="{ width: tlWidth }" @pointerdown="onRulerSeek">
+            <div
+              id="tl-ruler"
+              class="tl-ruler"
+              :style="{ width: tlWidth }"
+              @pointerdown="onRulerSeek"
+              @pointermove="onRulerMove"
+              @pointerup="onRulerEnd"
+              @pointercancel="onRulerEnd"
+              @pointerleave="onRulerEnd">
               <span
                 v-for="bt in beatTicks"
                 :key="`b${bt.frame}`"
@@ -1347,17 +1348,13 @@ onBeforeUnmount(() => {
               id="tl-track"
               class="tl-track"
               :style="{ width: tlWidth }"
-              @pointerdown="onTrackPointerDown"
-              @pointermove="onTrackPointerMove"
-              @pointerup="onTrackPointerUp"
-              @pointercancel="endSeek"
-              @pointerleave="endSeek">
+              @pointerdown="onTrackPointerDown">
               <span
                 v-for="band in stepBands"
                 :key="band.stepIndex"
                 class="tl-step-band"
                 :class="{ selected: selectedSteps.includes(band.stepIndex), pause: band.kind === 'pause' }"
-                @click="selectStep(band.stepIndex, $event)"
+                :data-step-index="band.stepIndex"
                 :style="{ left: `${band.startFrame * pxPerFrame}px`, width: `${Math.max((band.endFrame - band.startFrame) * pxPerFrame, 8)}px` }">
                 {{ band.kind === "pause" ? "P" : `S${band.stepIndex + 1}` }}
               </span>
@@ -1473,6 +1470,7 @@ onBeforeUnmount(() => {
           <div class="editor-pv-controls">
             <span id="pv-readout" ref="pvReadoutEl" class="meta"></span>
           </div>
+          <pre id="pv-pose" ref="pvPoseEl" class="kf-pose"></pre>
         </div>
       </main>
     </div>
@@ -1897,7 +1895,7 @@ onBeforeUnmount(() => {
   height: 38px;
   padding: 0;
   border: none;
-  border-radius: 8px;
+  border-radius: 50%;
   background: var(--SystemFillColorSuccessBrush, #0f7b0f); /* 与播放 accent 异色 */
   color: #fff;
   cursor: pointer;
@@ -1907,8 +1905,16 @@ onBeforeUnmount(() => {
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
 }
 
-.editor-save-btn:hover {
-  filter: brightness(1.15);
+html.theme-dark .editor-save-btn:hover {
+  filter: brightness(1.25); /* 暗色：悬停亮绿 */
+}
+
+html.theme-light .editor-save-btn:hover {
+  filter: brightness(0.82); /* 浅色：悬停深绿 */
+}
+
+.editor-save-btn.failed {
+  background: #c42b1c; /* 保存失败变红 */
 }
 
 .editor-save-icon {
