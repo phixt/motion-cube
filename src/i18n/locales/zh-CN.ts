@@ -265,6 +265,7 @@ export const zhCN: Record<string, string> = {
   "editor.stepHint": "点击动作块（S1…）设定时长；Ctrl 多选 / Shift 区间多选后可批量设定",
   "editor.batchSteps": "批量 {n} 个动作",
   "editor.batchApply": "应用到 {n} 个动作",
+  "editor.insertPause": "在此步后插入空拍（魔方停、手继续）",
   "editor.kfEdit": "关键帧编辑（←/→ 逐帧，Shift+←/→ 跳关键帧）",
   "editor.frameOf": "帧 {frame} / {total}（{sec} s）",
   "editor.needKf": "至少需要 2 个关键帧才能补帧",

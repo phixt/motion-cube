@@ -58,6 +58,9 @@ const previewFrame = ref(0);
 const statusText = ref("");
 /** 倒放逆序执行指针：已逆序执行到第几步（从 formulaMoves.length 递减到 0） */
 let revApplied = 0;
+/** 已应用的公式动作数（空拍不消耗；stepIndex 为序列位置） */
+let moveCursor = 0;
+let lastTickAt = 0;
 
 /** 播放器整合：公式 step 与手法 stepMapping 帧级同步 */
 // cubing 默认单步动画基准时长（tempoScale=1 时 1000ms，见 AlgDuration.defaultDurationForAmount）。
@@ -526,8 +529,14 @@ function applyStepAtFrame(frame: number): void {
   for (const m of tech.value.stepMapping) {
     if (m.stepIndex !== stepMoveIndex) continue;
     if (frame < m.startFrame) break;
-    const move = formulaMoves[m.stepIndex];
+    if (m.kind === "pause") {
+      // 空拍：魔方不动作（手部动画继续）
+      stepMoveIndex++;
+      continue;
+    }
+    const move = formulaMoves[moveCursor];
     if (move) player?.applyMove(move);
+    moveCursor++;
     stepMoveIndex++;
   }
 }
@@ -709,14 +718,17 @@ const onPvPlay = (): void => {
       // 倒放：从 reverseStart（缺省还原态）开始，逆序执行公式（每步逆动作，带动画）
       setReverseStart();
       stepMoveIndex = 0;
-      revApplied = formulaMoves.length;
+      moveCursor = 0;
+      revApplied = tech.value.stepMapping.length;
       previewFrame.value = totalFrames.value;
     } else {
       // 正放：从起始态 S（公式逆序状态）开始，正向执行公式 → 还原态
       setStartState();
       stepMoveIndex = 0;
+      moveCursor = 0;
       previewFrame.value = 0;
     }
+    lastTickAt = 0;
   }
   playing.value = !playing.value;
 };
@@ -726,7 +738,8 @@ watch([loopPlay, reversePlay], () => {
   if (!playing.value) return;
   playing.value = false;
   stepMoveIndex = 0;
-  revApplied = formulaMoves.length;
+  moveCursor = 0;
+  revApplied = tech.value?.stepMapping.length ?? 0;
   previewFrame.value = 0;
   if (reversePlay.value) setReverseStart();
   else setStartState();
@@ -800,6 +813,55 @@ const onBatchApply = (): void => {
       (i) => (sel.has(i) ? sec : (t2.stepMapping[i].endFrame - t2.stepMapping[i].startFrame) / t2.frameRate),
     ),
   );
+};
+
+/** 在选中步骤后插入空拍（魔方不动作、手部动画继续；默认 1 拍时长） */
+const insertPauseAfter = (): void => {
+  if (!tech.value || selectedSteps.value.length !== 1) return;
+  const idx = selectedSteps.value[0];
+  commit((t2) => {
+    const old = t2.stepMapping;
+    const dur = (m: StepMapping): number => (m.endFrame - m.startFrame) / t2.frameRate;
+    const newDur: number[] = [];
+    const newKind: ("move" | "pause")[] = [];
+    for (let i = 0; i <= idx; i++) {
+      newDur.push(dur(old[i]));
+      newKind.push(old[i].kind ?? "move");
+    }
+    newDur.push(STEP_DEFAULT_SEC);
+    newKind.push("pause");
+    for (let i = idx + 1; i < old.length; i++) {
+      newDur.push(dur(old[i]));
+      newKind.push(old[i].kind ?? "move");
+    }
+    let acc = 0;
+    const stepMapping = newDur.map((s, i) => {
+      const startFrame = Math.round(acc * t2.frameRate);
+      acc += s;
+      return { stepIndex: i, startFrame, endFrame: Math.round(acc * t2.frameRate), kind: newKind[i] };
+    });
+    // remap：old step i（i > idx）平移到新序列 i+1；关键帧/接触按原步内比例映射
+    const remapFrame = (frame: number): number => {
+      const oldTotal = Math.max(old.length ? old[old.length - 1].endFrame : 1, 1);
+      const newTotal = Math.max(stepMapping.length ? stepMapping[stepMapping.length - 1].endFrame : 1, 1);
+      const step = old.find((m) => frame >= m.startFrame && frame <= m.endFrame);
+      if (!step || old.length === 0) return Math.round((frame / oldTotal) * newTotal);
+      const newIdx = step.stepIndex + (step.stepIndex > idx ? 1 : 0);
+      const ratio = (frame - step.startFrame) / Math.max(step.endFrame - step.startFrame, 1);
+      const ns = stepMapping[newIdx];
+      return Math.round(ns.startFrame + ratio * (ns.endFrame - ns.startFrame));
+    };
+    return {
+      ...t2,
+      stepMapping,
+      keyframes: t2.keyframes.map((kf) => ({ ...kf, frame: remapFrame(kf.frame) })),
+      contactTracks: t2.contactTracks.map((c) => ({
+        ...c,
+        startFrame: remapFrame(c.startFrame),
+        endFrame: remapFrame(c.endFrame),
+      })),
+    };
+  });
 };
 
 /** 时间线缩放：Ctrl+滚轮 */
@@ -1007,7 +1069,15 @@ onMounted(() => {
   if (editorViewEl.value) viewIo.observe(editorViewEl.value);
   kickTimers = [1200, 3500, 8000].map((ms) => window.setTimeout(kickRender, ms));
   timer = window.setInterval(() => {
-    if (!playing.value || !tech.value) return;
+    if (!playing.value || !tech.value) {
+      lastTickAt = 0; // 暂停/停止时重置，恢复播放不走大 dt
+      return;
+    }
+    // 精度解耦：按真实时间推进帧号（dt × frameRate），frameRate 不再锁 60
+    const now = performance.now();
+    const dtSec = lastTickAt ? (now - lastTickAt) / 1000 : 1 / 60;
+    lastTickAt = now;
+    const stepFrames = Math.max(1, Math.round(dtSec * tech.value.frameRate));
     const total = totalFrames.value;
     if (reversePlay.value) {
       if (previewFrame.value <= 0) {
@@ -1015,12 +1085,13 @@ onMounted(() => {
           previewFrame.value = total;
           setReverseStart(); // 循环倒放回到倒放起始态
           stepMoveIndex = 0;
-          revApplied = formulaMoves.length;
+          moveCursor = 0;
+          revApplied = tech.value.stepMapping.length;
         } else {
           playing.value = false;
         }
       } else {
-        previewFrame.value -= 1;
+        previewFrame.value -= stepFrames;
       }
       if (!playing.value) {
         renderPreview();
@@ -1031,8 +1102,12 @@ onMounted(() => {
       for (let i = sm.length - 1; i >= 0; i--) {
         const m = sm[i];
         if (revApplied > i && previewFrame.value >= m.startFrame && previewFrame.value < m.endFrame) {
-          const move = formulaMoves[i];
-          if (move) player?.applyMove(invertMoves(move));
+          if (m.kind !== "pause") {
+            // 该步对应的公式动作 = 前 i+1 个序列步中最后一个 move 步
+            const moveCount = sm.slice(0, i + 1).filter((x) => x.kind !== "pause").length;
+            const move = formulaMoves[moveCount - 1];
+            if (move) player?.applyMove(invertMoves(move));
+          }
           revApplied = i;
           break;
         }
@@ -1042,12 +1117,13 @@ onMounted(() => {
         if (loopPlay.value) {
           previewFrame.value = 0;
           stepMoveIndex = 0;
+          moveCursor = 0;
           setStartState(); // 循环正放回到起始态 S
         } else {
           playing.value = false;
         }
       } else {
-        previewFrame.value += 1;
+        previewFrame.value += stepFrames;
       }
       if (!playing.value) {
         renderPreview();
@@ -1200,10 +1276,10 @@ onBeforeUnmount(() => {
                 v-for="band in stepBands"
                 :key="band.stepIndex"
                 class="tl-step-band"
-                :class="{ selected: selectedSteps.includes(band.stepIndex) }"
+                :class="{ selected: selectedSteps.includes(band.stepIndex), pause: band.kind === 'pause' }"
                 @click="selectStep(band.stepIndex, $event)"
                 :style="{ left: `${band.startFrame * pxPerFrame}px`, width: `${Math.max((band.endFrame - band.startFrame) * pxPerFrame, 8)}px` }">
-                S{{ band.stepIndex + 1 }}
+                {{ band.kind === "pause" ? "P" : `S${band.stepIndex + 1}` }}
               </span>
               <div
                 id="tl-playhead"
@@ -1227,6 +1303,7 @@ onBeforeUnmount(() => {
                 <span>s</span>
               </label>
               <WinButton :Content="t('editor.stepDone')" @Click="selectedSteps = []" />
+              <WinButton id="insert-pause" :Content="t('editor.insertPause')" @Click="insertPauseAfter" />
             </template>
             <template v-else-if="selectedSteps.length > 1">
               <label class="step-dur">
@@ -1637,6 +1714,16 @@ onBeforeUnmount(() => {
   opacity: 1;
   outline: 2px solid var(--accent-hover, #59d5ff);
   outline-offset: 1px;
+}
+
+.tl-step-band.pause {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--ctrl-fill-secondary, #3a3a44) 0 6px,
+    var(--stroke-divider, #55555e) 6px 12px
+  );
+  color: var(--text-secondary);
+  opacity: 0.9;
 }
 
 .tl-playhead {

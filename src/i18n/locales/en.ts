@@ -258,6 +258,7 @@ export const en: Record<string, string> = {
   "editor.stepHint": "Click a step block (S1…) to set duration; Ctrl multi-select / Shift range-select for batch",
   "editor.batchSteps": "{n} steps selected",
   "editor.batchApply": "Apply to {n} steps",
+  "editor.insertPause": "Insert pause after this step (cube stops, hand continues)",
   "editor.kfEdit": "Keyframe edit (←/→ per frame, Shift+←/→ jump keyframes)",
   "editor.frameOf": "Frame {frame} / {total} ({sec} s)",
   "editor.needKf": "At least 2 keyframes are needed for interpolation",

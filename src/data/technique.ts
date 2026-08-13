@@ -16,10 +16,12 @@ export type TechniqueKeyframe = {
 };
 
 export type StepMapping = {
-  /** 公式 alg 的第几步（0-based） */
+  /** 公式 alg 的第几步（0-based；空拍步无对应公式动作） */
   stepIndex: number;
   startFrame: number;
   endFrame: number;
+  /** 空拍（pause）：魔方不动作、手部动画继续；缺省 = move */
+  kind?: "move" | "pause";
 };
 
 /** 接触轨道：精确起止帧（params.md contact.lifetime），与关键帧姿态分离，可中途接触/释放 */
@@ -65,6 +67,9 @@ export function validateTechnique(t: Technique): void {
     if (!Number.isInteger(m.startFrame) || m.startFrame < 0) throw new TechniqueError(`startFrame 非法：${m.startFrame}`);
     if (!Number.isInteger(m.endFrame) || m.endFrame < m.startFrame) {
       throw new TechniqueError(`stepMapping 区间非法：${m.startFrame}–${m.endFrame}`);
+    }
+    if (m.kind !== undefined && m.kind !== "move" && m.kind !== "pause") {
+      throw new TechniqueError(`stepMapping kind 非法：${m.kind}`);
     }
   }
   for (const c of t.contactTracks) {
@@ -237,11 +242,17 @@ function parseStepMapping(v: unknown): StepMapping[] {
   return v.map((m, i) => {
     const o = m as Record<string, unknown> | null;
     if (!o || typeof o !== "object") throw new TechniqueError(`stepMapping[${i}] 必须为对象`);
-    const { stepIndex, startFrame, endFrame } = o;
+    const { stepIndex, startFrame, endFrame, kind } = o;
     if (!Number.isInteger(stepIndex) || !Number.isInteger(startFrame) || !Number.isInteger(endFrame)) {
       throw new TechniqueError(`stepMapping[${i}] 的帧字段必须为整数`);
     }
-    return { stepIndex: stepIndex as number, startFrame: startFrame as number, endFrame: endFrame as number };
+    const sm: StepMapping = {
+      stepIndex: stepIndex as number,
+      startFrame: startFrame as number,
+      endFrame: endFrame as number,
+    };
+    if (kind === "move" || kind === "pause") sm.kind = kind;
+    return sm;
   });
 }
 
