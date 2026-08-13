@@ -41,7 +41,6 @@ const TL_ZOOM_MIN = 0.5;
 const TL_ZOOM_MAX = 16;
 /** 时间线像素/帧：默认 6（原 2 的 3 倍，长条更易读），Ctrl+滚轮在 0.5~16 缩放 */
 const pxPerFrame = ref(6);
-const PREVIEW_SAMPLE_STEP = 15;
 const AUTO_PATH_STEP = 15; // 自动路径中间关键帧间隔（帧）
 const SNAP_STEP = 1 / 3; // 吸附步长：1/3 块边长（sticker 网格）
 // 每动作默认时长（秒）：编辑器默认步时 0.3s（"正常动作"），与 cubing 基准 1s 分离；
@@ -178,14 +177,16 @@ const onTrackPointerMove = (e: PointerEvent): void => {
   }
   if (seekDragging) seekFromEvent(e.clientX, e.currentTarget as HTMLElement);
 };
-const onTrackPointerUp = (e: PointerEvent): void => {
-  // 点击（未拖动）：band 上交给 click 选中；空白点击跳转
-  if (!seekDragging) {
-    const t = e.target as HTMLElement;
-    if (!t.closest?.(".tl-step-band")) seekFromEvent(e.clientX, e.currentTarget as HTMLElement);
-  }
+const onTrackPointerUp = (): void => {
+  // 轨道点击只选中动作（click→selectStep）；跳转走标尺点击或拖拽
   seekDown = false;
   seekDragging = false;
+};
+const onRulerSeek = (e: PointerEvent): void => {
+  // 时间线上方（秒/拍刻度区域）点击跳转
+  e.preventDefault();
+  if (playing.value) playing.value = false;
+  seekFromEvent(e.clientX, e.currentTarget as HTMLElement);
 };
 const endSeek = (): void => {
   seekDown = false;
@@ -394,14 +395,6 @@ const handTypeOptions = [
   { value: "left", label: t("editor.handLeft") },
 ];
 
-const pvHeaders = computed(() => [
-  t("editor.frame"),
-  t("editor.sec"),
-  "IP/PIP(°)",
-  "DIP/MCP(°)",
-  "contact",
-]);
-
 /** 姿态摘要：各指 PIP（拇指 IP）等数值 */
 function jointName(name: string): string {
   return name === "thumb" ? "IP" : "PIP";
@@ -441,34 +434,6 @@ function previewPose(): Pose | null {
   const eased = applyEasing((seg.a.easing ?? "linear") as EasingFn, seg.local);
   return interpolatePose(seg.a.pose, seg.b.pose, eased);
 }
-
-const previewTableRows = computed(() => {
-  const total = totalFrames.value;
-  if (!tech.value || tech.value.keyframes.length < 2) return null;
-  const rows: { frame: number; sec: string; ip: number; dip: number; contact: string }[] = [];
-  const sorted = sortedKeyframes.value;
-  for (let f = 0; f <= total; f += PREVIEW_SAMPLE_STEP) {
-    const seg = keyframeSegment(sorted, f);
-    if (!seg) continue;
-    const pose =
-      seg.a === seg.b
-        ? seg.a.pose
-        : interpolatePose(seg.a.pose, seg.b.pose, applyEasing((seg.a.easing ?? "linear") as EasingFn, seg.local));
-    const ip = pose.bends.index[1] ?? 0;
-    const dip = pose.bends.index[2] ?? 0;
-    rows.push({
-      frame: f,
-      sec: (f / tech.value.frameRate).toFixed(2),
-      ip: Math.round(ip),
-      dip: Math.round(dip),
-      contact: (() => {
-        const act = activeContactsAt(f);
-        return act.length ? `${act[0].finger}→${act[0].target}` : "—";
-      })(),
-    });
-  }
-  return rows;
-});
 
 function renderSelected(keepInputs = false): void {
   const kf =
@@ -1329,6 +1294,13 @@ onBeforeUnmount(() => {
         <div ref="editorViewEl" id="editor-view" class="editor-view">
           <div id="editor-status" class="save-status">{{ statusText }}</div>
           <button
+            id="editor-save"
+            class="editor-save-btn"
+            :title="t('editor.save')"
+            @click="onSave">
+            <span class="editor-save-icon" aria-hidden="true">\uE8A5</span>
+          </button>
+          <button
             id="editor-big-play"
             class="editor-big-play"
             :class="{ playing }"
@@ -1346,7 +1318,7 @@ onBeforeUnmount(() => {
             <WinToggleSwitch v-model:IsOn="reversePlay" :OnContent="t('editor.reverseOn')" :OffContent="t('editor.reverseOff')" />
           </div>
           <div class="tl-wrap" @wheel="onTlWheel">
-            <div id="tl-ruler" class="tl-ruler" :style="{ width: tlWidth }">
+            <div id="tl-ruler" class="tl-ruler" :style="{ width: tlWidth }" @pointerdown="onRulerSeek">
               <span
                 v-for="bt in beatTicks"
                 :key="`b${bt.frame}`"
@@ -1501,30 +1473,6 @@ onBeforeUnmount(() => {
           <div class="editor-pv-controls">
             <span id="pv-readout" ref="pvReadoutEl" class="meta"></span>
           </div>
-          <pre id="pv-pose" ref="pvPoseEl" class="kf-pose"></pre>
-          <div class="pv-table-wrap">
-            <table id="pv-table" class="pv-table">
-              <template v-if="previewTableRows === null">
-                <tr>
-                  <td>{{ t("editor.needKf") }}</td>
-                </tr>
-              </template>
-              <template v-else>
-                <tr>
-                  <th v-for="h in pvHeaders" :key="h">{{ h }}</th>
-                </tr>
-                <tr v-for="row in previewTableRows" :key="row.frame">
-                  <td>{{ row.frame }}</td>
-                  <td>{{ row.sec }}</td>
-                  <td>{{ row.ip }}</td>
-                  <td>{{ row.dip }}</td>
-                  <td>{{ row.contact }}</td>
-                </tr>
-              </template>
-            </table>
-          </div>
-
-          <WinButton id="editor-save" class="editor-save" :Content="t('editor.save')" Style="AccentButtonStyle" @Click="onSave" />
         </div>
       </main>
     </div>
@@ -1938,6 +1886,35 @@ onBeforeUnmount(() => {
   font-size: 22px;
   line-height: 1;
   transform: translateX(1px); /* 播放三角视觉居中 */
+}
+
+.editor-save-btn {
+  position: absolute;
+  right: 12px;
+  bottom: 64px; /* 播放按钮上方 */
+  z-index: 6;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: var(--SystemFillColorSuccessBrush, #0f7b0f); /* 与播放 accent 异色 */
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+}
+
+.editor-save-btn:hover {
+  filter: brightness(1.15);
+}
+
+.editor-save-icon {
+  font-family: "WinUIOnWebIcons";
+  font-size: 18px;
+  line-height: 1;
 }
 
 .editor-play-mask {
