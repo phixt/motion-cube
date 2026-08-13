@@ -162,6 +162,21 @@
   file:// 打开崩溃的问题（既有技术债）
 - **难度：中；建议：做**（优先级中等，左右手大改之后或并行）
 
+## 桌面版（tauri）适配（2026-08-13 ✅）
+
+- ✅ **src-tauri 脚手架**：tauri 2.11 + NSIS，dev 端口 5174（避开用户预览 5173）；
+  beforeDevCommand `npm run dev -- --port 5174 --strictPort`，beforeBuildCommand build
+- ✅ **打包验证**：`npx tauri build` 产出
+  `src-tauri/target/release/motion-cube.exe` + `bundle/nsis/MotionCube_0.1.0_x64-setup.exe`；
+  启动验证不崩溃、界面正常渲染（截图确认）
+- ✅ **存储**：tauri WebView2 的 localStorage 持久化（应用数据目录），settings/
+  keymap/library/handRig 无需改造即可持久；暂不需要 plugin-store 抽象层
+- ✅ **附加收益**：tauri 自定义协议为安全上下文，crypto.randomUUID 在桌面版可用
+  （web 版 file:// 打开仍会崩，旧债保留）
+- ⬜ **后续优化**：双标题栏（tauri 系统栏 + Web 标题栏）——可改无边框
+  decorations:false + 自绘标题栏（data-tauri-drag-region + 窗口控制按钮）；
+  icons 为占位（复制自 gomoku），正式发布前替换
+
 **待办优先级（2026-08-12 排序）**
 
 1. 🔴 **编辑器手掌三方向旋转调整**（RX/RY/RZ 欧拉角输入；数据层 quaternion 已就绪，

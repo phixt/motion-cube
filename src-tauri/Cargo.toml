@@ -1,0 +1,19 @@
+[package]
+name = "motion-cube"
+version = "0.1.0"
+description = "Motion Cube - Rubik's cube finger animation editor"
+authors = ["phixt"]
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "motion_cube_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde_json = "1"
+serde = { version = "1", features = ["derive"] }
