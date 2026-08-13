@@ -21,7 +21,14 @@ import {
   type StepMapping,
   type Technique,
 } from "../../data/technique";
-import { defaultHandPose, FINGER_ORDER, type Contact, type HandType, type Pose } from "../../hand/HandRig";
+import {
+  defaultHandPose,
+  FINGER_ORDER,
+  type Contact,
+  type FingerName,
+  type HandType,
+  type Pose,
+} from "../../hand/HandRig";
 import { HandRigView } from "../../hand/HandRigView";
 import { KeymapController } from "../../input/keymap";
 import { invertMoves, parseMoves, splitCompoundMove } from "../../notation/alg";
@@ -119,6 +126,21 @@ const kfPanelOpen = ref(false);
 /** 自动添加关键帧：在无关键帧的帧位置修改姿态数值时自动建帧 */
 const autoKf = ref(false);
 const saveFailed = ref(false);
+/** 各指关节名（与 rig.fingers[name].joints 顺序一致）与 bend 范围 */
+const FINGER_JOINTS: Record<FingerName, string[]> = {
+  thumb: ["CMC", "MCP", "IP"],
+  index: ["MCP", "PIP", "DIP"],
+  middle: ["MCP", "PIP", "DIP"],
+  ring: ["MCP", "PIP", "DIP"],
+  pinky: ["MCP", "PIP", "DIP"],
+};
+const FINGER_JOINT_RANGE: Record<FingerName, [number, number]> = {
+  thumb: [60, 180], // CMC 可到 60（DEFAULT_BEND_RANGE 90-180，CMC 特例 60-180）
+  index: [90, 180],
+  middle: [90, 180],
+  ring: [90, 180],
+  pinky: [90, 180],
+};
 let rulerSeeking = false;
 
 /** 时间线播放头/轨道 seek：按点击位置换算帧号 */
@@ -449,6 +471,13 @@ function renderSelected(keepInputs = false): void {
     if (kfPoseRxEl.value) kfPoseRxEl.value.value = rot ? rot.x.toFixed(0) : "";
     if (kfPoseRyEl.value) kfPoseRyEl.value.value = rot ? rot.y.toFixed(0) : "";
     if (kfPoseRzEl.value) kfPoseRzEl.value.value = rot ? rot.z.toFixed(0) : "";
+    for (const name of FINGER_ORDER) {
+      const arr = kf?.pose.bends[name] ?? [];
+      FINGER_JOINTS[name].forEach((_, j) => {
+        const el = document.getElementById(`kf-bend-${name}-${j}`) as HTMLInputElement | null;
+        if (el) el.value = arr[j] !== undefined ? String(Math.round(arr[j])) : "";
+      });
+    }
   }
   if (kfDeleteEl.value) kfDeleteEl.value.disabled = !kf;
 }
@@ -727,6 +756,33 @@ const onPoseRotInput = (): void => {
       },
     }));
   }, true);
+  if (autoKf.value && selectedFrame.value !== target) {
+    selectedFrame.value = target;
+    renderAll();
+  }
+};
+
+/** 手指关节角度（bend，180=伸直）：目标帧更新，autoKf 空白帧自动建帧 */
+const onBendInput = (e: Event, name: FingerName, j: number): void => {
+  if (!tech.value) return;
+  const target = autoKf.value ? previewFrame.value : selectedFrame.value;
+  if (target === null) {
+    statusText.value = t("editor.poseNeedKf");
+    return;
+  }
+  let v = Number((e.target as HTMLInputElement).value);
+  if (!Number.isFinite(v)) return;
+  const [lo, hi] = FINGER_JOINT_RANGE[name];
+  v = Math.min(hi, Math.max(lo, v));
+  commit(
+    (t2) =>
+      ensureAutoKfPose(t2, target, (pose) => {
+        const arr = [...(pose.bends[name] ?? [])];
+        arr[j] = v;
+        return { ...pose, bends: { ...pose.bends, [name]: arr } };
+      }),
+    true,
+  );
   if (autoKf.value && selectedFrame.value !== target) {
     selectedFrame.value = target;
     renderAll();
@@ -1450,6 +1506,23 @@ onBeforeUnmount(() => {
                 <input id="kf-pose-rz" ref="kfPoseRzEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
               </label>
             </div>
+            <div class="finger-joints">
+              <WinTextBlock class="editor-label" :Text="t('editor.fingers')" FontSize="13" />
+              <div v-for="name in FINGER_ORDER" :key="name" class="finger-row">
+                <span class="finger-name">{{ t(`hand.finger${name[0].toUpperCase()}${name.slice(1)}`) }}</span>
+                <label v-for="(jname, j) in FINGER_JOINTS[name]" :key="j" class="pose-axis">
+                  {{ jname }}
+                  <input
+                    :id="`kf-bend-${name}-${j}`"
+                    type="number"
+                    :min="FINGER_JOINT_RANGE[name][0]"
+                    :max="FINGER_JOINT_RANGE[name][1]"
+                    step="1"
+                    class="native-input num-input"
+                    @input="onBendInput($event, name, j)" />
+                </label>
+              </div>
+            </div>
             <pre id="kf-pose" ref="kfPoseEl" class="kf-pose"></pre>
           </div>
           <p id="tl-meta" ref="tlMetaEl" class="page-note"></p>
@@ -1837,6 +1910,26 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 8px;
+}
+
+.finger-joints {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.finger-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.finger-name {
+  min-width: 44px;
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 .tl-kf {

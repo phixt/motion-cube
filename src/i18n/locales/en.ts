@@ -263,6 +263,7 @@ export const en: Record<string, string> = {
   "editor.kfEdit": "Selected edit (←/→ per frame, Shift+←/→ jump frames)",
   "editor.autoKfOn": "Auto keyframe on",
   "editor.autoKfOff": "Auto keyframe off",
+  "editor.fingers": "Finger joints (°)",
   "editor.frameOf": "Frame {frame} / {total} ({sec} s)",
   "editor.needKf": "At least 2 keyframes are needed for interpolation",
   "editor.noKfSelected": "Click a keyframe on the timeline to edit it",

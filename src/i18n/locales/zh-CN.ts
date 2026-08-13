@@ -270,6 +270,7 @@ export const zhCN: Record<string, string> = {
   "editor.kfEdit": "选中编辑（←/→ 逐帧，Shift+←/→ 跳帧）",
   "editor.autoKfOn": "自动建帧 开",
   "editor.autoKfOff": "自动建帧 关",
+  "editor.fingers": "手指关节（°）",
   "editor.frameOf": "帧 {frame} / {total}（{sec} s）",
   "editor.needKf": "至少需要 2 个关键帧才能补帧",
   "editor.noKfSelected": "点击时间线上的关键帧进行编辑",
