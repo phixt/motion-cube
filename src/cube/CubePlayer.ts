@@ -18,6 +18,13 @@ export class CubePlayer {
   readonly element: TwistyPlayer;
   private cubeObj: Object3D | null = null;
   private cubeVisible = true;
+  /** 当前公式（自身维护：cubing 的 TwistyPlayer.alg getter 会抛错，不能读取） */
+  private _alg = "";
+
+  /** 当前公式（用于编辑器捕获起始态等；cubing 侧不提供读取 API） */
+  get currentAlg(): string {
+    return this._alg;
+  }
 
   constructor(container: HTMLElement, options: CubePlayerOptions = {}) {
     this.element = new TwistyPlayer({
@@ -65,11 +72,13 @@ export class CubePlayer {
 
   /** 追加一步并立即动画：键盘映射的核心通道 */
   applyMove(move: string): void {
+    this._alg = this._alg ? `${this._alg} ${move}` : move;
     this.element.experimentalAddMove(move, { cancel: true });
   }
 
   /** 整段公式替换（应用/编辑场景） */
   setMoves(moves: string): void {
+    this._alg = moves;
     this.element.alg = moves;
   }
 
@@ -82,11 +91,13 @@ export class CubePlayer {
   }
 
   reset(): void {
+    this._alg = "";
     this.element.alg = "";
   }
 
   /** 撤销最后一步（原生动画撤销） */
   undoLastMove(): void {
+    this._alg = this._alg.split(/\s+/).filter(Boolean).slice(0, -1).join(" ");
     this.element.experimentalRemoveFinalChild();
   }
 

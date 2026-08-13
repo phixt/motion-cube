@@ -111,10 +111,19 @@ export const en: Record<string, string> = {
   "keymap.note":
     "Tip: Space is reserved as the wide-move modifier and cannot be bound alone; Shift usually inverts. Move cooldown eases animation jitter from fast key presses.",
   "keymap.scopeNote":
-    "Game and editor bindings are separate: the editor defaults to the same layout as the game (formula keys map to the same actions in both, e.g. U), so rebinding only affects the current scope; you can copy it to the other scope in one click.",
+    "Game keys = formula symbols (twist the cube); editor action keys = play/toggle/step actions. The editor no longer binds game formula keys (no real meaning there).",
   "keymap.scope.game": "Game keys",
   "keymap.scope.editor": "Editor keys",
   "keymap.sync": "Copy to other scope",
+  "keymap.editorNote":
+    "Animation editor action keys (game formula keys are unbound in the editor). Play triggers on keyup to avoid accidental toggles; ←/→ step per frame, Shift+←/→ jump keyframes.",
+  "keymap.editor.play": "Play / Pause",
+  "keymap.editor.cube": "Toggle cube",
+  "keymap.editor.hand": "Toggle hand",
+  "keymap.editor.stepBack": "Step back",
+  "keymap.editor.stepForward": "Step forward",
+  "keymap.editor.jumpPrev": "Jump to previous keyframe",
+  "keymap.editor.jumpNext": "Jump to next keyframe",
   "keymap.synced": "Synced",
   "keymap.special.undo": "Undo one move",
   "keymap.special.reset": "Reset",

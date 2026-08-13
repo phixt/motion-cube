@@ -111,10 +111,19 @@ export const zhCN: Record<string, string> = {
   "keymap.note":
     "提示：Space 保留为“双层(wide)修饰键”，不能单独绑定；Shift 常作为反转修饰。连击冷却用于缓解快速按键导致的动画抽搐。",
   "keymap.scopeNote":
-    "游戏与编辑器键位分开配置：编辑器默认与游戏一致（公式键在两侧都录入同样动作，如 U）；改键只影响当前作用域，可一键同步到另一侧。",
+    "游戏键位 = 公式符号键（拧魔方）；编辑器功能键 = 播放/显隐/步进等编辑器专用动作。编辑器不再绑定游戏公式键（无实际含义）。",
   "keymap.scope.game": "游戏键位",
   "keymap.scope.editor": "编辑器键位",
   "keymap.sync": "同步到另一侧",
+  "keymap.editorNote":
+    "动画编辑器功能键（游戏公式键在编辑器中已解绑）。播放为 keyup 触发防误触；←/→ 逐帧、Shift+←/→ 跳关键帧。",
+  "keymap.editor.play": "播放 / 暂停",
+  "keymap.editor.cube": "魔方显隐",
+  "keymap.editor.hand": "手显隐",
+  "keymap.editor.stepBack": "逐帧后退",
+  "keymap.editor.stepForward": "逐帧前进",
+  "keymap.editor.jumpPrev": "跳上一关键帧",
+  "keymap.editor.jumpNext": "跳下一关键帧",
   "keymap.synced": "已同步",
   "keymap.special.undo": "撤销一步",
   "keymap.special.reset": "重置",

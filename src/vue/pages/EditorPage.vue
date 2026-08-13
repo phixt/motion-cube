@@ -30,9 +30,9 @@ import {
   type Pose,
 } from "../../hand/HandRig";
 import { HandRigView } from "../../hand/HandRigView";
-import { KeymapController } from "../../input/keymap";
+import { bindingKey, type EditorAction } from "../../input/keymap";
 import { invertMoves, parseMoves, splitCompoundMove } from "../../notation/alg";
-import { loadEditorKeymap, loadSettings } from "../../settings";
+import { loadEditorActionKeys, loadSettings } from "../../settings";
 import { renderGrayPanel } from "../../ui/grayPanel";
 import {
   applyEasing,
@@ -111,7 +111,6 @@ const selectedFormulaId = ref("");
 
 let player: CubePlayer | null = null;
 let handView: HandRigView | null = null;
-let editorKeymap: KeymapController | null = null;
 let timer: number | null = null;
 let viewIo: IntersectionObserver | null = null;
 let kickTimers: number[] = [];
@@ -201,7 +200,7 @@ const syncCubeToFrame = (frame: number): void => {
   stepMoveIndex = sm.filter((m) => m.startFrame <= frame).length;
   moveCursor = cursor;
   const start = tech.value.startState ?? (formulaMoves.length ? invertMoves(formulaMoves.join(" ")) : "");
-  player.element.alg = moves.length ? `${start} ${moves.join(" ")}` : start;
+  player.setMoves(moves.length ? `${start} ${moves.join(" ")}` : start);
   void player.element
     .experimentalCurrentVantages()
     .then((vs) => {
@@ -302,7 +301,7 @@ const captureStart = (which: "startState" | "reverseStart"): void => {
     statusText.value = t("editor.playHint");
     return;
   }
-  const algStr = player?.element.alg ?? "";
+  const algStr = player?.currentAlg ?? "";
   if (!algStr) {
     statusText.value = t("editor.captureEmpty");
     return;
@@ -326,7 +325,13 @@ let spaceCombined = false;
 const onEditorKey = (e: KeyboardEvent): void => {
   const el = e.target as HTMLElement | null;
   if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT")) return;
-  if (e.code === "Space") {
+  const action = resolveEditorAction(e);
+  if (!action) {
+    if (spaceDownAt && performance.now() - spaceDownAt < 600) spaceCombined = true;
+    return;
+  }
+  // 播放：keyup 触发（可配置为 Space；防误触与组合键）
+  if (action === "play") {
     if (e.type === "keydown") {
       spaceDownAt = performance.now();
       spaceCombined = false;
@@ -337,21 +342,39 @@ const onEditorKey = (e: KeyboardEvent): void => {
     return;
   }
   if (e.type !== "keydown") return;
-  if (e.code === "KeyC") {
-    toggleShowCube();
-    return;
+  e.preventDefault();
+  switch (action) {
+    case "toggle-cube":
+      toggleShowCube();
+      break;
+    case "toggle-hand":
+      toggleShowHand();
+      break;
+    case "step-back":
+      stepFrames(-1, false);
+      break;
+    case "step-forward":
+      stepFrames(1, false);
+      break;
+    case "jump-prev":
+      stepFrames(-1, true);
+      break;
+    case "jump-next":
+      stepFrames(1, true);
+      break;
   }
-  if (e.code === "KeyH") {
-    toggleShowHand();
-    return;
-  }
-  if (e.code === "ArrowLeft" || e.code === "ArrowRight") {
-    e.preventDefault(); // 时间线不滚动（普通左右只在时间线上步进）
-    stepFrames(e.code === "ArrowRight" ? 1 : -1, e.shiftKey);
-    return;
-  }
-  if (spaceDownAt && performance.now() - spaceDownAt < 600) spaceCombined = true;
 };
+
+/** 编辑器功能键（设置页可配置）：按键组合 → 动作 */
+const editorActions = ref(loadEditorActionKeys());
+
+function resolveEditorAction(e: KeyboardEvent): EditorAction | null {
+  const k = bindingKey({ code: e.code, shift: e.shiftKey, space: false });
+  for (const [action, b] of Object.entries(editorActions.value)) {
+    if (bindingKey(b) === k) return action as EditorAction;
+  }
+  return null;
+}
 
 const totalFrames = computed(() => {
   if (!tech.value) return 0;
@@ -658,15 +681,16 @@ function selectTech(id: string): void {
 /** 正放起始态：优先自定义 startState，缺省 = 公式逆序状态（打乱态 S） */
 function setStartState(): void {
   if (!player) return;
-  player.element.alg =
+  player.setMoves(
     tech.value?.startState ??
-    (formulaMoves.length ? invertMoves(formulaMoves.join(" ")) : "");
+      (formulaMoves.length ? invertMoves(formulaMoves.join(" ")) : ""),
+  );
 }
 
 /** 倒放起始态：优先自定义 reverseStart，缺省 = 还原态 */
 function setReverseStart(): void {
   if (!player) return;
-  player.element.alg = tech.value?.reverseStart ?? "";
+  player.setMoves(tech.value?.reverseStart ?? "");
 }
 
 /** 按公式步数生成等长动作区间：第 i 步占 [i*t, (i+1)*t]（t = 每动作时长） */
@@ -1255,26 +1279,8 @@ onMounted(() => {
   void handView.init();
   grayOverlay = new GrayOverlay(player);
   void grayOverlay.init().then(() => grayOverlay?.requestApply(grayState.value));
-  // 编辑器快捷键：独立配置（默认与游戏一致），公式键拧视口魔方，特殊键走编辑器动作
-  editorKeymap = new KeymapController(
-    player,
-    {
-      onMove: (move) => player?.applyMove(move),
-      onSpecial: (action) => {
-        if (action === "undo") player?.undoLastMove();
-        else if (action === "reset") {
-          player?.reset();
-          stepMoveIndex = 0;
-          previewFrame.value = 0;
-          renderPreview();
-        } else if (action === "toggle-play") {
-          onPvPlay();
-        }
-      },
-    },
-    loadEditorKeymap(),
-  );
-  editorKeymap.attach(window);
+  // 编辑器快捷键：游戏公式键已解绑（编辑器内无实际含义），仅保留编辑器功能键
+  // （播放/魔方与手显隐/逐帧与跳关键帧步进，设置页可配置）
   window.addEventListener("keydown", onEditorKey);
   window.addEventListener("keyup", onEditorKey);
   (globalThis as { __motionCubeEditor?: unknown }).__motionCubeEditor = { player, handView };
@@ -1379,8 +1385,6 @@ onBeforeUnmount(() => {
   viewIo = null;
   kickTimers.forEach((t) => window.clearTimeout(t));
   kickTimers = [];
-  editorKeymap?.detach(window);
-  editorKeymap = null;
   window.removeEventListener("keydown", onEditorKey);
   window.removeEventListener("keyup", onEditorKey);
   editorViewEl.value?.replaceChildren();

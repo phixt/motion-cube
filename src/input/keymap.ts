@@ -7,6 +7,18 @@ import type { CubePlayer } from "../cube/CubePlayer";
 
 export type SpecialAction = "undo" | "reset" | "toggle-play";
 
+/** 动画编辑器专属功能键（与游戏公式键分离；游戏公式键在编辑器中无实际含义，已解绑） */
+export type EditorAction =
+  | "play"
+  | "toggle-cube"
+  | "toggle-hand"
+  | "step-back"
+  | "step-forward"
+  | "jump-prev"
+  | "jump-next";
+
+export type EditorKeymapConfig = Record<EditorAction, KeyBinding>;
+
 export type KeyBinding = {
   code: string;
   shift?: boolean;
@@ -57,6 +69,26 @@ export function buildDefaultKeymap(): KeymapConfig {
 }
 
 export const DEFAULT_KEYMAP: KeymapConfig = buildDefaultKeymap();
+
+export const DEFAULT_EDITOR_ACTIONS: EditorKeymapConfig = {
+  play: { code: "Space" },
+  "toggle-cube": { code: "KeyC" },
+  "toggle-hand": { code: "KeyH" },
+  "step-back": { code: "ArrowLeft" },
+  "step-forward": { code: "ArrowRight" },
+  "jump-prev": { code: "ArrowLeft", shift: true },
+  "jump-next": { code: "ArrowRight", shift: true },
+};
+
+export const EDITOR_ACTION_ORDER: readonly EditorAction[] = [
+  "play",
+  "toggle-cube",
+  "toggle-hand",
+  "step-back",
+  "step-forward",
+  "jump-prev",
+  "jump-next",
+];
 
 /**
  * 新手直觉预设：U/D/L/R 用方向键（↑↓←→ 对应上/下/左/右面），
@@ -122,6 +154,23 @@ export function deserializeKeymap(text: string): KeymapConfig | null {
       moves,
       specials: specials as Record<SpecialAction, KeyBinding>,
     };
+  } catch {
+    return null;
+  }
+}
+
+/** 从 JSON 恢复编辑器功能键配置；结构非法或缺默认动作时返回 null */
+export function deserializeEditorActions(text: string): EditorKeymapConfig | null {
+  try {
+    const raw = JSON.parse(text) as Record<string, unknown> | null;
+    if (!raw || typeof raw !== "object") return null;
+    const out = {} as EditorKeymapConfig;
+    for (const action of EDITOR_ACTION_ORDER) {
+      const b = raw[action] as Partial<KeyBinding> | null;
+      if (!b || typeof b !== "object" || typeof b.code !== "string") return null;
+      out[action] = { code: b.code, shift: !!b.shift, space: !!b.space };
+    }
+    return out;
   } catch {
     return null;
   }

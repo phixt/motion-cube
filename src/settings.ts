@@ -1,10 +1,17 @@
 /** 用户设置持久化（localStorage）：按键配置 + 通用设置 */
-import { DEFAULT_KEYMAP, deserializeKeymap, type KeymapConfig } from "./input/keymap";
+import {
+  DEFAULT_EDITOR_ACTIONS,
+  DEFAULT_KEYMAP,
+  deserializeEditorActions,
+  deserializeKeymap,
+  type EditorKeymapConfig,
+  type KeymapConfig,
+} from "./input/keymap";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "./i18n";
 import { FACES, type Face } from "./cube/stickering";
 
 const KEYMAP_KEY = "motion-cube.keymap";
-const EDITOR_KEYMAP_KEY = "motion-cube.editorKeymap";
+const EDITOR_ACTIONS_KEY = "motion-cube.editorActions";
 const SETTINGS_KEY = "motion-cube.settings";
 
 export type AppSettings = {
@@ -40,18 +47,19 @@ export function saveKeymap(cfg: KeymapConfig): void {
 }
 
 /** 编辑器快捷键独立配置（默认与游戏一致：公式键 + 特殊键语义相同） */
-export function loadEditorKeymap(): KeymapConfig {
+/** 编辑器功能键（播放/显隐/步进等，与游戏公式键分离） */
+export function loadEditorActionKeys(): EditorKeymapConfig {
   try {
-    const raw = localStorage.getItem(EDITOR_KEYMAP_KEY);
-    if (!raw) return DEFAULT_KEYMAP;
-    return deserializeKeymap(raw) ?? DEFAULT_KEYMAP;
+    const raw = localStorage.getItem(EDITOR_ACTIONS_KEY);
+    if (!raw) return structuredClone(DEFAULT_EDITOR_ACTIONS);
+    return deserializeEditorActions(raw) ?? structuredClone(DEFAULT_EDITOR_ACTIONS);
   } catch {
-    return DEFAULT_KEYMAP;
+    return structuredClone(DEFAULT_EDITOR_ACTIONS);
   }
 }
 
-export function saveEditorKeymap(cfg: KeymapConfig): void {
-  localStorage.setItem(EDITOR_KEYMAP_KEY, JSON.stringify(cfg));
+export function saveEditorActionKeys(cfg: EditorKeymapConfig): void {
+  localStorage.setItem(EDITOR_ACTIONS_KEY, JSON.stringify(cfg));
 }
 
 export function loadSettings(): AppSettings {

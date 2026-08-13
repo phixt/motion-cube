@@ -279,6 +279,14 @@
   再展开见其公式），缩进体现层级，不再平铺路径文字；data/category.ts 抽出
   buildCategoryTree/flattenCategoryTree 供编辑器与公式库共用；行高修复——列表项
   min-height 34px + flex 垂直居中（button UA/flex 行盒塌缩导致字重叠）；未 bump
+- ✅ **编辑器解绑游戏键 + 功能键入设置页（2026-08-13）**：编辑器不再挂载游戏
+  公式键 KeymapController（U/D/L/R/F/B 等在编辑器内无实际含义）；编辑器专属
+  快捷键（播放/魔方显隐/手显隐/逐帧←→/跳关键帧 Shift+←→）改为可配置的
+  EditorKeymapConfig（keymap.ts DEFAULT_EDITOR_ACTIONS + settings 持久化），
+  设置页编辑器作用域显示 7 个功能键（游戏作用域保留公式键/特殊键/冷却/预设/
+  同步）；播放为 keyup 触发防误触；顺带修复「捕获起始态」崩溃——cubing
+  TwistyPlayer.alg getter 会抛错，CubePlayer 改自身维护 currentAlg 并经
+  setMoves 统一写入（syncCubeToFrame/起始态/撤销同步）
 
 ## 拍概念与动画时序（2026-08-13）
 

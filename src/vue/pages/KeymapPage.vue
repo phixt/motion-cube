@@ -8,18 +8,22 @@ import WinToggleSwitch from "../../vendor/winui-on-web/components/WinToggleSwitc
 import { FACES, type Face } from "../../cube/stickering";
 import {
   BEGINNER_KEYMAP,
+  DEFAULT_EDITOR_ACTIONS,
   DEFAULT_KEYMAP,
+  EDITOR_ACTION_ORDER,
+  bindingKey,
   findConflicts,
   prettyBinding,
+  type EditorAction,
   type KeyBinding,
   type KeymapConfig,
   type SpecialAction,
 } from "../../input/keymap";
 import {
-  loadEditorKeymap,
+  loadEditorActionKeys,
   loadKeymap,
   loadSettings,
-  saveEditorKeymap,
+  saveEditorActionKeys,
   saveKeymap,
   saveSettings,
 } from "../../settings";
@@ -27,17 +31,10 @@ import { useI18n } from "../i18n";
 
 const { t } = useI18n();
 
-/** 游戏 / 编辑器两个独立作用域（编辑器默认与游戏一致） */
+/** 游戏 / 编辑器两个作用域：游戏 = 公式键；编辑器 = 功能键（播放/显隐/步进） */
 const scope = ref<"game" | "editor">("game");
 const gameCfg = ref<KeymapConfig>(structuredClone(loadKeymap()));
-const editorCfg = ref<KeymapConfig>(structuredClone(loadEditorKeymap()));
-const cfg = computed<KeymapConfig>({
-  get: () => (scope.value === "game" ? gameCfg.value : editorCfg.value),
-  set: (v) => {
-    if (scope.value === "game") gameCfg.value = v;
-    else editorCfg.value = v;
-  },
-});
+const editorActionCfg = ref(loadEditorActionKeys());
 const settings = ref(loadSettings());
 const capturing = ref<string | null>(null);
 const savedFlash = ref(false);
@@ -58,10 +55,20 @@ const SPECIAL_LABEL_KEYS: Record<SpecialAction, string> = {
   "toggle-play": "keymap.special.play",
 };
 
+const EDITOR_ACTION_LABEL_KEYS: Record<EditorAction, string> = {
+  play: "keymap.editor.play",
+  "toggle-cube": "keymap.editor.cube",
+  "toggle-hand": "keymap.editor.hand",
+  "step-back": "keymap.editor.stepBack",
+  "step-forward": "keymap.editor.stepForward",
+  "jump-prev": "keymap.editor.jumpPrev",
+  "jump-next": "keymap.editor.jumpNext",
+};
+
 type Row = { action: string; label: string; binding: KeyBinding; isSpecial: boolean };
 
 const moveRows = computed<Row[]>(() =>
-  Object.entries(cfg.value.moves).map(([action, binding]) => ({
+  Object.entries(gameCfg.value.moves).map(([action, binding]) => ({
     action,
     label: action,
     binding,
@@ -70,7 +77,7 @@ const moveRows = computed<Row[]>(() =>
 );
 
 const specialRows = computed<Row[]>(() =>
-  Object.entries(cfg.value.specials).map(([action, binding]) => ({
+  Object.entries(gameCfg.value.specials).map(([action, binding]) => ({
     action,
     label: t(SPECIAL_LABEL_KEYS[action as SpecialAction]),
     binding,
@@ -78,10 +85,31 @@ const specialRows = computed<Row[]>(() =>
   })),
 );
 
+/** 编辑器功能键行（播放/魔方显隐/手显隐/逐帧与跳关键帧） */
+const editorRows = computed<Row[]>(() =>
+  EDITOR_ACTION_ORDER.map((action) => ({
+    action,
+    label: t(EDITOR_ACTION_LABEL_KEYS[action]),
+    binding: editorActionCfg.value[action],
+    isSpecial: true,
+  })),
+);
+
 const bindingText = (row: Row): string =>
   capturing.value === row.action ? t("keymap.captureHint") : prettyBinding(row.binding);
 
-const conflicts = computed(() => findConflicts(cfg.value));
+/** 冲突检测：游戏公式键 / 编辑器功能键各自独立 */
+const conflicts = computed(() => {
+  if (scope.value === "game") return findConflicts(gameCfg.value);
+  const seen = new Map<string, { binding: KeyBinding; actions: string[] }>();
+  for (const [action, b] of Object.entries(editorActionCfg.value)) {
+    const k = bindingKey(b);
+    const entry = seen.get(k) ?? { binding: b, actions: [] };
+    entry.actions.push(action);
+    seen.set(k, entry);
+  }
+  return [...seen.values()].filter((e) => e.actions.length > 1);
+});
 const conflictText = computed(() => {
   if (conflicts.value.length === 0) return "";
   return (
@@ -96,22 +124,18 @@ const conflictText = computed(() => {
 });
 
 const persist = (): void => {
-  if (scope.value === "game") saveKeymap(cfg.value);
-  else saveEditorKeymap(cfg.value);
+  if (scope.value === "game") saveKeymap(gameCfg.value);
+  else saveEditorActionKeys(editorActionCfg.value);
   savedFlash.value = true;
   window.setTimeout(() => (savedFlash.value = false), 1200);
 };
 
-/** 连带设置：把当前作用域配置复制到另一侧 */
+/** 连带设置：游戏公式键复制到另一侧（仅游戏作用域有意义） */
 const syncToOther = (): void => {
-  const copy: KeymapConfig = structuredClone(toRaw(cfg.value));
-  if (scope.value === "game") {
-    editorCfg.value = copy;
-    saveEditorKeymap(copy);
-  } else {
-    gameCfg.value = copy;
-    saveKeymap(copy);
-  }
+  if (scope.value !== "game") return;
+  const copy: KeymapConfig = structuredClone(toRaw(gameCfg.value));
+  gameCfg.value = copy;
+  saveKeymap(copy);
   savedFlash.value = true;
   window.setTimeout(() => (savedFlash.value = false), 1200);
 };
@@ -151,8 +175,13 @@ const startCapture = (row: Row): void => {
     capturing.value = null;
     if (e.code === "Escape") return;
     const nb: KeyBinding = { code: e.code, shift: e.shiftKey, space: spaceHeld };
-    if (row.isSpecial) cfg.value.specials[row.action as SpecialAction] = nb;
-    else cfg.value.moves[row.action] = nb;
+    if (scope.value === "editor") {
+      editorActionCfg.value[row.action as EditorAction] = nb;
+    } else if (row.isSpecial) {
+      gameCfg.value.specials[row.action as SpecialAction] = nb;
+    } else {
+      gameCfg.value.moves[row.action] = nb;
+    }
     persist();
   };
   window.addEventListener("keydown", onKey);
@@ -164,12 +193,13 @@ const startCapture = (row: Row): void => {
 };
 
 const resetAll = (): void => {
-  cfg.value = structuredClone(DEFAULT_KEYMAP);
+  if (scope.value === "game") gameCfg.value = structuredClone(DEFAULT_KEYMAP);
+  else editorActionCfg.value = structuredClone(DEFAULT_EDITOR_ACTIONS);
   persist();
 };
 
 const loadPreset = (preset: KeymapConfig): void => {
-  cfg.value = structuredClone(preset);
+  gameCfg.value = structuredClone(preset);
   persist();
 };
 
@@ -210,7 +240,7 @@ onBeforeUnmount(stopCapture);
         :class="{ active: scope === 'editor' }"
         :Content="t('keymap.scope.editor')"
         @Click="scope = 'editor'" />
-      <WinButton class="scope-btn sync" :Content="t('keymap.sync')" @Click="syncToOther" />
+      <WinButton v-if="scope === 'game'" class="scope-btn sync" :Content="t('keymap.sync')" @Click="syncToOther" />
     </div>
 
     <WinInfoBar
@@ -229,33 +259,46 @@ onBeforeUnmount(stopCapture);
         </tr>
       </thead>
       <tbody>
-        <tr v-for="row in moveRows" :key="row.action" :data-action="row.action">
-          <td>{{ row.label }}</td>
-          <td><span class="binding">{{ bindingText(row) }}</span></td>
-          <td>
-            <WinButton class="rebind" :Content="t('keymap.modify')" @Click="startCapture(row)" />
-          </td>
-        </tr>
-        <tr class="sep">
-          <td colspan="3">{{ t("keymap.special") }}</td>
-        </tr>
-        <tr v-for="row in specialRows" :key="row.action" :data-action="row.action">
-          <td>{{ row.label }}</td>
-          <td><span class="binding">{{ bindingText(row) }}</span></td>
-          <td>
-            <WinButton class="rebind" :Content="t('keymap.modify')" @Click="startCapture(row)" />
-          </td>
-        </tr>
+        <template v-if="scope === 'game'">
+          <tr v-for="row in moveRows" :key="row.action" :data-action="row.action">
+            <td>{{ row.label }}</td>
+            <td><span class="binding">{{ bindingText(row) }}</span></td>
+            <td>
+              <WinButton class="rebind" :Content="t('keymap.modify')" @Click="startCapture(row)" />
+            </td>
+          </tr>
+          <tr class="sep">
+            <td colspan="3">{{ t("keymap.special") }}</td>
+          </tr>
+          <tr v-for="row in specialRows" :key="row.action" :data-action="row.action">
+            <td>{{ row.label }}</td>
+            <td><span class="binding">{{ bindingText(row) }}</span></td>
+            <td>
+              <WinButton class="rebind" :Content="t('keymap.modify')" @Click="startCapture(row)" />
+            </td>
+          </tr>
+        </template>
+        <template v-else>
+          <tr v-for="row in editorRows" :key="row.action" :data-action="row.action">
+            <td>{{ row.label }}</td>
+            <td><span class="binding">{{ bindingText(row) }}</span></td>
+            <td>
+              <WinButton class="rebind" :Content="t('keymap.modify')" @Click="startCapture(row)" />
+            </td>
+          </tr>
+        </template>
       </tbody>
     </table>
 
-    <div class="settings-box">
+    <WinTextBlock v-if="scope === 'editor'" class="page-note" :Text="t('keymap.editorNote')" />
+
+    <div v-if="scope === 'game'" class="settings-box">
       <WinTextBlock class="cooldown-label" :Text="t('keymap.cooldown', { ms: cooldownMs })" FontSize="14" />
       <WinSlider class="cooldown-slider" v-model:Value="cooldownMs" :Minimum="0" :Maximum="500" StepFrequency="10" />
     </div>
 
     <WinButton class="reset-btn" :Content="t('keymap.reset')" @Click="resetAll" />
-    <div class="preset-row">
+    <div v-if="scope === 'game'" class="preset-row">
       <WinButton class="preset-beginner" :Content="t('keymap.presetBeginner')" @Click="loadPreset(BEGINNER_KEYMAP)" />
       <WinButton class="preset-default" :Content="t('keymap.presetDefault')" @Click="loadPreset(DEFAULT_KEYMAP)" />
     </div>
