@@ -1,4 +1,5 @@
 import { TwistyPlayer } from "cubing/twisty";
+import type { Object3D } from "three";
 import { baseFaceSetupAlg, type Face } from "./stickering";
 
 /**
@@ -15,6 +16,8 @@ export type CubePlayerOptions = {
 
 export class CubePlayer {
   readonly element: TwistyPlayer;
+  private cubeObj: Object3D | null = null;
+  private cubeVisible = true;
 
   constructor(container: HTMLElement, options: CubePlayerOptions = {}) {
     this.element = new TwistyPlayer({
@@ -35,6 +38,22 @@ export class CubePlayer {
     });
     Object.assign(this.element.style, { width: "100%", height: "100%" });
     container.appendChild(this.element);
+    // 场景重建时重放魔方显隐（同 GrayOverlay 的 render 回调模式）
+    void this.element
+      .experimentalCurrentThreeJSPuzzleObject(() => {
+        if (this.cubeObj) this.cubeObj.visible = this.cubeVisible;
+      })
+      .then((obj) => {
+        this.cubeObj = obj ?? null;
+        if (obj) obj.visible = this.cubeVisible;
+      })
+      .catch(() => {});
+  }
+
+  /** 魔方显隐（编辑器快捷键；隐藏魔方只留手，便于规划动作） */
+  showCube(visible: boolean): void {
+    this.cubeVisible = visible;
+    if (this.cubeObj) this.cubeObj.visible = visible;
   }
 
   /** 追加一步并立即动画：键盘映射的核心通道 */

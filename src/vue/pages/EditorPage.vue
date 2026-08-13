@@ -99,10 +99,80 @@ const grayPanelOpen = ref(false);
 const grayPanelEl = ref<HTMLElement | null>(null);
 /** 时间线展开（3D 视口下方显示，侧边栏按钮切换） */
 const timelineOpen = ref(false);
+/** 魔方/手显隐（快捷键 C/H + 侧边栏按钮） */
+const showCube = ref(true);
+const showHand = ref(true);
 let grayOverlay: GrayOverlay | null = null;
 let grayPanelApi: ReturnType<typeof renderGrayPanel> | null = null;
 const maskVisible = ref(false);
 let maskTimer: number | null = null;
+/** 选中动作块（S1…）高亮后在下侧单独设定时长 */
+const selectedStep = ref<number | null>(null);
+let seeking = false;
+
+/** 时间线播放头/轨道 seek：按点击位置换算帧号 */
+const seekFromEvent = (clientX: number, track: HTMLElement): void => {
+  const rect = track.getBoundingClientRect();
+  const total = Math.max(totalFrames.value, 60);
+  const frame = Math.max(0, Math.round(((clientX - rect.left) / Math.max(rect.width, 1)) * total));
+  previewFrame.value = Math.min(frame, total);
+  renderPreview();
+};
+
+const onTrackPointerDown = (e: PointerEvent): void => {
+  // 点到动作块：只选中不 seek；其余位置 seek 并进入拖动
+  if ((e.target as HTMLElement).closest?.(".tl-step-band")) return;
+  seeking = true;
+  seekFromEvent(e.clientX, e.currentTarget as HTMLElement);
+};
+const onTrackPointerMove = (e: PointerEvent): void => {
+  if (!seeking || !(e.buttons & 1)) return;
+  seekFromEvent(e.clientX, e.currentTarget as HTMLElement);
+};
+const endSeek = (): void => {
+  seeking = false;
+};
+
+const selectStep = (i: number): void => {
+  selectedStep.value = selectedStep.value === i ? null : i;
+};
+
+const toggleShowCube = (): void => {
+  showCube.value = !showCube.value;
+  player?.showCube(showCube.value);
+};
+const toggleShowHand = (): void => {
+  showHand.value = !showHand.value;
+  handView?.setVisible(showHand.value);
+};
+
+// 编辑器快捷键：Space=播放（页面不滚动后可用）、C=魔方显隐、H=手显隐
+let spaceDownAt = 0;
+let spaceCombined = false;
+const onEditorKey = (e: KeyboardEvent): void => {
+  const el = e.target as HTMLElement | null;
+  if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT")) return;
+  if (e.code === "Space") {
+    if (e.type === "keydown") {
+      spaceDownAt = performance.now();
+      spaceCombined = false;
+      e.preventDefault(); // 阻止滚动（页面不滚动目标；也防误滚动）
+    } else if (e.type === "keyup" && !spaceCombined && performance.now() - spaceDownAt < 600) {
+      onPvPlay();
+    }
+    return;
+  }
+  if (e.type !== "keydown") return;
+  if (e.code === "KeyC") {
+    toggleShowCube();
+    return;
+  }
+  if (e.code === "KeyH") {
+    toggleShowHand();
+    return;
+  }
+  if (spaceDownAt && performance.now() - spaceDownAt < 600) spaceCombined = true;
+};
 
 const totalFrames = computed(() => {
   if (!tech.value) return 0;
@@ -633,11 +703,6 @@ const onTlWheel = (e: WheelEvent): void => {
   pxPerFrame.value = Math.min(TL_ZOOM_MAX, Math.max(TL_ZOOM_MIN, pxPerFrame.value * factor));
 };
 
-const onPvInput = (e: Event): void => {
-  previewFrame.value = Number((e.target as HTMLInputElement).value);
-  renderPreview();
-};
-
 const onSave = (): void => {
   if (!tech.value) return;
   try {
@@ -807,6 +872,8 @@ onMounted(() => {
     loadEditorKeymap(),
   );
   editorKeymap.attach(window);
+  window.addEventListener("keydown", onEditorKey);
+  window.addEventListener("keyup", onEditorKey);
   (globalThis as { __motionCubeEditor?: unknown }).__motionCubeEditor = { player, handView };
   renderAll();
   // 视口渲染兜底：cubing 的 TwistyPlayer 用 IntersectionObserver 懒初始化，
@@ -892,6 +959,8 @@ onBeforeUnmount(() => {
   kickTimers = [];
   editorKeymap?.detach(window);
   editorKeymap = null;
+  window.removeEventListener("keydown", onEditorKey);
+  window.removeEventListener("keyup", onEditorKey);
   editorViewEl.value?.replaceChildren();
   delete (globalThis as { __motionCubeEditor?: unknown }).__motionCubeEditor;
   grayOverlay?.dispose();
@@ -931,6 +1000,12 @@ onBeforeUnmount(() => {
           <select id="view-hand" ref="handTypeSelectEl" class="native-select" @change="onHandTypeChange">
             <option v-for="opt in handTypeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
           </select>
+        </div>
+
+        <div class="sb-group">
+          <WinButton id="editor-toggle-cube" :Content="showCube ? t('editor.hideCube') : t('editor.showCube')" @Click="toggleShowCube" />
+          <WinButton id="editor-toggle-hand" :Content="showHand ? t('editor.hideHand') : t('editor.showHand')" @Click="toggleShowHand" />
+          <WinTextBlock class="page-note" :Text="t('editor.toggleHint')" FontSize="11" />
         </div>
 
         <div class="sb-group">
@@ -996,30 +1071,48 @@ onBeforeUnmount(() => {
                 {{ tick.major ? `${(tick.frame / 60).toFixed(1)}s` : "" }}
               </span>
             </div>
-            <div id="tl-track" class="tl-track" :style="{ width: tlWidth }">
+            <div
+              id="tl-track"
+              class="tl-track"
+              :style="{ width: tlWidth }"
+              @pointerdown="onTrackPointerDown"
+              @pointermove="onTrackPointerMove"
+              @pointerup="endSeek"
+              @pointercancel="endSeek"
+              @pointerleave="endSeek">
               <span
                 v-for="band in stepBands"
                 :key="band.stepIndex"
                 class="tl-step-band"
+                :class="{ selected: selectedStep === band.stepIndex }"
+                @click="selectStep(band.stepIndex)"
                 :style="{ left: `${band.startFrame * pxPerFrame}px`, width: `${Math.max((band.endFrame - band.startFrame) * pxPerFrame, 8)}px` }">
                 S{{ band.stepIndex + 1 }}
               </span>
+              <div
+                id="tl-playhead"
+                class="tl-playhead"
+                :style="{ left: `${previewFrame * pxPerFrame}px` }"></div>
             </div>
           </div>
           <div v-if="tech && stepBands.length" class="step-durations">
             <WinTextBlock class="editor-label" :Text="t('editor.stepDuration')" FontSize="14" />
-            <label v-for="(band, i) in stepBands" :key="i" class="step-dur">
-              <span class="step-dur-name">S{{ i + 1 }}</span>
-              <input
-                :id="`step-dur-${i}`"
-                type="number"
-                min="0.1"
-                step="0.1"
-                class="native-input num-input"
-                :value="((band.endFrame - band.startFrame) / (tech?.frameRate ?? 60)).toFixed(1)"
-                @change="onStepDurationChange($event, i)" />
-              <span>s</span>
-            </label>
+            <template v-if="selectedStep !== null && stepBands[selectedStep]">
+              <label class="step-dur">
+                <span class="step-dur-name">S{{ selectedStep + 1 }}</span>
+                <input
+                  :id="`step-dur-${selectedStep}`"
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  class="native-input num-input"
+                  :value="((stepBands[selectedStep].endFrame - stepBands[selectedStep].startFrame) / (tech?.frameRate ?? 60)).toFixed(1)"
+                  @change="onStepDurationChange($event, selectedStep)" />
+                <span>s</span>
+              </label>
+              <WinButton :Content="t('editor.stepDone')" @Click="selectedStep = null" />
+            </template>
+            <span v-else class="meta">{{ t("editor.stepHint") }}</span>
           </div>
           <p id="tl-meta" ref="tlMetaEl" class="page-note"></p>
         </div>
@@ -1082,7 +1175,6 @@ onBeforeUnmount(() => {
           <WinTextBlock class="page-note" :Text="t('editor.addKfHint')" />
 
           <div class="editor-pv-controls">
-            <input id="pv-slider" ref="pvSliderEl" type="range" min="0" step="1" class="pv-slider" @input="onPvInput" />
             <span id="pv-readout" ref="pvReadoutEl" class="meta"></span>
           </div>
           <pre id="pv-pose" ref="pvPoseEl" class="kf-pose"></pre>
@@ -1119,22 +1211,24 @@ onBeforeUnmount(() => {
 .editor-page {
   height: 100%;
   box-sizing: border-box;
-  overflow: auto;
-  padding: 24px 28px;
+  overflow: hidden; /* 页面不滚动（目标：space 等快捷键不被滚动捕获） */
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
   color: var(--text-primary);
 }
 
 .editor-layout {
+  flex: 1;
+  min-height: 0;
   display: flex;
   gap: 16px;
-  align-items: flex-start;
 }
 
 .editor-sidebar {
   width: 248px;
   flex-shrink: 0;
-  position: sticky;
-  top: 16px;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1158,17 +1252,26 @@ onBeforeUnmount(() => {
 .editor-main {
   flex: 1;
   min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .editor-timeline-panel {
+  flex: 0 0 auto;
   margin-top: 10px;
   padding: 10px 12px;
   border: 1px solid var(--stroke-divider);
   border-radius: var(--ControlCornerRadius, 6px);
   background: var(--ctrl-fill-default);
+  max-height: 45%;
+  overflow-y: auto;
 }
 
 .editor-details {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
   margin-top: 12px;
   display: flex;
   flex-direction: column;
@@ -1246,9 +1349,9 @@ onBeforeUnmount(() => {
 .editor-view {
   position: relative;
   width: 100%;
-  height: 56vh;
-  min-height: 320px;
-  margin-top: 8px;
+  flex: 1 1 auto;
+  min-height: 240px;
+  height: auto;
   border: 1px solid var(--stroke-divider);
   border-radius: var(--ControlCornerRadius, 6px);
   background: var(--ctrl-solid-fill, #101014);
@@ -1392,6 +1495,23 @@ onBeforeUnmount(() => {
   line-height: 18px;
   text-align: center;
   opacity: 0.7;
+}
+
+.tl-step-band.selected {
+  opacity: 1;
+  outline: 2px solid var(--accent-hover, #59d5ff);
+  outline-offset: 1px;
+}
+
+.tl-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--accent-hover, #59d5ff);
+  z-index: 2;
+  pointer-events: none;
 }
 
 .tl-kf {

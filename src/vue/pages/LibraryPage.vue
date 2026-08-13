@@ -49,6 +49,8 @@ const tagList = ref<string[]>([]);
 const fSearch = ref("");
 const pageSize = ref(10);
 const page = ref(1);
+const tecSearch = ref("");
+const tecPage = ref(1);
 const cascadeChain = ref<string[]>([]);
 const catName = ref("");
 const catParent = ref("");
@@ -265,6 +267,27 @@ const techniqueRows = computed(() => {
     meta: `${formulaName(tec.formulaId)} ｜ ${t("library.kfCount", { n: tec.keyframes.length })} ｜ ${t("library.steps", { n: tec.stepMapping.length })}`,
   }));
 });
+
+/** 手法搜索：名称或关联公式名包含（大小写不敏感） */
+const filteredTechniques = computed(() => {
+  const q = tecSearch.value.trim().toLowerCase();
+  if (!q) return techniqueRows.value;
+  return techniqueRows.value.filter(
+    (r) => r.tec.name.toLowerCase().includes(q) || r.meta.toLowerCase().includes(q),
+  );
+});
+
+const tecTotalPages = computed(() =>
+  Math.max(1, Math.ceil(filteredTechniques.value.length / pageSize.value)),
+);
+const pagedTechniques = computed(() => {
+  const start = (tecPage.value - 1) * pageSize.value;
+  return filteredTechniques.value.slice(start, start + pageSize.value);
+});
+
+watch([tecSearch, pageSize], () => {
+  tecPage.value = 1;
+});
 </script>
 
 <template>
@@ -386,14 +409,33 @@ const techniqueRows = computed(() => {
     </div>
 
     <WinTextBlock class="section-title" :Text="t('library.techniques')" FontSize="20" FontWeight="SemiBold" />
+    <div class="lib-toolbar">
+      <input
+        id="tec-search"
+        v-model="tecSearch"
+        class="native-input search-input"
+        :placeholder="t('library.searchTec')" />
+      <select id="tec-page-size" v-model.number="pageSize" class="native-select">
+        <option :value="5">5</option>
+        <option :value="10">10</option>
+        <option :value="20">20</option>
+        <option :value="50">50</option>
+      </select>
+      <span class="meta">{{ t("library.pageInfo", { n: pagedTechniques.length, total: filteredTechniques.length }) }}</span>
+    </div>
     <div id="technique-rows" class="list-rows">
       <p class="page-note">{{ t("library.techniqueNote") }}</p>
-      <p v-if="techniqueRows.length === 0" class="empty-note">{{ t("library.techniqueEmpty") }}</p>
-      <div v-for="{ tec, meta } in techniqueRows" :key="tec.id" class="lib-row" :data-name="tec.name">
+      <p v-if="filteredTechniques.length === 0" class="empty-note">{{ t("library.techniqueEmpty") }}</p>
+      <div v-for="{ tec, meta } in pagedTechniques" :key="tec.id" class="lib-row" :data-name="tec.name">
         <span class="lib-name">{{ tec.name }}</span>
         <span class="meta">{{ meta }}</span>
         <WinButton class="del" :Content="t('library.delete')" @Click="removeTechnique(tec.id)" />
       </div>
+    </div>
+    <div v-if="tecTotalPages > 1" class="pager">
+      <WinButton :Content="t('library.prev')" :IsEnabled="tecPage > 1" @Click="tecPage--" />
+      <span class="meta">{{ tecPage }} / {{ tecTotalPages }}</span>
+      <WinButton :Content="t('library.next')" :IsEnabled="tecPage < tecTotalPages" @Click="tecPage++" />
     </div>
   </div>
 </template>

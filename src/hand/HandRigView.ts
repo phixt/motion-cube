@@ -46,6 +46,7 @@ export class HandRigView {
   private ready = false;
   private pose: Pose | null = null;
   private dirty = false;
+  private userVisible = true;
 
   constructor(
     private readonly player: CubePlayer,
@@ -97,6 +98,14 @@ export class HandRigView {
     void this.requestRender();
   }
 
+  /** 手部显隐（编辑器快捷键 M 之外的 H；与姿态无关，独立控制） */
+  setVisible(visible: boolean): void {
+    this.userVisible = visible;
+    this.dirty = true;
+    this.applyPose();
+    void this.requestRender();
+  }
+
   /** 强制 cubing 重绘（同 GrayOverlay.requestRender） */
   private async requestRender(): Promise<void> {
     try {
@@ -122,11 +131,8 @@ export class HandRigView {
     if (!this.dirty) return;
     this.dirty = false;
     const pose = this.pose;
-    if (!pose) {
-      this.group.visible = false;
-      return;
-    }
-    this.group.visible = true;
+    this.group.visible = this.userVisible && !!pose;
+    if (!pose) return;
 
     const H = this.config.handScale;
     const palm = pose.palm.transform;
