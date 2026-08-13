@@ -107,8 +107,6 @@ const kfPoseRxEl = ref<HTMLInputElement | null>(null);
 const kfPoseRyEl = ref<HTMLInputElement | null>(null);
 const kfPoseRzEl = ref<HTMLInputElement | null>(null);
 const addFrameEl = ref<HTMLInputElement | null>(null);
-const pvSliderEl = ref<HTMLInputElement | null>(null);
-const pvReadoutEl = ref<HTMLElement | null>(null);
 
 let player: CubePlayer | null = null;
 let handView: HandRigView | null = null;
@@ -523,9 +521,14 @@ function shownFrame(): number | null {
   return tech.value ? previewFrame.value : null;
 }
 
-/** 编辑面板显示姿态：播放头处插值姿态（含端点关键帧），无关键帧时返回 null */
+/** 编辑面板显示姿态：播放头处插值姿态（含端点关键帧）；无关键帧时回退默认手位，
+ *  保证数值监控常驻显示（details 已并入面板） */
 function shownPose(): Pose | null {
-  return shownFrame() === null ? null : previewPose();
+  if (shownFrame() === null) return null;
+  return (
+    previewPose() ??
+    defaultHandPose((handTypeSelectEl.value?.value as HandType) ?? "right")
+  );
 }
 
 function renderSelected(keepInputs = false): void {
@@ -572,25 +575,11 @@ function poseRotationDeg(pose: Pose): { x: number; y: number; z: number } {
 }
 
 function renderPreview(): void {
-  const total = totalFrames.value;
   // 添加关键帧目标帧跟随进度（用户聚焦输入框时不覆盖）
   if (addFrameEl.value && document.activeElement !== addFrameEl.value) {
     addFrameEl.value.value = String(previewFrame.value);
   }
-  if (pvSliderEl.value) {
-    pvSliderEl.value.max = String(Math.max(total, 0));
-    pvSliderEl.value.value = String(Math.min(previewFrame.value, total));
-  }
-  if (pvReadoutEl.value) {
-    pvReadoutEl.value.textContent = tech.value
-      ? t("editor.frameOf", {
-          frame: previewFrame.value,
-          total,
-          sec: (previewFrame.value / tech.value.frameRate).toFixed(2),
-        })
-      : "";
-  }
-  const pose = previewPose();
+  const pose = shownPose();
   // 面板常驻时：帧号/缓动/删除/摘要/数值全部跟随播放头（姿态信息并入帧编辑器；
   // 正在输入的数值框不覆盖）
   if (kfPanelVisible.value) {
@@ -1434,6 +1423,13 @@ onBeforeUnmount(() => {
             </select>
             <WinButton id="kf-delete" ref="kfDeleteEl" class="del" :Content="t('editor.deleteKf')" :IsEnabled="kfDeleteEnabled" @Click="onKfDelete" />
           </div>
+          <div class="kf-add-tools">
+            <input id="kf-add-frame" ref="addFrameEl" type="number" min="0" step="1" class="native-input num-input" value="30" />
+            <WinButton id="kf-add" :Content="t('editor.addKf')" Style="AccentButtonStyle" @Click="onKfAdd" />
+            <WinButton id="auto-path" :Content="t('editor.autoPath')" @Click="onAutoPath" />
+            <WinButton id="kf-insert-mid" :Content="t('editor.insertMid')" @Click="onInsertMid" />
+            <WinButton id="sine-path" :Content="t('editor.sinePath')" @Click="onSinePath" />
+          </div>
           <pre id="kf-pose" ref="kfPoseEl" class="kf-pose"></pre>
           <div class="pose-edit">
             <div class="pose-edit-row">
@@ -1675,22 +1671,6 @@ onBeforeUnmount(() => {
           <p id="tl-meta" ref="tlMetaEl" class="page-note"></p>
         </div>
 
-        <!-- 其余编辑功能（选中关键帧 / 添加 / 补帧预览 / 保存），去标题精简 -->
-        <div class="editor-details">
-          <div class="editor-add">
-            <WinTextBlock class="editor-label" :Text="t('editor.frame')" />
-            <input id="kf-add-frame" ref="addFrameEl" type="number" min="0" step="1" class="native-input num-input" value="30" />
-            <WinButton id="kf-add" :Content="t('editor.addKf')" Style="AccentButtonStyle" @Click="onKfAdd" />
-            <WinButton id="auto-path" :Content="t('editor.autoPath')" @Click="onAutoPath" />
-            <WinButton id="kf-insert-mid" :Content="t('editor.insertMid')" @Click="onInsertMid" />
-            <WinButton id="sine-path" :Content="t('editor.sinePath')" @Click="onSinePath" />
-          </div>
-          <WinTextBlock class="page-note" :Text="t('editor.addKfHint')" />
-
-          <div class="editor-pv-controls">
-            <span id="pv-readout" ref="pvReadoutEl" class="meta"></span>
-          </div>
-        </div>
       </main>
     </div>
   </div>
@@ -1758,16 +1738,6 @@ onBeforeUnmount(() => {
   overflow-y: auto;
 }
 
-.editor-details {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
 .save-status {
   position: absolute;
   left: 12px;
@@ -1786,9 +1756,7 @@ onBeforeUnmount(() => {
 .editor-picker,
 .editor-view-tools,
 .editor-new,
-.editor-kf-row,
-.editor-add,
-.editor-pv-controls {
+.editor-kf-row {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -2090,6 +2058,23 @@ onBeforeUnmount(() => {
 .sb-kf-panel .finger-name {
   font-size: 11px;
   min-width: 30px;
+}
+
+.kf-add-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--stroke-divider);
+}
+
+.kf-add-tools .num-input {
+  width: 54px;
+  min-height: 22px;
+  padding: 1px 5px;
+  font-size: 12px;
 }
 
 .kf-edit-head {
