@@ -190,6 +190,17 @@
   同步，功能/修复提交时评估 bump；自动化（GitHub Actions CI + tauri 打包发布）
   待配置（用户需先了解工作流）
 
+## CI 与待修（2026-08-13）
+
+- ✅ **GitHub Actions CI**：.github/workflows/ci.yml——push/PR 到 main 自动跑
+  npm ci + typecheck + build + verify-data（ubuntu runner）；playtest 待
+  networkidle0 卡点解决后再并入
+- ⬜ **游戏快照恢复只恢复日志、魔方状态未恢复**：恢复时设置 element.alg 但
+  cubing 惰性渲染/ready 时序导致状态未显示；需等待场景 ready + 触发渲染
+- ⬜ **编辑器逐帧步进 ←/→ 无响应**（快捷键监听与 keymap/焦点冲突待查）
+- ⬜ **时间线播放头拖拽/点击 seek 无响应**（pointer 事件与轨道/动作块交互冲突待查）
+- ⬜ **Space 播放从 0 开始而非停止位置**：应为"从当前 previewFrame 继续播放"
+
 **待办优先级（2026-08-12 排序）**
 
 1. 🔴 **编辑器手掌三方向旋转调整**（RX/RY/RZ 欧拉角输入；数据层 quaternion 已就绪，
