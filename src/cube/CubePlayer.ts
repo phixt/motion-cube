@@ -51,9 +51,16 @@ export class CubePlayer {
   }
 
   /** 魔方显隐（编辑器快捷键；隐藏魔方只留手，便于规划动作） */
-  showCube(visible: boolean): void {
+  async showCube(visible: boolean): Promise<void> {
     this.cubeVisible = visible;
     if (this.cubeObj) this.cubeObj.visible = visible;
+    // cubing 惰性渲染：改 visible 后需强制重绘
+    try {
+      const vantages = await this.element.experimentalCurrentVantages();
+      for (const v of vantages) v.scheduleRender();
+    } catch {
+      // 场景未就绪忽略
+    }
   }
 
   /** 追加一步并立即动画：键盘映射的核心通道 */

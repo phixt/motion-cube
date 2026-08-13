@@ -168,6 +168,30 @@ const toggleShowHand = (): void => {
   handView?.setVisible(showHand.value);
 };
 
+/** 捕获当前魔方状态为 正放/倒放 起始态 */
+const captureStart = (which: "startState" | "reverseStart"): void => {
+  if (!tech.value) {
+    statusText.value = t("editor.playHint");
+    return;
+  }
+  const algStr = player?.element.alg ?? "";
+  if (!algStr) {
+    statusText.value = t("editor.captureEmpty");
+    return;
+  }
+  commit((t2) => ({ ...t2, [which]: algStr }));
+};
+
+const clearStartStates = (): void => {
+  if (!tech.value) return;
+  commit((t2) => ({ ...t2, startState: undefined, reverseStart: undefined }));
+};
+
+const startStateLabel = computed(() => {
+  const fmt = (v?: string): string => (v ? v.slice(0, 16) : "默认");
+  return `${t("editor.forward")}: ${fmt(tech.value?.startState)} ｜ ${t("editor.reverse")}: ${fmt(tech.value?.reverseStart)}`;
+});
+
 // 编辑器快捷键：Space=播放（页面不滚动后可用）、C=魔方显隐、H=手显隐
 let spaceDownAt = 0;
 let spaceCombined = false;
@@ -426,10 +450,18 @@ function selectTech(id: string): void {
   renderAll();
 }
 
-/** 正放起始态：公式逆序状态（打乱态 S = 对还原态逆序执行公式） */
+/** 正放起始态：优先自定义 startState，缺省 = 公式逆序状态（打乱态 S） */
 function setStartState(): void {
   if (!player) return;
-  player.element.alg = formulaMoves.length ? invertMoves(formulaMoves.join(" ")) : "";
+  player.element.alg =
+    tech.value?.startState ??
+    (formulaMoves.length ? invertMoves(formulaMoves.join(" ")) : "");
+}
+
+/** 倒放起始态：优先自定义 reverseStart，缺省 = 还原态 */
+function setReverseStart(): void {
+  if (!player) return;
+  player.element.alg = tech.value?.reverseStart ?? "";
 }
 
 /** 按公式步数生成等长动作区间：第 i 步占 [i*t, (i+1)*t]（t = 每动作时长） */
@@ -654,8 +686,8 @@ const onPvPlay = (): void => {
     computeFormulaMoves();
     syncStepSpeed();
     if (reversePlay.value) {
-      // 倒放：从还原态开始，逆序执行公式（每步逆动作，带动画）→ 结束在起始态 S
-      player?.reset();
+      // 倒放：从 reverseStart（缺省还原态）开始，逆序执行公式（每步逆动作，带动画）
+      setReverseStart();
       stepMoveIndex = 0;
       revApplied = formulaMoves.length;
       previewFrame.value = totalFrames.value;
@@ -676,7 +708,7 @@ watch([loopPlay, reversePlay], () => {
   stepMoveIndex = 0;
   revApplied = formulaMoves.length;
   previewFrame.value = 0;
-  if (reversePlay.value) player?.reset();
+  if (reversePlay.value) setReverseStart();
   else setStartState();
   renderPreview();
 });
@@ -936,7 +968,7 @@ onMounted(() => {
       if (previewFrame.value <= 0) {
         if (loopPlay.value) {
           previewFrame.value = total;
-          player?.reset(); // 循环倒放回到还原态（倒放起始）
+          setReverseStart(); // 循环倒放回到倒放起始态
           stepMoveIndex = 0;
           revApplied = formulaMoves.length;
         } else {
@@ -1037,6 +1069,14 @@ onBeforeUnmount(() => {
           <WinButton id="editor-toggle-cube" :Content="showCube ? t('editor.hideCube') : t('editor.showCube')" @Click="toggleShowCube" />
           <WinButton id="editor-toggle-hand" :Content="showHand ? t('editor.hideHand') : t('editor.showHand')" @Click="toggleShowHand" />
           <WinTextBlock class="page-note" :Text="t('editor.toggleHint')" FontSize="11" />
+        </div>
+
+        <div class="sb-group">
+          <WinTextBlock class="editor-label" :Text="t('editor.startState')" FontSize="13" />
+          <WinButton id="capture-start" :Content="t('editor.captureStart')" @Click="captureStart('startState')" />
+          <WinButton id="capture-reverse" :Content="t('editor.captureReverse')" @Click="captureStart('reverseStart')" />
+          <WinButton id="clear-start" :Content="t('editor.clearStart')" @Click="clearStartStates" />
+          <span class="meta">{{ startStateLabel }}</span>
         </div>
 
         <div class="sb-group">

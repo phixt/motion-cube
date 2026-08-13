@@ -5,6 +5,8 @@ import WinSlider from "../../vendor/winui-on-web/components/WinSlider.vue";
 import WinTextBox from "../../vendor/winui-on-web/components/WinTextBox.vue";
 import WinTextBlock from "../../vendor/winui-on-web/components/WinTextBlock.vue";
 import { createGameSession, type GameSession } from "../../game/session";
+import { clearSnapshot, loadSnapshot, saveSnapshot } from "../../data/snapshot";
+import { parseMoves } from "../../notation/alg";
 import { useI18n } from "../i18n";
 
 const { t } = useI18n();
@@ -38,6 +40,14 @@ onMounted(() => {
     onStatus: (s) => (status.value = s),
     onPlaying: (p) => (playing.value = p),
   });
+  // 进度快照：进入游戏恢复上次达成步骤
+  const snap = loadSnapshot();
+  if (snap) {
+    session.player.element.alg = snap.alg;
+    const parsed = parseMoves(snap.alg);
+    moves.value = parsed.ok ? parsed.normalized.split(/\s+/).filter(Boolean) : [];
+    status.value = "已恢复上次进度";
+  }
 });
 
 onBeforeUnmount(() => {
@@ -54,6 +64,19 @@ const reset = (): void => session?.player.reset();
 const toggleGray = (): void => session?.gray.togglePanel();
 
 watch(speed, (v) => session?.setSpeed(v));
+
+// 每步达成后自动保存快照（复用编辑器/tauri 持久）
+watch(
+  moves,
+  (m) => saveSnapshot(m.join(" ")),
+  { deep: true },
+);
+
+const clearProgress = (): void => {
+  clearSnapshot();
+  session?.player.reset();
+  moves.value = [];
+};
 </script>
 
 <template>
@@ -69,6 +92,7 @@ watch(speed, (v) => session?.setSpeed(v));
       <WinButton id="btn-play" :Content="playing ? t('hud.pause') : t('hud.play')" @Click="togglePlay" />
       <WinButton id="btn-reset" :Content="t('hud.reset')" @Click="reset" />
       <WinButton id="btn-gray" :Content="t('gray.btn')" @Click="toggleGray" />
+      <WinButton id="btn-clear-progress" :Content="t('hud.clearProgress')" @Click="clearProgress" />
       <WinTextBlock class="speed-label" :Text="`${t('hud.speed')} ${speed.toFixed(1)}x`" FontSize="13" />
       <WinSlider id="speed" class="hud-speed" v-model:Value="speed" :Minimum="0.1" :Maximum="3" StepFrequency="0.1" />
       <span id="hud-status" class="hud-status">{{ status }}</span>

@@ -173,9 +173,22 @@
   keymap/library/handRig 无需改造即可持久；暂不需要 plugin-store 抽象层
 - ✅ **附加收益**：tauri 自定义协议为安全上下文，crypto.randomUUID 在桌面版可用
   （web 版 file:// 打开仍会崩，旧债保留）
+- ✅ **隐藏魔方修复**（2026-08-13）：showCube 只设 obj.visible 未触发 cubing
+  惰性重绘；补 scheduleRender 后真正隐藏（截图确认视口只剩手）
+- ✅ **自定义开始状态**（2026-08-13）：Technique 新增可选 startState（正放起始）/
+  reverseStart（倒放起始，均 alg，含记法校验与导入解析）；编辑器侧边栏
+  「捕获正放/倒放起始态 + 清除」；缺省回退 正放=公式逆序状态、倒放=还原态
+- ✅ **游戏进度快照**（2026-08-13）：src/data/snapshot.ts——只存达成步骤/最终
+  状态（alg 同时表达）+ cubeType 预留魔方种类；GamePage 每步自动保存、进入
+  恢复、清除进度按钮；结构可复用于动画编辑器
 - ⬜ **后续优化**：双标题栏（tauri 系统栏 + Web 标题栏）——可改无边框
   decorations:false + 自绘标题栏（data-tauri-drag-region + 窗口控制按钮）；
   icons 为占位（复制自 gomoku），正式发布前替换
+- ⬜ **严格隐藏逻辑（延后设计）**：对象级显隐（魔方/左右手分别）之后，点击
+  选中对象时不能有遮挡、也不重建隐藏对象——需统一点选/命中与显隐的交互规则
+- ⬜ **版本号跟进**：package.json 与 src-tauri/tauri.conf.json 的 version 保持
+  同步，功能/修复提交时评估 bump；自动化（GitHub Actions CI + tauri 打包发布）
+  待配置（用户需先了解工作流）
 
 **待办优先级（2026-08-12 排序）**
 

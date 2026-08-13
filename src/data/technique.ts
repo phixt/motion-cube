@@ -4,6 +4,7 @@
  */
 import { FINGER_ORDER, type Contact, type FingerName, type Pose, type Side } from "../hand/HandRig";
 import { DEFAULT_FRAME_RATE, sortKeyframes, validateKeyframes } from "../timeline/Timeline";
+import { parseMoves } from "../notation/alg";
 
 export type Easing = "linear" | "easeIn" | "easeOut" | "easeInOut";
 
@@ -39,6 +40,10 @@ export type Technique = {
   stepMapping: StepMapping[];
   /** 接触轨道（精确起止帧） */
   contactTracks: ContactTrack[];
+  /** 自定义正放起始态（alg；缺省 = 公式逆序状态） */
+  startState?: string;
+  /** 自定义倒放起始态（alg；缺省 = 还原态） */
+  reverseStart?: string;
 };
 
 export class TechniqueError extends Error {}
@@ -46,6 +51,12 @@ export class TechniqueError extends Error {}
 export function validateTechnique(t: Technique): void {
   if (!t.id || !t.name.trim()) throw new TechniqueError("id/name 不能为空");
   if (!t.formulaId) throw new TechniqueError("手法必须关联一个公式（formulaId 不能为空）");
+  if (t.startState !== undefined && t.startState !== "" && !parseMoves(t.startState).ok) {
+    throw new TechniqueError("startState 不是合法记法");
+  }
+  if (t.reverseStart !== undefined && t.reverseStart !== "" && !parseMoves(t.reverseStart).ok) {
+    throw new TechniqueError("reverseStart 不是合法记法");
+  }
   if (!Number.isFinite(t.frameRate) || t.frameRate <= 0) throw new TechniqueError(`frameRate 必须 > 0：${t.frameRate}`);
   const kfErr = validateKeyframes(t.keyframes);
   if (kfErr) throw new TechniqueError(kfErr);
@@ -75,6 +86,8 @@ export type NewTechnique = {
   keyframes?: TechniqueKeyframe[];
   stepMapping?: StepMapping[];
   contactTracks?: ContactTrack[];
+  startState?: string;
+  reverseStart?: string;
 };
 
 export function createTechnique(input: NewTechnique): Technique {
@@ -86,6 +99,8 @@ export function createTechnique(input: NewTechnique): Technique {
     keyframes: sortKeyframes(input.keyframes ?? []),
     stepMapping: [...(input.stepMapping ?? [])],
     contactTracks: [...(input.contactTracks ?? [])],
+    ...(input.startState ? { startState: input.startState } : {}),
+    ...(input.reverseStart ? { reverseStart: input.reverseStart } : {}),
   };
   validateTechnique(t);
   return t;
@@ -278,6 +293,8 @@ export function deserializeTechnique(text: string): Technique {
     keyframes: sortKeyframes(keyframes),
     stepMapping,
     contactTracks,
+    ...(typeof obj.startState === "string" && obj.startState ? { startState: obj.startState } : {}),
+    ...(typeof obj.reverseStart === "string" && obj.reverseStart ? { reverseStart: obj.reverseStart } : {}),
   };
   validateTechnique(t);
   return t;
