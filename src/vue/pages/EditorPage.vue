@@ -44,7 +44,8 @@ const pxPerFrame = ref(6);
 const PREVIEW_SAMPLE_STEP = 15;
 const AUTO_PATH_STEP = 15; // 自动路径中间关键帧间隔（帧）
 const SNAP_STEP = 1 / 3; // 吸附步长：1/3 块边长（sticker 网格）
-// 每动作默认时长（秒）＝ cubing 单步动画基准（0.3s），改时长后速度由 syncStepSpeed 校准匹配
+// 每动作默认时长（秒）：编辑器默认步时 0.3s（"正常动作"），与 cubing 基准 1s 分离；
+// 播放时 tempoScale = 1.0 / 步时，动画精确匹配
 const STEP_DEFAULT_SEC = 0.3;
 
 const lib = ref(loadLibrary());
@@ -59,7 +60,10 @@ const statusText = ref("");
 let revApplied = 0;
 
 /** 播放器整合：公式 step 与手法 stepMapping 帧级同步 */
-const CUBING_MOVE_SECONDS = 0.3; // cubing 单步动画基准时长（tempoScale=1 时，约 300ms）
+// cubing 默认单步动画基准时长（tempoScale=1 时 1000ms，见 AlgDuration.defaultDurationForAmount）。
+// 之前误设 0.3 导致 tempoScale 校准错误：0.3s 步时配 tempoScale=1 时动画需 1s、只播 0.3s
+// 就被下一步 cancel → 执行完"没到位直接跳变"。
+const CUBING_MOVE_SECONDS = 1.0;
 let formulaMoves: string[] = [];
 let stepMoveIndex = 0;
 
@@ -1216,9 +1220,9 @@ onBeforeUnmount(() => {
                   :id="`step-dur-${selectedSteps[0]}`"
                   type="number"
                   min="0.1"
-                  step="0.1"
+                  step="0.01"
                   class="native-input num-input"
-                  :value="((stepBands[selectedSteps[0]].endFrame - stepBands[selectedSteps[0]].startFrame) / (tech?.frameRate ?? 60)).toFixed(1)"
+                  :value="((stepBands[selectedSteps[0]].endFrame - stepBands[selectedSteps[0]].startFrame) / (tech?.frameRate ?? 60)).toFixed(2)"
                   @change="onStepDurationChange($event, selectedSteps[0])" />
                 <span>s</span>
               </label>
@@ -1231,9 +1235,9 @@ onBeforeUnmount(() => {
                   id="batch-step-dur"
                   type="number"
                   min="0.1"
-                  step="0.1"
+                  step="0.01"
                   class="native-input num-input"
-                  value="0.3" />
+                  value="0.30" />
                 <span>s</span>
               </label>
               <WinButton id="batch-apply" :Content="t('editor.batchApply', { n: selectedSteps.length })" @Click="onBatchApply" />
