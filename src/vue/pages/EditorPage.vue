@@ -106,8 +106,8 @@ let grayOverlay: GrayOverlay | null = null;
 let grayPanelApi: ReturnType<typeof renderGrayPanel> | null = null;
 const maskVisible = ref(false);
 let maskTimer: number | null = null;
-/** 选中动作块（S1…）高亮后在下侧单独设定时长 */
-const selectedStep = ref<number | null>(null);
+/** 选中动作块（S1…，支持 Ctrl/Shift 多选）高亮后在下侧设定时长 */
+const selectedSteps = ref<number[]>([]);
 /** 关键帧编辑折叠区（时间线内展开；点关键帧箭头自动展开） */
 const kfPanelOpen = ref(false);
 let seeking = false;
@@ -124,6 +124,7 @@ const seekFromEvent = (clientX: number, track: HTMLElement): void => {
 const onTrackPointerDown = (e: PointerEvent): void => {
   // 点到动作块：只选中不 seek；其余位置 seek 并进入拖动
   if ((e.target as HTMLElement).closest?.(".tl-step-band")) return;
+  if (selectedSteps.value.length > 0) selectedSteps.value = []; // 点空白取消多选
   seeking = true;
   seekFromEvent(e.clientX, e.currentTarget as HTMLElement);
 };
@@ -135,8 +136,23 @@ const endSeek = (): void => {
   seeking = false;
 };
 
-const selectStep = (i: number): void => {
-  selectedStep.value = selectedStep.value === i ? null : i;
+const selectStep = (i: number, e?: MouseEvent): void => {
+  if (e?.ctrlKey || e?.metaKey) {
+    // Ctrl：切换加入/取消多选
+    selectedSteps.value = selectedSteps.value.includes(i)
+      ? selectedSteps.value.filter((x) => x !== i)
+      : [...selectedSteps.value, i];
+  } else if (e?.shiftKey && selectedSteps.value.length > 0) {
+    // Shift：从最后选中到 i 的区间追加
+    const last = selectedSteps.value[selectedSteps.value.length - 1];
+    const lo = Math.min(last, i);
+    const hi = Math.max(last, i);
+    const add: number[] = [];
+    for (let k = lo; k <= hi; k++) if (!selectedSteps.value.includes(k)) add.push(k);
+    selectedSteps.value = [...selectedSteps.value, ...add];
+  } else {
+    selectedSteps.value = [i];
+  }
 };
 
 /** 逐帧步进：←/→ 每帧；Shift+←/→ 跳相邻关键帧 */
@@ -714,6 +730,41 @@ watch([loopPlay, reversePlay], () => {
 });
 
 /** 每动作完成时长编辑（秒，最小值 > 0）：修改后按顺序连续重建 stepMapping */
+/** 按每步目标时长重建 stepMapping，并等比例重映射关键帧/接触轨道 */
+const rebuildWithDurations = (t2: Technique, durationFor: (idx: number) => number): Technique => {
+  const secs = t2.stepMapping.map((_, i) => durationFor(i));
+  let acc = 0;
+  const stepMapping = secs.map((s, i) => {
+    const startFrame = Math.round(acc * t2.frameRate);
+    acc += s;
+    return { stepIndex: i, startFrame, endFrame: Math.round(acc * t2.frameRate) };
+  });
+  // 等比例重映射（检查轮 2026-08-13）：关键帧 + 接触轨道 统一按
+  // 原所属步骤内的相对进度映射到新步骤；步骤外按总时长等比例缩放。
+  const remapFrame = (frame: number): number => {
+    const old = t2.stepMapping;
+    const oldTotal = Math.max(old.length ? old[old.length - 1].endFrame : 1, 1);
+    const newTotal = Math.max(stepMapping.length ? stepMapping[stepMapping.length - 1].endFrame : 1, 1);
+    const step = old.find((m) => frame >= m.startFrame && frame <= m.endFrame);
+    if (!step || old.length === 0) {
+      return Math.round((frame / oldTotal) * newTotal);
+    }
+    const ratio = (frame - step.startFrame) / Math.max(step.endFrame - step.startFrame, 1);
+    const ns = stepMapping[step.stepIndex];
+    return Math.round(ns.startFrame + ratio * (ns.endFrame - ns.startFrame));
+  };
+  return {
+    ...t2,
+    stepMapping,
+    keyframes: t2.keyframes.map((kf) => ({ ...kf, frame: remapFrame(kf.frame) })),
+    contactTracks: t2.contactTracks.map((c) => ({
+      ...c,
+      startFrame: remapFrame(c.startFrame),
+      endFrame: remapFrame(c.endFrame),
+    })),
+  };
+};
+
 const onStepDurationChange = (e: Event, idx: number): void => {
   if (!tech.value) return;
   const sec = Number((e.target as HTMLInputElement).value);
@@ -721,40 +772,30 @@ const onStepDurationChange = (e: Event, idx: number): void => {
     renderAll();
     return;
   }
-  commit((t2) => {
-    const secs = t2.stepMapping.map((m, i) =>
-      i === idx ? sec : (m.endFrame - m.startFrame) / t2.frameRate,
-    );
-    let acc = 0;
-    const stepMapping = secs.map((s, i) => {
-      const startFrame = Math.round(acc * t2.frameRate);
-      acc += s;
-      return { stepIndex: i, startFrame, endFrame: Math.round(acc * t2.frameRate) };
-    });
-    // 等比例重映射（检查轮 2026-08-13）：关键帧 + 接触轨道 统一按
-    // 原所属步骤内的相对进度映射到新步骤；步骤外按总时长等比例缩放。
-    // 边界帧（step.endFrame = 下一步 startFrame）归前一步，映射后仍落在
-    // 连续区间边界；同一 step 内多个关键帧/接触端点相对间距保持。
-    const remapFrame = (frame: number): number => {
-      const old = t2.stepMapping;
-      const oldTotal = Math.max(old.length ? old[old.length - 1].endFrame : 1, 1);
-      const newTotal = Math.max(stepMapping.length ? stepMapping[stepMapping.length - 1].endFrame : 1, 1);
-      const step = old.find((m) => frame >= m.startFrame && frame <= m.endFrame);
-      if (!step || old.length === 0) {
-        return Math.round((frame / oldTotal) * newTotal);
-      }
-      const ratio = (frame - step.startFrame) / Math.max(step.endFrame - step.startFrame, 1);
-      const ns = stepMapping[step.stepIndex];
-      return Math.round(ns.startFrame + ratio * (ns.endFrame - ns.startFrame));
-    };
-    const keyframes = t2.keyframes.map((kf) => ({ ...kf, frame: remapFrame(kf.frame) }));
-    const contactTracks = t2.contactTracks.map((c) => ({
-      ...c,
-      startFrame: remapFrame(c.startFrame),
-      endFrame: remapFrame(c.endFrame),
-    }));
-    return { ...t2, stepMapping, keyframes, contactTracks };
-  });
+  commit((t2) =>
+    rebuildWithDurations(
+      t2,
+      (i) => (i === idx ? sec : (t2.stepMapping[i].endFrame - t2.stepMapping[i].startFrame) / t2.frameRate),
+    ),
+  );
+};
+
+/** 多选动作块：统一设置选中步骤的时长 */
+const onBatchApply = (): void => {
+  if (!tech.value || selectedSteps.value.length < 2) return;
+  const el = document.getElementById("batch-step-dur") as HTMLInputElement | null;
+  const sec = Number(el?.value);
+  if (!Number.isFinite(sec) || sec <= 0) {
+    renderAll();
+    return;
+  }
+  const sel = new Set(selectedSteps.value);
+  commit((t2) =>
+    rebuildWithDurations(
+      t2,
+      (i) => (sel.has(i) ? sec : (t2.stepMapping[i].endFrame - t2.stepMapping[i].startFrame) / t2.frameRate),
+    ),
+  );
 };
 
 /** 时间线缩放：Ctrl+滚轮 */
@@ -1155,8 +1196,8 @@ onBeforeUnmount(() => {
                 v-for="band in stepBands"
                 :key="band.stepIndex"
                 class="tl-step-band"
-                :class="{ selected: selectedStep === band.stepIndex }"
-                @click="selectStep(band.stepIndex)"
+                :class="{ selected: selectedSteps.includes(band.stepIndex) }"
+                @click="selectStep(band.stepIndex, $event)"
                 :style="{ left: `${band.startFrame * pxPerFrame}px`, width: `${Math.max((band.endFrame - band.startFrame) * pxPerFrame, 8)}px` }">
                 S{{ band.stepIndex + 1 }}
               </span>
@@ -1168,20 +1209,35 @@ onBeforeUnmount(() => {
           </div>
           <div v-if="tech && stepBands.length" class="step-durations">
             <WinTextBlock class="editor-label" :Text="t('editor.stepDuration')" FontSize="14" />
-            <template v-if="selectedStep !== null && stepBands[selectedStep]">
+            <template v-if="selectedSteps.length === 1 && stepBands[selectedSteps[0]]">
               <label class="step-dur">
-                <span class="step-dur-name">S{{ selectedStep + 1 }}</span>
+                <span class="step-dur-name">S{{ selectedSteps[0] + 1 }}</span>
                 <input
-                  :id="`step-dur-${selectedStep}`"
+                  :id="`step-dur-${selectedSteps[0]}`"
                   type="number"
                   min="0.1"
                   step="0.1"
                   class="native-input num-input"
-                  :value="((stepBands[selectedStep].endFrame - stepBands[selectedStep].startFrame) / (tech?.frameRate ?? 60)).toFixed(1)"
-                  @change="onStepDurationChange($event, selectedStep)" />
+                  :value="((stepBands[selectedSteps[0]].endFrame - stepBands[selectedSteps[0]].startFrame) / (tech?.frameRate ?? 60)).toFixed(1)"
+                  @change="onStepDurationChange($event, selectedSteps[0])" />
                 <span>s</span>
               </label>
-              <WinButton :Content="t('editor.stepDone')" @Click="selectedStep = null" />
+              <WinButton :Content="t('editor.stepDone')" @Click="selectedSteps = []" />
+            </template>
+            <template v-else-if="selectedSteps.length > 1">
+              <label class="step-dur">
+                <span class="step-dur-name">{{ t("editor.batchSteps", { n: selectedSteps.length }) }}</span>
+                <input
+                  id="batch-step-dur"
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  class="native-input num-input"
+                  value="0.3" />
+                <span>s</span>
+              </label>
+              <WinButton id="batch-apply" :Content="t('editor.batchApply', { n: selectedSteps.length })" @Click="onBatchApply" />
+              <WinButton :Content="t('editor.stepDone')" @Click="selectedSteps = []" />
             </template>
             <span v-else class="meta">{{ t("editor.stepHint") }}</span>
           </div>
