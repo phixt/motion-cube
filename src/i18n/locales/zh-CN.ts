@@ -217,6 +217,7 @@ export const zhCN: Record<string, string> = {
   "editor.timelineHide": "收起时间线",
   "editor.selected": "选中关键帧",
   "editor.frame": "帧号（1/60 s）",
+  "editor.beat": "拍（0.3s/拍）",
   "editor.easing": "缓动",
   "editor.deleteKf": "删除关键帧",
   "editor.pose": "手掌坐标",

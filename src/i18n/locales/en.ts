@@ -222,6 +222,7 @@ export const en: Record<string, string> = {
   "editor.timelineHide": "Hide timeline",
   "editor.selected": "Selected keyframe",
   "editor.frame": "Frame (1/60 s)",
+  "editor.beat": "Beat (0.3s/beat)",
   "editor.easing": "Easing",
   "editor.deleteKf": "Delete keyframe",
   "editor.pose": "Palm position",

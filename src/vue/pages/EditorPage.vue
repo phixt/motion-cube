@@ -47,6 +47,8 @@ const SNAP_STEP = 1 / 3; // 吸附步长：1/3 块边长（sticker 网格）
 // 每动作默认时长（秒）：编辑器默认步时 0.3s（"正常动作"），与 cubing 基准 1s 分离；
 // 播放时 tempoScale = 1.0 / 步时，动画精确匹配
 const STEP_DEFAULT_SEC = 0.3;
+/** 拍：1 拍 = 默认步时（0.3s = 18 帧 @60fps）；事件（关键帧等）可按拍编辑/吸附 */
+const BEAT_FRAMES = Math.round(STEP_DEFAULT_SEC * 60);
 
 const lib = ref(loadLibrary());
 const tech = ref<Technique | null>(null);
@@ -301,6 +303,45 @@ const rulerTicks = computed(() => {
   }
   return ticks;
 });
+
+/** 拍网格刻度（每 1 拍一条，0.3s） */
+const beatTicks = computed(() => {
+  const ticks: { frame: number; beat: number }[] = [];
+  const total = totalFrames.value;
+  for (let f = 0; f <= total; f += BEAT_FRAMES) ticks.push({ frame: f, beat: f / BEAT_FRAMES });
+  return ticks;
+});
+
+/** 当前选中关键帧对应的拍（1 拍 = BEAT_FRAMES 帧） */
+const beatOfSelected = computed(() =>
+  selectedFrame.value === null ? "" : (selectedFrame.value / BEAT_FRAMES).toFixed(2),
+);
+
+/** 拍 → 帧号并更新选中关键帧（复用帧号变更语义） */
+const onKfBeatChange = (e: Event): void => {
+  if (!tech.value || selectedFrame.value === null) return;
+  const beat = Number((e.target as HTMLInputElement).value);
+  if (!Number.isFinite(beat) || beat < 0) {
+    renderSelected();
+    return;
+  }
+  const target = Math.round(beat * BEAT_FRAMES);
+  onKfFrameChangeFrom(target);
+};
+
+const onKfFrameChangeFrom = (target: number): void => {
+  if (!tech.value || selectedFrame.value === null) return;
+  const kf = tech.value.keyframes.find((k) => k.frame === selectedFrame.value);
+  if (!kf) return;
+  commit((t2) => {
+    const moved = upsertKeyframe(t2, { ...kf, frame: target });
+    return removeKeyframe(moved, selectedFrame.value!);
+  });
+  selectedFrame.value = target;
+  previewFrame.value = target;
+  syncCubeToFrame(target);
+  renderAll();
+};
 
 const tlWidth = computed(() => `${Math.max(totalFrames.value, 60) * pxPerFrame.value}px`);
 
@@ -1281,6 +1322,13 @@ onBeforeUnmount(() => {
           </div>
           <div class="tl-wrap" @wheel="onTlWheel">
             <div id="tl-ruler" class="tl-ruler" :style="{ width: tlWidth }">
+              <span
+                v-for="bt in beatTicks"
+                :key="`b${bt.frame}`"
+                class="tl-tick-beat"
+                :style="{ left: `${bt.frame * pxPerFrame}px` }">
+                {{ bt.beat % 1 === 0 ? bt.beat : "" }}
+              </span>
               <button
                 v-for="kf in sortedKeyframes"
                 :key="kf.frame"
@@ -1365,6 +1413,8 @@ onBeforeUnmount(() => {
             <div class="editor-kf-row">
               <WinTextBlock class="editor-label" :Text="t('editor.frame')" />
               <input id="kf-frame" ref="kfFrameEl" type="number" min="0" step="1" class="native-input num-input" @change="onKfFrameChange" />
+              <WinTextBlock class="editor-label" :Text="t('editor.beat')" />
+              <input id="kf-frame-beat" type="number" min="0" step="0.01" class="native-input num-input" :value="beatOfSelected" @change="onKfBeatChange" />
               <WinTextBlock class="editor-label" :Text="t('editor.easing')" />
               <select id="kf-easing" ref="kfEasingEl" class="native-select" @change="onKfEasingChange">
                 <option value="linear">linear</option>
@@ -1717,6 +1767,20 @@ onBeforeUnmount(() => {
 
 .tl-tick-major {
   transform: translateX(2px);
+}
+
+.tl-tick-beat {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  background: var(--stroke-divider, rgba(128, 128, 138, 0.28));
+  font-size: 9px;
+  line-height: 10px;
+  color: var(--text-tertiary);
+  padding-left: 3px;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .tl-tick-minor {
