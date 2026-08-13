@@ -24,7 +24,6 @@ import {
 import {
   defaultHandPose,
   FINGER_ORDER,
-  type Contact,
   type FingerName,
   type HandType,
   type Pose,
@@ -89,24 +88,25 @@ let formulaMoves: string[] = [];
 let stepMoveIndex = 0;
 
 const editorViewEl = ref<HTMLElement | null>(null);
-const tecSelectEl = ref<HTMLSelectElement | null>(null);
 const handTypeSelectEl = ref<HTMLSelectElement | null>(null);
 const formulaLabelEl = ref<HTMLElement | null>(null);
 const emptyHintEl = ref<HTMLElement | null>(null);
 const newNameEl = ref<HTMLInputElement | null>(null);
-const newFormulaEl = ref<HTMLSelectElement | null>(null);
 const tlMetaEl = ref<HTMLElement | null>(null);
 const kfFrameEl = ref<HTMLInputElement | null>(null);
 const kfEasingEl = ref<HTMLSelectElement | null>(null);
 const kfDeleteEl = ref<HTMLButtonElement | null>(null);
-const kfPoseEl = ref<HTMLElement | null>(null);
 const kfPoseXEl = ref<HTMLInputElement | null>(null);
 const kfPoseYEl = ref<HTMLInputElement | null>(null);
 const kfPoseZEl = ref<HTMLInputElement | null>(null);
 const kfPoseRxEl = ref<HTMLInputElement | null>(null);
 const kfPoseRyEl = ref<HTMLInputElement | null>(null);
 const kfPoseRzEl = ref<HTMLInputElement | null>(null);
-const addFrameEl = ref<HTMLInputElement | null>(null);
+/** 手法选择搜索（编辑器侧边栏，复用公式库搜索思路） */
+const tecSearch = ref("");
+/** 新建手法：关联公式搜索与选中 */
+const formulaSearch = ref("");
+const selectedFormulaId = ref("");
 
 let player: CubePlayer | null = null;
 let handView: HandRigView | null = null;
@@ -461,48 +461,30 @@ const kfDeleteEnabled = computed(() =>
   !!tech.value?.keyframes.find((k) => k.frame === shownFrame()),
 );
 
-const techniqueOptions = computed(() => [
-  { id: "", name: t("library.noneCategory") },
-  ...lib.value.techniques.map((x) => ({ id: x.id, name: x.name })),
-]);
+/** 手法搜索：名称或关联公式名包含（大小写不敏感；复用公式库搜索思路） */
+const filteredTechniques = computed(() => {
+  const q = tecSearch.value.trim().toLowerCase();
+  if (!q) return lib.value.techniques;
+  return lib.value.techniques.filter((x) => {
+    if (x.name.toLowerCase().includes(q)) return true;
+    const f = lib.value.formulas.find((fm) => fm.id === x.formulaId);
+    return !!f?.name.toLowerCase().includes(q);
+  });
+});
 
-const formulaOptions = computed(() => [
-  { id: "", name: t("library.noneCategory") },
-  ...lib.value.formulas.map((f) => ({ id: f.id, name: f.name })),
-]);
+/** 新建手法：公式搜索（名称或公式串包含） */
+const filteredNewFormulas = computed(() => {
+  const q = formulaSearch.value.trim().toLowerCase();
+  if (!q) return lib.value.formulas;
+  return lib.value.formulas.filter((f) => {
+    return f.name.toLowerCase().includes(q) || f.moves.toLowerCase().includes(q);
+  });
+});
 
 const handTypeOptions = [
   { value: "right", label: t("editor.handRight") },
   { value: "left", label: t("editor.handLeft") },
 ];
-
-/** 姿态摘要：各指 PIP（拇指 IP）等数值 */
-function jointName(name: string): string {
-  return name === "thumb" ? "IP" : "PIP";
-}
-
-/** 当前帧活跃的接触（来自手法 contactTracks 精确起止帧） */
-function activeContactsAt(frame: number): Contact[] {
-  if (!tech.value) return [];
-  return tech.value.contactTracks
-    .filter((c) => c.startFrame <= frame && frame <= c.endFrame)
-    .map((c) => c.contact);
-}
-
-function poseSummary(pose: Pose, contacts: Contact[] = pose.contacts): string {
-  const lines = FINGER_ORDER.map((name) => {
-    const arr = pose.bends[name];
-    const joint = name === "thumb" ? 2 : 1;
-    const tip = name === "thumb" ? 1 : 2;
-    return `${name.padEnd(6)} ${jointName(name)}:${Math.round(arr[joint] ?? 0)}°  DIP/MCP:${Math.round(arr[tip] ?? 0)}°`;
-  });
-  lines.push(`thumbCMC ab:${Math.round(pose.thumbCMC.abduction)} rot:${Math.round(pose.thumbCMC.rotation)}`);
-  lines.push(
-    `palm pos (${pose.palm.transform.position.x.toFixed(2)}, ${pose.palm.transform.position.y.toFixed(2)}, ${pose.palm.transform.position.z.toFixed(2)})`,
-  );
-  lines.push(`contacts: ${contacts.length ? contacts.map((c) => `${c.finger}→${c.target}`).join(", ") : "—"}`);
-  return lines.join("\n");
-}
 
 /** 当前预览帧的插值姿态（<2 关键帧时取唯一帧或 null） */
 function previewPose(): Pose | null {
@@ -537,13 +519,6 @@ function renderSelected(keepInputs = false): void {
   const displayPose = shownPose();
   if (kfFrameEl.value) kfFrameEl.value.value = frame !== null ? String(frame) : "";
   if (kfEasingEl.value) kfEasingEl.value.value = kf?.easing ?? "linear";
-  if (kfPoseEl.value) {
-    kfPoseEl.value.textContent = displayPose
-      ? poseSummary(displayPose, activeContactsAt(frame ?? 0))
-      : tech.value
-        ? t("editor.noKfSelected")
-        : "";
-  }
   const pos = displayPose?.palm.transform.position;
   // 坐标输入过程中不回写 value（对齐标定页手感，连续输入不被打断）
   if (!keepInputs) {
@@ -575,12 +550,8 @@ function poseRotationDeg(pose: Pose): { x: number; y: number; z: number } {
 }
 
 function renderPreview(): void {
-  // 添加关键帧目标帧跟随进度（用户聚焦输入框时不覆盖）
-  if (addFrameEl.value && document.activeElement !== addFrameEl.value) {
-    addFrameEl.value.value = String(previewFrame.value);
-  }
   const pose = shownPose();
-  // 面板常驻时：帧号/缓动/删除/摘要/数值全部跟随播放头（姿态信息并入帧编辑器；
+  // 面板常驻时：帧号/缓动/删除/数值全部跟随播放头（姿态信息并入帧编辑器；
   // 正在输入的数值框不覆盖）
   if (kfPanelVisible.value) {
     const frame = previewFrame.value;
@@ -588,11 +559,6 @@ function renderPreview(): void {
     if (kfFrameEl.value) kfFrameEl.value.value = String(frame);
     if (kfEasingEl.value) kfEasingEl.value.value = kf?.easing ?? "linear";
     if (kfDeleteEl.value) kfDeleteEl.value.disabled = !kf;
-    if (kfPoseEl.value) {
-      kfPoseEl.value.textContent = pose
-        ? poseSummary(pose, activeContactsAt(frame))
-        : t("editor.needKf");
-    }
     if (pose) {
       const pos = pose.palm.transform.position;
       const rot = poseRotationDeg(pose);
@@ -621,7 +587,6 @@ function renderPreview(): void {
 }
 
 function renderAll(keepInputs = false): void {
-  if (tecSelectEl.value) tecSelectEl.value.value = tech.value?.id ?? "";
   if (formulaLabelEl.value) {
     formulaLabelEl.value.textContent = tech.value
       ? `${t("editor.formula")}: ${lib.value.formulas.find((f) => f.id === tech.value!.formulaId)?.name ?? "?"}`
@@ -752,10 +717,6 @@ function commit(fn: (t2: Technique) => Technique, keepInputs = false): void {
   }
 }
 
-const onTecChange = (e: Event): void => {
-  selectTech((e.target as HTMLSelectElement).value);
-};
-
 const onHandTypeChange = (e: Event): void => {
   handView?.setHandType((e.target as HTMLSelectElement).value as HandType);
   renderPreview(); // 默认手位随手型更新（左右手镜像位置/朝向）
@@ -763,7 +724,7 @@ const onHandTypeChange = (e: Event): void => {
 
 const onNewAdd = (): void => {
   const name = newNameEl.value?.value.trim() ?? "";
-  const formulaId = newFormulaEl.value?.value ?? "";
+  const formulaId = selectedFormulaId.value;
   if (!name) {
     statusText.value = t("editor.newFail");
     return;
@@ -907,11 +868,7 @@ const onBendInput = (e: Event, name: FingerName, j: number): void => {
 
 const onKfAdd = (): void => {
   if (!tech.value) return;
-  const target = Number(addFrameEl.value?.value);
-  if (!Number.isInteger(target) || target < 0) {
-    statusText.value = t("editor.frameInvalid");
-    return;
-  }
+  const target = previewFrame.value; // 添加目标 = 当前播放头帧（帧号输入已随播放头，不再重复）
   commit((t2) => {
     let src: Pose | undefined;
     const sel = t2.keyframes.find((k) => k.frame === selectedFrame.value);
@@ -1424,13 +1381,11 @@ onBeforeUnmount(() => {
             <WinButton id="kf-delete" ref="kfDeleteEl" class="del" :Content="t('editor.deleteKf')" :IsEnabled="kfDeleteEnabled" @Click="onKfDelete" />
           </div>
           <div class="kf-add-tools">
-            <input id="kf-add-frame" ref="addFrameEl" type="number" min="0" step="1" class="native-input num-input" value="30" />
             <WinButton id="kf-add" :Content="t('editor.addKf')" Style="AccentButtonStyle" @Click="onKfAdd" />
             <WinButton id="auto-path" :Content="t('editor.autoPath')" @Click="onAutoPath" />
             <WinButton id="kf-insert-mid" :Content="t('editor.insertMid')" @Click="onInsertMid" />
             <WinButton id="sine-path" :Content="t('editor.sinePath')" @Click="onSinePath" />
           </div>
-          <pre id="kf-pose" ref="kfPoseEl" class="kf-pose"></pre>
           <div class="pose-edit">
             <div class="pose-edit-row">
               <WinToggleSwitch v-model:IsOn="snapOn" :OnContent="t('editor.snapOn')" :OffContent="t('editor.snapOff')" />
@@ -1486,9 +1441,16 @@ onBeforeUnmount(() => {
         </div>
         <div class="sb-group">
           <WinTextBlock class="editor-label" :Text="t('editor.technique')" FontSize="13" />
-          <select id="tec-select" ref="tecSelectEl" class="native-select" @change="onTecChange">
-            <option v-for="opt in techniqueOptions" :key="opt.id" :value="opt.id">{{ opt.name }}</option>
-          </select>
+          <input id="tec-search" v-model="tecSearch" class="native-input" :placeholder="t('editor.tecSearch')" />
+          <div class="tec-list">
+            <button
+              v-for="t in filteredTechniques"
+              :key="t.id"
+              class="tec-item"
+              :class="{ active: tech?.id === t.id }"
+              @click="selectTech(t.id)">{{ t.name }}</button>
+            <p v-if="filteredTechniques.length === 0" class="meta list-empty">{{ t("editor.searchEmpty") }}</p>
+          </div>
           <span id="tec-formula" ref="formulaLabelEl" class="meta"></span>
           <p id="editor-empty" ref="emptyHintEl" class="page-note" hidden>{{ t("editor.empty") }}</p>
         </div>
@@ -1496,9 +1458,16 @@ onBeforeUnmount(() => {
         <div class="sb-group">
           <WinTextBlock class="editor-label" :Text="t('editor.newAdd')" FontSize="13" />
           <input id="tec-new-name" ref="newNameEl" class="native-input" :placeholder="t('editor.newName')" />
-          <select id="tec-new-formula" ref="newFormulaEl" class="native-select">
-            <option v-for="opt in formulaOptions" :key="opt.id" :value="opt.id">{{ opt.name }}</option>
-          </select>
+          <input id="new-formula-search" v-model="formulaSearch" class="native-input" :placeholder="t('editor.formulaSearch')" />
+          <div class="formula-list">
+            <button
+              v-for="f in filteredNewFormulas"
+              :key="f.id"
+              class="tec-item"
+              :class="{ active: selectedFormulaId === f.id }"
+              @click="selectedFormulaId = f.id">{{ f.name }}</button>
+            <p v-if="filteredNewFormulas.length === 0" class="meta list-empty">{{ t("editor.searchEmpty") }}</p>
+          </div>
           <WinButton id="tec-new-add" :Content="t('editor.newAdd')" Style="AccentButtonStyle" @Click="onNewAdd" />
         </div>
 
@@ -2070,11 +2039,43 @@ onBeforeUnmount(() => {
   border-top: 1px solid var(--stroke-divider);
 }
 
-.kf-add-tools .num-input {
-  width: 54px;
-  min-height: 22px;
-  padding: 1px 5px;
-  font-size: 12px;
+.tec-list,
+.formula-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 170px;
+  overflow-y: auto;
+  border: 1px solid var(--stroke-divider);
+  border-radius: var(--ControlCornerRadius, 4px);
+  padding: 4px;
+}
+
+.tec-item {
+  text-align: left;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tec-item:hover {
+  background: var(--ctrl-fill-secondary, rgba(128, 128, 138, 0.14));
+}
+
+.tec-item.active {
+  background: var(--accent-base);
+  color: var(--accent-text, #fff);
+}
+
+.list-empty {
+  padding: 4px 8px;
 }
 
 .kf-edit-head {
@@ -2201,19 +2202,6 @@ html.theme-light .editor-save-btn:hover {
   text-align: center;
   padding: 0 24px;
   pointer-events: none;
-}
-
-.kf-pose {
-  margin-top: 8px;
-  padding: 10px 12px;
-  border: 1px solid var(--stroke-divider);
-  border-radius: var(--ControlCornerRadius, 4px);
-  background: var(--ctrl-fill-default);
-  color: var(--text-primary);
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 12px;
-  line-height: 1.55;
-  white-space: pre-wrap;
 }
 
 .pv-slider {
