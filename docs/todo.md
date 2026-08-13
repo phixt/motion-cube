@@ -252,9 +252,10 @@
 
 ### 技术债
 
-- ⬜ 四元数插值 nlerp → slerp（Timeline.ts；P1）
-- ⬜ contact.lifetime 精确起止帧建模（当前为相邻关键帧离散切换；P1）
-- ⬜ cubing 大 chunk 分包优化（vite build 警告；P2）
+- ✅ 四元数插值 nlerp → slerp（P1 已完成：Timeline.ts slerpQuat，近平行回退 nlerp）
+- ✅ contact.lifetime 精确起止帧建模（P1 已完成：手法级 contactTracks 起止帧，
+  插值不再离散切换）
+- ✅ cubing 大 chunk 分包优化（P2 已完成：路由级懒加载，main 804KB → 35.7KB）
 
 ## 已完成
 
