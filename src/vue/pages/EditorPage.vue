@@ -71,6 +71,8 @@ let revApplied = 0;
 /** 已应用的公式动作数（空拍不消耗；stepIndex 为序列位置） */
 let moveCursor = 0;
 let lastTickAt = 0;
+/** 播放帧累加器：按真实时间累积分数帧，消除逐帧取整漂移（任意帧率下 1 拍 = 0.3s） */
+let frameAcc = 0;
 
 /** 播放器整合：公式 step 与手法 stepMapping 帧级同步 */
 // cubing 默认单步动画基准时长（tempoScale=1 时 1000ms，见 AlgDuration.defaultDurationForAmount）。
@@ -123,10 +125,16 @@ const maskVisible = ref(false);
 let maskTimer: number | null = null;
 /** 选中动作块（S1…，支持 Ctrl/Shift 多选）高亮后在下侧设定时长 */
 const selectedSteps = ref<number[]>([]);
-/** 关键帧编辑折叠区（时间线内展开；点关键帧箭头自动展开） */
+/** 关键帧编辑面板（左侧边栏顶部；点关键帧箭头/自动建帧时展开） */
 const kfPanelOpen = ref(false);
+const kfPanelEl = ref<HTMLElement | null>(null);
+/** 编辑面板显示：autoKf 开启即视为使用中（跟随播放头），否则需选中关键帧 */
+const kfPanelVisible = computed(() => kfPanelOpen.value && (selectedFrame.value !== null || autoKf.value));
 /** 自动添加关键帧：在无关键帧的帧位置修改姿态数值时自动建帧 */
 const autoKf = ref(false);
+watch(autoKf, (on) => {
+  if (on) kfPanelOpen.value = true; // 自动建帧即进入编辑：展开侧边栏面板
+});
 const saveFailed = ref(false);
 /** 各指关节名（与 rig.fingers[name].joints 顺序一致）与 bend 范围 */
 const FINGER_JOINTS: Record<FingerName, string[]> = {
@@ -148,7 +156,7 @@ let rulerSeeking = false;
 /** 时间线播放头/轨道 seek：按点击位置换算帧号 */
 const seekFromEvent = (clientX: number, track: HTMLElement): void => {
   const rect = track.getBoundingClientRect();
-  const total = Math.max(totalFrames.value, 60);
+  const total = Math.max(totalFrames.value, Math.round(tech.value?.frameRate ?? 60));
   const frame = Math.max(0, Math.round(((clientX - rect.left) / Math.max(rect.width, 1)) * total));
   previewFrame.value = Math.min(frame, total);
   syncCubeToFrame(previewFrame.value);
@@ -205,6 +213,19 @@ const onRulerMove = (e: PointerEvent): void => {
 };
 const onRulerEnd = (): void => {
   rulerSeeking = false;
+};
+
+/** 点面板以外（时间线/3D 视图等）→ 取消选中并自动隐藏编辑面板 */
+const onGlobalPointerDown = (e: PointerEvent): void => {
+  if (!kfPanelOpen.value) return;
+  const t = e.target as HTMLElement;
+  if (kfPanelEl.value?.contains(t)) return;
+  if (t.closest?.(".tl-kf")) return; // 关键帧箭头：由 selectKf 处理
+  if (t.closest?.(".editor-sidebar")) return; // 侧边栏内不自动隐藏
+  if (t.closest?.(".tl-playback-controls")) return; // 播放控制（循环/倒放/自动建帧/帧率）
+  if (autoKf.value) return; // 自动建帧模式视为使用中，保持展开
+  selectedFrame.value = null;
+  kfPanelOpen.value = false;
 };
 const selectStep = (i: number, e?: MouseEvent): void => {
   if (e?.ctrlKey || e?.metaKey) {
@@ -329,19 +350,23 @@ const totalFrames = computed(() => {
     ? tech.value.keyframes[tech.value.keyframes.length - 1].frame
     : 0;
   const stepLast = tech.value.stepMapping.reduce((m, s) => Math.max(m, s.endFrame), 0);
-  return Math.max(kfLast, stepLast, 60);
+  return Math.max(kfLast, stepLast, Math.round(tech.value.frameRate));
 });
 
 const sortedKeyframes = computed(() =>
   tech.value ? [...tech.value.keyframes].sort((a, b) => a.frame - b.frame) : [],
 );
 
+/** 时间线刻度（时间制）：主刻度 1s、次刻度 1/5s，随 frameRate 换算帧号 */
 const rulerTicks = computed(() => {
+  const fr = tech.value?.frameRate ?? 60;
   const ticks: { frame: number; major: boolean }[] = [];
   const total = totalFrames.value;
+  const majorEvery = Math.max(1, Math.round(fr));
+  const minorEvery = Math.max(1, Math.round(fr / 5));
   for (let f = 0; f <= total; f++) {
-    if (f % 60 === 0) ticks.push({ frame: f, major: true });
-    else if (f % 12 === 0) ticks.push({ frame: f, major: false }); // 秒 5 等分
+    if (f % majorEvery === 0) ticks.push({ frame: f, major: true });
+    else if (f % minorEvery === 0) ticks.push({ frame: f, major: false });
   }
   return ticks;
 });
@@ -356,26 +381,46 @@ const beatTicks = computed(() => {
   return ticks;
 });
 
-/** 当前选中关键帧对应的拍（1 拍 = beatFrames 帧） */
-const beatOfSelected = computed(() =>
-  selectedFrame.value === null || beatFrames.value <= 0
-    ? ""
-    : (selectedFrame.value / beatFrames.value).toFixed(2),
-);
+/** 当前编辑目标帧对应的拍（1 拍 = beatFrames 帧；autoKf 跟随播放头） */
+const beatOfSelected = computed(() => {
+  const frame = shownFrame();
+  return frame === null || beatFrames.value <= 0 ? "" : (frame / beatFrames.value).toFixed(2);
+});
 
 /** 拍 → 帧号并更新选中关键帧（复用帧号变更语义） */
 const onKfBeatChange = (e: Event): void => {
-  if (!tech.value || selectedFrame.value === null) return;
+  const src = shownFrame();
+  if (!tech.value || src === null) return;
   const beat = Number((e.target as HTMLInputElement).value);
   if (!Number.isFinite(beat) || beat < 0) {
     renderSelected();
     return;
   }
   const target = Math.round(beat * beatFrames.value);
-  onKfFrameChangeFrom(target);
+  onKfFrameChangeFrom(target, src);
 };
 
-/** 切换 frameRate（预设挡位，最高 1000） */
+/** 按秒等比重映射全部帧数据（拍/动作联动：0.3s 的动作帧数随 frameRate 变化，时长不变） */
+function rescaleFrames(t2: Technique, oldFr: number, newFr: number): Technique {
+  const remap = (frame: number): number => Math.round((frame / oldFr) * newFr);
+  return {
+    ...t2,
+    frameRate: newFr,
+    keyframes: t2.keyframes.map((k) => ({ ...k, frame: remap(k.frame) })),
+    stepMapping: t2.stepMapping.map((m) => ({
+      ...m,
+      startFrame: remap(m.startFrame),
+      endFrame: remap(m.endFrame),
+    })),
+    contactTracks: t2.contactTracks.map((c) => ({
+      ...c,
+      startFrame: remap(c.startFrame),
+      endFrame: remap(c.endFrame),
+    })),
+  };
+}
+
+/** 切换 frameRate（预设挡位，最高 1000）：全时间线按秒重映射，避免极高帧率光速完成 */
 const onFrameRateChange = (e: Event): void => {
   if (!tech.value) return;
   const fr = Number((e.target as HTMLSelectElement).value);
@@ -383,16 +428,26 @@ const onFrameRateChange = (e: Event): void => {
     renderAll();
     return;
   }
-  commit((t2) => ({ ...t2, frameRate: fr }));
+  const oldFr = tech.value.frameRate;
+  if (oldFr === fr) return;
+  playing.value = false; // 播放中切换帧率会与步进/魔方状态脱同步，先停止
+  const sel = selectedFrame.value;
+  const pv = previewFrame.value;
+  commit((t2) => rescaleFrames(t2, oldFr, fr));
+  // 选中关键帧与播放头保持同一时间位置（帧号按秒等比换算）
+  if (sel !== null) selectedFrame.value = Math.round((sel / oldFr) * fr);
+  previewFrame.value = Math.round((pv / oldFr) * fr);
+  syncCubeToFrame(previewFrame.value);
+  renderAll(); // 重渲染面板摘要/数值（selectedFrame 已按新帧率换算）
 };
 
-const onKfFrameChangeFrom = (target: number): void => {
-  if (!tech.value || selectedFrame.value === null) return;
-  const kf = tech.value.keyframes.find((k) => k.frame === selectedFrame.value);
+const onKfFrameChangeFrom = (target: number, src: number = shownFrame() ?? -1): void => {
+  if (!tech.value || src < 0) return;
+  const kf = tech.value.keyframes.find((k) => k.frame === src);
   if (!kf) return;
   commit((t2) => {
     const moved = upsertKeyframe(t2, { ...kf, frame: target });
-    return removeKeyframe(moved, selectedFrame.value!);
+    return removeKeyframe(moved, src);
   });
   selectedFrame.value = target;
   previewFrame.value = target;
@@ -400,13 +455,13 @@ const onKfFrameChangeFrom = (target: number): void => {
   renderAll();
 };
 
-const tlWidth = computed(() => `${Math.max(totalFrames.value, 60) * pxPerFrame.value}px`);
+const tlWidth = computed(() => `${Math.max(totalFrames.value, Math.round(tech.value?.frameRate ?? 60)) * pxPerFrame.value}px`);
 
 const stepBands = computed(() => tech.value?.stepMapping ?? []);
 
 const kfDeleteEnabled = computed(() =>
-  selectedFrame.value !== null &&
-  !!tech.value?.keyframes.find((k) => k.frame === selectedFrame.value),
+  shownFrame() !== null &&
+  !!tech.value?.keyframes.find((k) => k.frame === shownFrame()),
 );
 
 const techniqueOptions = computed(() => [
@@ -464,32 +519,47 @@ function previewPose(): Pose | null {
   return interpolatePose(seg.a.pose, seg.b.pose, eased);
 }
 
+/** 编辑面板目标帧：autoKf 时跟随播放头，否则为选中关键帧 */
+function shownFrame(): number | null {
+  if (!tech.value) return null;
+  return autoKf.value ? previewFrame.value : selectedFrame.value;
+}
+
+/** 编辑面板显示姿态：目标帧有关键帧则用关键帧姿态；autoKf 空白帧用插值姿态 */
+function shownPose(): Pose | null {
+  const frame = shownFrame();
+  if (frame === null) return null;
+  const kf = tech.value?.keyframes.find((k) => k.frame === frame);
+  if (kf) return kf.pose;
+  if (autoKf.value) return previewPose();
+  return null;
+}
+
 function renderSelected(keepInputs = false): void {
-  const kf =
-    selectedFrame.value === null
-      ? null
-      : tech.value?.keyframes.find((k) => k.frame === selectedFrame.value);
-  if (kfFrameEl.value) kfFrameEl.value.value = kf ? String(kf.frame) : "";
+  const frame = shownFrame();
+  const kf = frame === null ? null : tech.value?.keyframes.find((k) => k.frame === frame);
+  const displayPose = shownPose();
+  if (kfFrameEl.value) kfFrameEl.value.value = frame !== null ? String(frame) : "";
   if (kfEasingEl.value) kfEasingEl.value.value = kf?.easing ?? "linear";
   if (kfPoseEl.value) {
-    kfPoseEl.value.textContent = kf
-      ? poseSummary(kf.pose, activeContactsAt(kf.frame))
+    kfPoseEl.value.textContent = displayPose
+      ? poseSummary(displayPose, activeContactsAt(frame ?? 0))
       : tech.value
         ? t("editor.noKfSelected")
         : "";
   }
-  const pos = kf?.pose.palm.transform.position;
+  const pos = displayPose?.palm.transform.position;
   // 坐标输入过程中不回写 value（对齐标定页手感，连续输入不被打断）
   if (!keepInputs) {
     if (kfPoseXEl.value) kfPoseXEl.value.value = pos ? pos.x.toFixed(2) : "";
     if (kfPoseYEl.value) kfPoseYEl.value.value = pos ? pos.y.toFixed(2) : "";
     if (kfPoseZEl.value) kfPoseZEl.value.value = pos ? pos.z.toFixed(2) : "";
-    const rot = kf ? poseRotationDeg(kf.pose) : null;
+    const rot = displayPose ? poseRotationDeg(displayPose) : null;
     if (kfPoseRxEl.value) kfPoseRxEl.value.value = rot ? rot.x.toFixed(0) : "";
     if (kfPoseRyEl.value) kfPoseRyEl.value.value = rot ? rot.y.toFixed(0) : "";
     if (kfPoseRzEl.value) kfPoseRzEl.value.value = rot ? rot.z.toFixed(0) : "";
     for (const name of FINGER_ORDER) {
-      const arr = kf?.pose.bends[name] ?? [];
+      const arr = displayPose?.bends[name] ?? [];
       FINGER_JOINTS[name].forEach((_, j) => {
         const el = document.getElementById(`kf-bend-${name}-${j}`) as HTMLInputElement | null;
         if (el) el.value = arr[j] !== undefined ? String(Math.round(arr[j])) : "";
@@ -532,6 +602,35 @@ function renderPreview(): void {
     pvPoseEl.value.textContent = pose
       ? poseSummary(pose, activeContactsAt(previewFrame.value))
       : t("editor.needKf");
+  }
+  // autoKf：编辑目标 = 播放头帧；面板摘要与数值跟随播放头（正在输入的控件不覆盖）
+  if (autoKf.value) {
+    if (kfPoseEl.value) {
+      kfPoseEl.value.textContent = pose
+        ? poseSummary(pose, activeContactsAt(previewFrame.value))
+        : t("editor.needKf");
+    }
+    if (pose) {
+      const pos = pose.palm.transform.position;
+      const rot = poseRotationDeg(pose);
+      const active = document.activeElement;
+      const sync = (el: HTMLInputElement | null, v: string): void => {
+        if (el && active !== el) el.value = v;
+      };
+      sync(kfPoseXEl.value, pos.x.toFixed(2));
+      sync(kfPoseYEl.value, pos.y.toFixed(2));
+      sync(kfPoseZEl.value, pos.z.toFixed(2));
+      sync(kfPoseRxEl.value, rot.x.toFixed(0));
+      sync(kfPoseRyEl.value, rot.y.toFixed(0));
+      sync(kfPoseRzEl.value, rot.z.toFixed(0));
+      for (const name of FINGER_ORDER) {
+        const arr = pose.bends[name] ?? [];
+        FINGER_JOINTS[name].forEach((_, j) => {
+          const el = document.getElementById(`kf-bend-${name}-${j}`) as HTMLInputElement | null;
+          if (el && active !== el) el.value = arr[j] !== undefined ? String(Math.round(arr[j])) : "";
+        });
+      }
+    }
   }
   if (handView) {
   handView.setPose(pose ?? defaultHandPose((handTypeSelectEl.value?.value as HandType) ?? "right"));
@@ -686,18 +785,19 @@ const onNewAdd = (): void => {
 };
 
 const onKfFrameChange = (e: Event): void => {
-  if (!tech.value || selectedFrame.value === null) return;
+  const src = shownFrame();
+  if (!tech.value || src === null) return;
   const target = Number((e.target as HTMLInputElement).value);
   if (!Number.isInteger(target) || target < 0) {
     statusText.value = t("editor.kfFail", { error: t("editor.frameInvalid") });
     renderSelected();
     return;
   }
-  const kf = tech.value.keyframes.find((k) => k.frame === selectedFrame.value);
+  const kf = tech.value.keyframes.find((k) => k.frame === src);
   if (!kf) return;
   commit((t2) => {
     const moved = upsertKeyframe(t2, { ...kf, frame: target });
-    return removeKeyframe(moved, selectedFrame.value!);
+    return removeKeyframe(moved, src);
   });
   selectedFrame.value = target;
   renderAll();
@@ -711,8 +811,9 @@ const onKfEasingChange = (e: Event): void => {
 };
 
 const onKfDelete = (): void => {
-  if (!tech.value || selectedFrame.value === null) return;
-  commit((t2) => removeKeyframe(t2, selectedFrame.value!));
+  const src = shownFrame();
+  if (!tech.value || src === null) return;
+  commit((t2) => removeKeyframe(t2, src));
   selectedFrame.value = null;
   renderAll();
 };
@@ -865,6 +966,7 @@ const onPvPlay = (): void => {
       }
     }
     lastTickAt = 0;
+    frameAcc = 0;
   }
   playing.value = !playing.value;
 };
@@ -877,6 +979,8 @@ watch([loopPlay, reversePlay], () => {
   moveCursor = 0;
   revApplied = tech.value?.stepMapping.length ?? 0;
   previewFrame.value = 0;
+  lastTickAt = 0;
+  frameAcc = 0;
   if (reversePlay.value) setReverseStart();
   else setStartState();
   renderPreview();
@@ -1145,7 +1249,7 @@ const toggleGrayKind = (): void => {
 const selectKf = (frame: number): void => {
   selectedFrame.value = frame;
   previewFrame.value = frame;
-  kfPanelOpen.value = true; // 点关键帧箭头 → 展开时间线内编辑区
+  kfPanelOpen.value = true; // 点关键帧箭头 → 展开侧边栏编辑面板
   renderAll();
 };
 
@@ -1182,6 +1286,7 @@ onMounted(() => {
   editorKeymap.attach(window);
   window.addEventListener("keydown", onEditorKey);
   window.addEventListener("keyup", onEditorKey);
+  window.addEventListener("pointerdown", onGlobalPointerDown);
   (globalThis as { __motionCubeEditor?: unknown }).__motionCubeEditor = { player, handView };
   renderAll();
   // 视口渲染兜底：cubing 的 TwistyPlayer 用 IntersectionObserver 懒初始化，
@@ -1209,13 +1314,17 @@ onMounted(() => {
   timer = window.setInterval(() => {
     if (!playing.value || !tech.value) {
       lastTickAt = 0; // 暂停/停止时重置，恢复播放不走大 dt
+      frameAcc = 0;
       return;
     }
-    // 精度解耦：按真实时间推进帧号（dt × frameRate），frameRate 不再锁 60
+    // 精度解耦：帧累加器按真实时间推进（dt × frameRate），任意帧率下播放速度恒定；
+    // 1 拍 = 0.3s 的动作在 60fps 为 18 帧、1000fps 为 300 帧，但真实时长始终一致。
     const now = performance.now();
     const dtSec = lastTickAt ? (now - lastTickAt) / 1000 : 1 / 60;
     lastTickAt = now;
-    const stepFrames = Math.max(1, Math.round(dtSec * tech.value.frameRate));
+    frameAcc += dtSec * tech.value.frameRate;
+    const stepFrames = Math.floor(frameAcc);
+    frameAcc -= stepFrames;
     const total = totalFrames.value;
     if (reversePlay.value) {
       if (previewFrame.value <= 0) {
@@ -1283,6 +1392,7 @@ onBeforeUnmount(() => {
   editorKeymap = null;
   window.removeEventListener("keydown", onEditorKey);
   window.removeEventListener("keyup", onEditorKey);
+  window.removeEventListener("pointerdown", onGlobalPointerDown);
   editorViewEl.value?.replaceChildren();
   delete (globalThis as { __motionCubeEditor?: unknown }).__motionCubeEditor;
   grayOverlay?.dispose();
@@ -1297,6 +1407,79 @@ onBeforeUnmount(() => {
     <div class="editor-layout">
       <!-- 左侧侧边栏（PS 风格）：手法 / 手 / 标灰 / 时间线 -->
       <aside class="editor-sidebar">
+        <div v-show="kfPanelVisible" ref="kfPanelEl" id="kf-edit-panel" class="kf-edit-panel sb-kf-panel">
+          <div class="kf-edit-head">
+            <WinTextBlock class="editor-label" :Text="t('editor.kfEdit')" FontSize="12" />
+            <WinButton id="kf-panel-close" :Content="t('editor.stepDone')" @Click="kfPanelOpen = false" />
+          </div>
+          <div class="editor-kf-row">
+            <WinTextBlock class="editor-label" :Text="t('editor.frame')" />
+            <input id="kf-frame" ref="kfFrameEl" type="number" min="0" step="1" class="native-input num-input" @change="onKfFrameChange" />
+            <WinTextBlock class="editor-label" :Text="t('editor.beat')" />
+            <input id="kf-frame-beat" type="number" min="0" step="0.01" class="native-input num-input" :value="beatOfSelected" @change="onKfBeatChange" />
+            <WinTextBlock class="editor-label" :Text="t('editor.easing')" />
+            <select id="kf-easing" ref="kfEasingEl" class="native-select" @change="onKfEasingChange">
+              <option value="linear">linear</option>
+              <option value="easeIn">easeIn</option>
+              <option value="easeOut">easeOut</option>
+              <option value="easeInOut">easeInOut</option>
+            </select>
+            <WinButton id="kf-delete" ref="kfDeleteEl" class="del" :Content="t('editor.deleteKf')" :IsEnabled="kfDeleteEnabled" @Click="onKfDelete" />
+          </div>
+          <pre id="kf-pose" ref="kfPoseEl" class="kf-pose"></pre>
+          <div class="pose-edit">
+            <div class="pose-edit-row">
+              <WinToggleSwitch v-model:IsOn="snapOn" :OnContent="t('editor.snapOn')" :OffContent="t('editor.snapOff')" />
+            </div>
+            <div class="pose-edit-row">
+              <WinTextBlock class="editor-label" :Text="t('editor.pose')" FontSize="12" />
+              <label class="pose-axis">
+                {{ t("editor.posX") }}
+                <input id="kf-pose-x" ref="kfPoseXEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'x')" />
+              </label>
+              <label class="pose-axis">
+                {{ t("editor.posY") }}
+                <input id="kf-pose-y" ref="kfPoseYEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'y')" />
+              </label>
+              <label class="pose-axis">
+                {{ t("editor.posZ") }}
+                <input id="kf-pose-z" ref="kfPoseZEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'z')" />
+              </label>
+            </div>
+            <div class="pose-edit-row">
+              <WinTextBlock class="editor-label" :Text="t('editor.poseRot')" FontSize="12" />
+              <label class="pose-axis">
+                {{ t("editor.posRx") }}
+                <input id="kf-pose-rx" ref="kfPoseRxEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
+              </label>
+              <label class="pose-axis">
+                {{ t("editor.posRy") }}
+                <input id="kf-pose-ry" ref="kfPoseRyEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
+              </label>
+              <label class="pose-axis">
+                {{ t("editor.posRz") }}
+                <input id="kf-pose-rz" ref="kfPoseRzEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
+              </label>
+            </div>
+            <div class="finger-joints">
+              <WinTextBlock class="editor-label" :Text="t('editor.fingers')" FontSize="12" />
+              <div v-for="name in FINGER_ORDER" :key="name" class="finger-row">
+                <span class="finger-name">{{ t(`hand.finger${name[0].toUpperCase()}${name.slice(1)}`) }}</span>
+                <label v-for="(jname, j) in FINGER_JOINTS[name]" :key="j" class="pose-axis">
+                  {{ jname }}
+                  <input
+                    :id="`kf-bend-${name}-${j}`"
+                    type="number"
+                    :min="FINGER_JOINT_RANGE[name][0]"
+                    :max="FINGER_JOINT_RANGE[name][1]"
+                    step="1"
+                    class="native-input num-input"
+                    @input="onBendInput($event, name, j)" />
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="sb-group">
           <WinTextBlock class="editor-label" :Text="t('editor.technique')" FontSize="13" />
           <select id="tec-select" ref="tecSelectEl" class="native-select" @change="onTecChange">
@@ -1374,58 +1557,6 @@ onBeforeUnmount(() => {
             @click="onPvPlay">
             <span class="editor-big-play-icon" aria-hidden="true">{{ playing ? "\uE769" : "\uE768" }}</span>
           </button>
-          <div class="pose-overlay">
-            <div class="pose-overlay-row">
-              <WinToggleSwitch v-model:IsOn="snapOn" :OnContent="t('editor.snapOn')" :OffContent="t('editor.snapOff')" />
-            </div>
-            <div class="pose-overlay-row">
-              <WinTextBlock class="editor-label" :Text="t('editor.pose')" FontSize="12" />
-              <label class="pose-axis">
-                {{ t("editor.posX") }}
-                <input id="kf-pose-x" ref="kfPoseXEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'x')" />
-              </label>
-              <label class="pose-axis">
-                {{ t("editor.posY") }}
-                <input id="kf-pose-y" ref="kfPoseYEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'y')" />
-              </label>
-              <label class="pose-axis">
-                {{ t("editor.posZ") }}
-                <input id="kf-pose-z" ref="kfPoseZEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'z')" />
-              </label>
-            </div>
-            <div class="pose-overlay-row">
-              <WinTextBlock class="editor-label" :Text="t('editor.poseRot')" FontSize="12" />
-              <label class="pose-axis">
-                {{ t("editor.posRx") }}
-                <input id="kf-pose-rx" ref="kfPoseRxEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
-              </label>
-              <label class="pose-axis">
-                {{ t("editor.posRy") }}
-                <input id="kf-pose-ry" ref="kfPoseRyEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
-              </label>
-              <label class="pose-axis">
-                {{ t("editor.posRz") }}
-                <input id="kf-pose-rz" ref="kfPoseRzEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
-              </label>
-            </div>
-            <div class="finger-joints">
-              <WinTextBlock class="editor-label" :Text="t('editor.fingers')" FontSize="12" />
-              <div v-for="name in FINGER_ORDER" :key="name" class="finger-row">
-                <span class="finger-name">{{ t(`hand.finger${name[0].toUpperCase()}${name.slice(1)}`) }}</span>
-                <label v-for="(jname, j) in FINGER_JOINTS[name]" :key="j" class="pose-axis">
-                  {{ jname }}
-                  <input
-                    :id="`kf-bend-${name}-${j}`"
-                    type="number"
-                    :min="FINGER_JOINT_RANGE[name][0]"
-                    :max="FINGER_JOINT_RANGE[name][1]"
-                    step="1"
-                    class="native-input num-input"
-                    @input="onBendInput($event, name, j)" />
-                </label>
-              </div>
-            </div>
-          </div>
           <div v-show="maskVisible" id="editor-play-mask" class="editor-play-mask">{{ t("editor.playHint") }}</div>
         </div>
 
@@ -1434,6 +1565,7 @@ onBeforeUnmount(() => {
           <div class="tl-playback-controls">
             <WinToggleSwitch v-model:IsOn="loopPlay" :OnContent="t('editor.loopOn')" :OffContent="t('editor.loopOff')" />
             <WinToggleSwitch v-model:IsOn="reversePlay" :OnContent="t('editor.reverseOn')" :OffContent="t('editor.reverseOff')" />
+            <WinToggleSwitch v-model:IsOn="autoKf" :OnContent="t('editor.autoKfOn')" :OffContent="t('editor.autoKfOff')" />
             <WinTextBlock class="editor-label" :Text="t('editor.frameRate')" FontSize="13" />
             <select id="kf-framerate" class="native-select" :value="tech?.frameRate ?? 60" @change="onFrameRateChange">
               <option v-for="fr in FRAME_RATE_PRESETS" :key="fr" :value="fr">{{ fr }}</option>
@@ -1470,7 +1602,7 @@ onBeforeUnmount(() => {
                 :key="tick.frame"
                 :class="tick.major ? 'tl-tick-major' : 'tl-tick-minor'"
                 :style="{ left: `${tick.frame * pxPerFrame}px` }">
-                {{ tick.major ? `${(tick.frame / 60).toFixed(1)}s` : "" }}
+                {{ tick.major ? `${(tick.frame / (tech?.frameRate ?? 60)).toFixed(1)}s` : "" }}
               </span>
             </div>
             <div
@@ -1528,28 +1660,6 @@ onBeforeUnmount(() => {
             </template>
             <span v-else class="meta">{{ t("editor.stepHint") }}</span>
           </div>
-          <div v-show="kfPanelOpen" class="kf-edit-panel">
-            <div class="kf-edit-head">
-              <WinTextBlock class="editor-label" :Text="t('editor.kfEdit')" FontSize="13" />
-              <WinToggleSwitch v-model:IsOn="autoKf" :OnContent="t('editor.autoKfOn')" :OffContent="t('editor.autoKfOff')" />
-              <WinButton id="kf-panel-close" :Content="t('editor.stepDone')" @Click="kfPanelOpen = false" />
-            </div>
-            <div class="editor-kf-row">
-              <WinTextBlock class="editor-label" :Text="t('editor.frame')" />
-              <input id="kf-frame" ref="kfFrameEl" type="number" min="0" step="1" class="native-input num-input" @change="onKfFrameChange" />
-              <WinTextBlock class="editor-label" :Text="t('editor.beat')" />
-              <input id="kf-frame-beat" type="number" min="0" step="0.01" class="native-input num-input" :value="beatOfSelected" @change="onKfBeatChange" />
-              <WinTextBlock class="editor-label" :Text="t('editor.easing')" />
-              <select id="kf-easing" ref="kfEasingEl" class="native-select" @change="onKfEasingChange">
-                <option value="linear">linear</option>
-                <option value="easeIn">easeIn</option>
-                <option value="easeOut">easeOut</option>
-                <option value="easeInOut">easeInOut</option>
-              </select>
-              <WinButton id="kf-delete" ref="kfDeleteEl" class="del" :Content="t('editor.deleteKf')" :IsEnabled="kfDeleteEnabled" @Click="onKfDelete" />
-            </div>
-            <pre id="kf-pose" ref="kfPoseEl" class="kf-pose"></pre>
-          </div>
           <p id="tl-meta" ref="tlMetaEl" class="page-note"></p>
         </div>
 
@@ -1596,6 +1706,7 @@ onBeforeUnmount(() => {
 .editor-sidebar {
   width: 248px;
   flex-shrink: 0;
+  min-width: 0; /* 面板内容（开关/输入行）不撑宽侧边栏，超出走内部滚动/换行 */
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -1930,6 +2041,46 @@ onBeforeUnmount(() => {
   background: var(--ctrl-fill-secondary, rgba(128, 128, 138, 0.14));
 }
 
+.sb-kf-panel {
+  margin-top: 0;
+}
+
+.sb-kf-panel .pose-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.sb-kf-panel .pose-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.sb-kf-panel .pose-axis {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  gap: 3px;
+}
+
+.sb-kf-panel .num-input {
+  width: 54px;
+  min-height: 22px;
+  padding: 1px 5px;
+  font-size: 12px;
+}
+
+.sb-kf-panel .finger-row {
+  gap: 6px;
+}
+
+.sb-kf-panel .finger-name {
+  font-size: 11px;
+  min-width: 30px;
+}
+
 .kf-edit-head {
   display: flex;
   align-items: center;
@@ -2039,44 +2190,6 @@ html.theme-light .editor-save-btn:hover {
   font-family: "WinUIOnWebIcons";
   font-size: 18px;
   line-height: 1;
-}
-
-.pose-overlay {
-  position: absolute;
-  left: 12px;
-  top: 12px;
-  z-index: 6;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: calc(100% - 24px);
-  overflow-y: auto;
-  padding: 6px 8px;
-  border-radius: 8px;
-  color: var(--text-tertiary); /* 无背景、字略微灰色 */
-  font-size: 12px;
-}
-
-.pose-overlay .pose-axis {
-  color: var(--text-tertiary);
-  font-size: 11px;
-  gap: 3px;
-}
-
-.pose-overlay .num-input {
-  width: 54px;
-  min-height: 22px;
-  padding: 1px 5px;
-  font-size: 12px;
-}
-
-.pose-overlay .finger-row {
-  gap: 6px;
-}
-
-.pose-overlay .finger-name {
-  font-size: 11px;
-  min-width: 30px;
 }
 
 .editor-play-mask {
