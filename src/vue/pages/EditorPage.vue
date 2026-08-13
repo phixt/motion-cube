@@ -125,13 +125,41 @@ const seekFromEvent = (clientX: number, track: HTMLElement): void => {
   const total = Math.max(totalFrames.value, 60);
   const frame = Math.max(0, Math.round(((clientX - rect.left) / Math.max(rect.width, 1)) * total));
   previewFrame.value = Math.min(frame, total);
+  syncCubeToFrame(previewFrame.value);
   renderPreview();
+};
+
+/** 同步魔方状态到目标帧：起始态 + 已执行步骤（拖动播放头后状态与帧一致） */
+const syncCubeToFrame = (frame: number): void => {
+  if (!player || !tech.value) return;
+  const sm = tech.value.stepMapping;
+  const moves: string[] = [];
+  let cursor = 0;
+  for (const m of sm) {
+    if (m.startFrame > frame) break;
+    if (m.kind !== "pause") {
+      const mv = formulaMoves[cursor];
+      if (mv) moves.push(mv);
+      cursor++;
+    }
+  }
+  stepMoveIndex = sm.filter((m) => m.startFrame <= frame).length;
+  moveCursor = cursor;
+  const start = tech.value.startState ?? (formulaMoves.length ? invertMoves(formulaMoves.join(" ")) : "");
+  player.element.alg = moves.length ? `${start} ${moves.join(" ")}` : start;
+  void player.element
+    .experimentalCurrentVantages()
+    .then((vs) => {
+      for (const v of vs) v.scheduleRender();
+    })
+    .catch(() => {});
 };
 
 const onTrackPointerDown = (e: PointerEvent): void => {
   // 点到动作块：只选中不 seek；其余位置 seek 并进入拖动
   if ((e.target as HTMLElement).closest?.(".tl-step-band")) return;
   if (selectedSteps.value.length > 0) selectedSteps.value = []; // 点空白取消多选
+  if (playing.value) playing.value = false; // 定位先停止播放
   seeking = true;
   seekFromEvent(e.clientX, e.currentTarget as HTMLElement);
 };
@@ -165,6 +193,7 @@ const selectStep = (i: number, e?: MouseEvent): void => {
 /** 逐帧步进：←/→ 每帧；Shift+←/→ 跳相邻关键帧 */
 const stepFrames = (dir: 1 | -1, jumpKf: boolean): void => {
   if (!tech.value) return;
+  if (playing.value) playing.value = false; // 步进先停止播放（避免被播放循环覆盖）
   const total = totalFrames.value;
   if (jumpKf && tech.value.keyframes.length > 0) {
     const frames = [...tech.value.keyframes].map((k) => k.frame).sort((a, b) => a - b);
@@ -179,6 +208,7 @@ const stepFrames = (dir: 1 | -1, jumpKf: boolean): void => {
   } else {
     previewFrame.value = Math.min(total, Math.max(0, previewFrame.value + dir));
   }
+  syncCubeToFrame(previewFrame.value);
   renderPreview();
 };
 
@@ -715,18 +745,20 @@ const onPvPlay = (): void => {
     computeFormulaMoves();
     syncStepSpeed();
     if (reversePlay.value) {
-      // 倒放：从 reverseStart（缺省还原态）开始，逆序执行公式（每步逆动作，带动画）
-      setReverseStart();
-      stepMoveIndex = 0;
-      moveCursor = 0;
-      revApplied = tech.value.stepMapping.length;
-      previewFrame.value = totalFrames.value;
+      // 倒放：从停止位置继续；仅当已在末尾时从头（reverseStart）倒放
+      if (previewFrame.value >= totalFrames.value) {
+        setReverseStart();
+        stepMoveIndex = 0;
+        moveCursor = 0;
+        revApplied = tech.value.stepMapping.length;
+      }
     } else {
-      // 正放：从起始态 S（公式逆序状态）开始，正向执行公式 → 还原态
-      setStartState();
-      stepMoveIndex = 0;
-      moveCursor = 0;
-      previewFrame.value = 0;
+      // 正放：从停止位置继续；仅当在开头时设起始态
+      if (previewFrame.value <= 0) {
+        setStartState();
+        stepMoveIndex = 0;
+        moveCursor = 0;
+      }
     }
     lastTickAt = 0;
   }

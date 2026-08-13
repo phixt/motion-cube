@@ -44,6 +44,13 @@ onMounted(() => {
   const snap = loadSnapshot();
   if (snap) {
     session.player.element.alg = snap.alg;
+    // cubing 惰性渲染：恢复状态后强制重绘
+    void session.player.element
+      .experimentalCurrentVantages()
+      .then((vs) => {
+        for (const v of vs) v.scheduleRender();
+      })
+      .catch(() => {});
     const parsed = parseMoves(snap.alg);
     moves.value = parsed.ok ? parsed.normalized.split(/\s+/).filter(Boolean) : [];
     status.value = "已恢复上次进度";

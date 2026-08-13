@@ -195,11 +195,12 @@
 - ✅ **GitHub Actions CI**：.github/workflows/ci.yml——push/PR 到 main 自动跑
   npm ci + typecheck + build + verify-data（ubuntu runner）；playtest 待
   networkidle0 卡点解决后再并入
-- ⬜ **游戏快照恢复只恢复日志、魔方状态未恢复**：恢复时设置 element.alg 但
-  cubing 惰性渲染/ready 时序导致状态未显示；需等待场景 ready + 触发渲染
-- ⬜ **编辑器逐帧步进 ←/→ 无响应**（快捷键监听与 keymap/焦点冲突待查）
-- ⬜ **时间线播放头拖拽/点击 seek 无响应**（pointer 事件与轨道/动作块交互冲突待查）
-- ⬜ **Space 播放从 0 开始而非停止位置**：应为"从当前 previewFrame 继续播放"
+- ✅ **播放/定位修复轮（2026-08-13）**：
+  - Space 从停止位置继续播放（仅 0/末尾才设起始态）；播放中步进/seek 先暂停
+  - seek 同步魔方状态到目标帧（起始态 + 已执行步骤 + scheduleRender），
+    拖动播放头后状态与帧一致、继续播放不跳变
+  - 逐帧步进 ←/→（含 Shift 跳关键帧）与拖拽/点击 seek 实测工作
+  - 游戏快照恢复补 scheduleRender（魔方状态真正显示）
 
 ## 批量编辑与 RPE 参考（2026-08-13）
 
