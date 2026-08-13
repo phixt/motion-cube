@@ -1291,7 +1291,7 @@ onBeforeUnmount(() => {
             :class="{ failed: saveFailed }"
             :title="t('editor.save')"
             @click="onSave">
-            <span class="editor-save-icon" aria-hidden="true">\uE8A5</span>
+            <span class="editor-save-icon" aria-hidden="true">{{ "\uE8A5" }}</span>
           </button>
           <button
             id="editor-big-play"
@@ -1889,10 +1889,10 @@ onBeforeUnmount(() => {
 .editor-save-btn {
   position: absolute;
   right: 12px;
-  bottom: 64px; /* 播放按钮上方 */
+  bottom: 66px; /* 播放按钮正上方（同宽 46px，间隔 8px） */
   z-index: 6;
-  width: 38px;
-  height: 38px;
+  width: 46px;
+  height: 46px;
   padding: 0;
   border: none;
   border-radius: 50%;
@@ -1906,11 +1906,11 @@ onBeforeUnmount(() => {
 }
 
 html.theme-dark .editor-save-btn:hover {
-  filter: brightness(1.25); /* 暗色：悬停亮绿 */
+  background: #4ade80; /* 暗色：饱和亮绿 */
 }
 
 html.theme-light .editor-save-btn:hover {
-  filter: brightness(0.82); /* 浅色：悬停深绿 */
+  background: #15803d; /* 浅色：饱和深绿 */
 }
 
 .editor-save-btn.failed {
