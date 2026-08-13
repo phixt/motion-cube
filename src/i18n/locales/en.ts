@@ -114,7 +114,6 @@ export const en: Record<string, string> = {
     "Game keys = formula symbols (twist the cube); editor action keys = play/toggle/step actions. The editor no longer binds game formula keys (no real meaning there).",
   "keymap.scope.game": "Game keys",
   "keymap.scope.editor": "Editor keys",
-  "keymap.sync": "Copy to other scope",
   "keymap.editorNote":
     "Animation editor action keys (game formula keys are unbound in the editor). Play triggers on keyup to avoid accidental toggles; ←/→ step per frame, Shift+←/→ jump keyframes.",
   "keymap.editor.play": "Play / Pause",

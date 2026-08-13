@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, toRaw } from "vue";
+import { computed, onBeforeUnmount, ref } from "vue";
 import WinButton from "../../vendor/winui-on-web/components/WinButton.vue";
 import WinInfoBar from "../../vendor/winui-on-web/components/WinInfoBar.vue";
 import WinSlider from "../../vendor/winui-on-web/components/WinSlider.vue";
@@ -130,16 +130,6 @@ const persist = (): void => {
   window.setTimeout(() => (savedFlash.value = false), 1200);
 };
 
-/** 连带设置：游戏公式键复制到另一侧（仅游戏作用域有意义） */
-const syncToOther = (): void => {
-  if (scope.value !== "game") return;
-  const copy: KeymapConfig = structuredClone(toRaw(gameCfg.value));
-  gameCfg.value = copy;
-  saveKeymap(copy);
-  savedFlash.value = true;
-  window.setTimeout(() => (savedFlash.value = false), 1200);
-};
-
 const cooldownMs = computed({
   get: () => settings.value.moveCooldownMs,
   set: (v: number) => {
@@ -240,7 +230,6 @@ onBeforeUnmount(stopCapture);
         :class="{ active: scope === 'editor' }"
         :Content="t('keymap.scope.editor')"
         @Click="scope = 'editor'" />
-      <WinButton v-if="scope === 'game'" class="scope-btn sync" :Content="t('keymap.sync')" @Click="syncToOther" />
     </div>
 
     <WinInfoBar

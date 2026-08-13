@@ -114,7 +114,6 @@ export const zhCN: Record<string, string> = {
     "游戏键位 = 公式符号键（拧魔方）；编辑器功能键 = 播放/显隐/步进等编辑器专用动作。编辑器不再绑定游戏公式键（无实际含义）。",
   "keymap.scope.game": "游戏键位",
   "keymap.scope.editor": "编辑器键位",
-  "keymap.sync": "同步到另一侧",
   "keymap.editorNote":
     "动画编辑器功能键（游戏公式键在编辑器中已解绑）。播放为 keyup 触发防误触；←/→ 逐帧、Shift+←/→ 跳关键帧。",
   "keymap.editor.play": "播放 / 暂停",
