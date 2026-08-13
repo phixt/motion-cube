@@ -699,25 +699,29 @@ const onStepDurationChange = (e: Event, idx: number): void => {
       acc += s;
       return { stepIndex: i, startFrame, endFrame: Math.round(acc * t2.frameRate) };
     });
-    // 关键帧等比例跟随动作刻度：按原所属步骤内的相对进度映射到新步骤
-    const keyframes = t2.keyframes.map((kf) => {
+    // 等比例重映射（检查轮 2026-08-13）：关键帧 + 接触轨道 统一按
+    // 原所属步骤内的相对进度映射到新步骤；步骤外按总时长等比例缩放。
+    // 边界帧（step.endFrame = 下一步 startFrame）归前一步，映射后仍落在
+    // 连续区间边界；同一 step 内多个关键帧/接触端点相对间距保持。
+    const remapFrame = (frame: number): number => {
       const old = t2.stepMapping;
-      const step = old.find((m) => kf.frame >= m.startFrame && kf.frame <= m.endFrame);
+      const oldTotal = Math.max(old.length ? old[old.length - 1].endFrame : 1, 1);
+      const newTotal = Math.max(stepMapping.length ? stepMapping[stepMapping.length - 1].endFrame : 1, 1);
+      const step = old.find((m) => frame >= m.startFrame && frame <= m.endFrame);
       if (!step || old.length === 0) {
-        // 步骤外：按总时长等比例缩放
-        const oldTotal = Math.max(old.length ? old[old.length - 1].endFrame : 1, 1);
-        const newTotal = Math.max(stepMapping.length ? stepMapping[stepMapping.length - 1].endFrame : 1, 1);
-        return { ...kf, frame: Math.round((kf.frame / oldTotal) * newTotal) };
+        return Math.round((frame / oldTotal) * newTotal);
       }
-      const ratio = (kf.frame - step.startFrame) / Math.max(step.endFrame - step.startFrame, 1);
+      const ratio = (frame - step.startFrame) / Math.max(step.endFrame - step.startFrame, 1);
       const ns = stepMapping[step.stepIndex];
-      return { ...kf, frame: Math.round(ns.startFrame + ratio * (ns.endFrame - ns.startFrame)) };
-    });
-    return {
-      ...t2,
-      stepMapping,
-      keyframes,
+      return Math.round(ns.startFrame + ratio * (ns.endFrame - ns.startFrame));
     };
+    const keyframes = t2.keyframes.map((kf) => ({ ...kf, frame: remapFrame(kf.frame) }));
+    const contactTracks = t2.contactTracks.map((c) => ({
+      ...c,
+      startFrame: remapFrame(c.startFrame),
+      endFrame: remapFrame(c.endFrame),
+    }));
+    return { ...t2, stepMapping, keyframes, contactTracks };
   });
 };
 
