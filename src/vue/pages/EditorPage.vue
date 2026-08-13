@@ -108,6 +108,8 @@ const maskVisible = ref(false);
 let maskTimer: number | null = null;
 /** 选中动作块（S1…）高亮后在下侧单独设定时长 */
 const selectedStep = ref<number | null>(null);
+/** 关键帧编辑折叠区（时间线内展开；点关键帧箭头自动展开） */
+const kfPanelOpen = ref(false);
 let seeking = false;
 
 /** 时间线播放头/轨道 seek：按点击位置换算帧号 */
@@ -135,6 +137,26 @@ const endSeek = (): void => {
 
 const selectStep = (i: number): void => {
   selectedStep.value = selectedStep.value === i ? null : i;
+};
+
+/** 逐帧步进：←/→ 每帧；Shift+←/→ 跳相邻关键帧 */
+const stepFrames = (dir: 1 | -1, jumpKf: boolean): void => {
+  if (!tech.value) return;
+  const total = totalFrames.value;
+  if (jumpKf && tech.value.keyframes.length > 0) {
+    const frames = [...tech.value.keyframes].map((k) => k.frame).sort((a, b) => a - b);
+    const cur = previewFrame.value;
+    if (dir > 0) {
+      const next = frames.find((f) => f > cur);
+      previewFrame.value = next ?? frames[frames.length - 1];
+    } else {
+      const prev = [...frames].reverse().find((f) => f < cur);
+      previewFrame.value = prev ?? frames[0];
+    }
+  } else {
+    previewFrame.value = Math.min(total, Math.max(0, previewFrame.value + dir));
+  }
+  renderPreview();
 };
 
 const toggleShowCube = (): void => {
@@ -169,6 +191,10 @@ const onEditorKey = (e: KeyboardEvent): void => {
   }
   if (e.code === "KeyH") {
     toggleShowHand();
+    return;
+  }
+  if (e.code === "ArrowLeft" || e.code === "ArrowRight") {
+    stepFrames(e.code === "ArrowRight" ? 1 : -1, e.shiftKey);
     return;
   }
   if (spaceDownAt && performance.now() - spaceDownAt < 600) spaceCombined = true;
@@ -838,6 +864,7 @@ const toggleGrayKind = (): void => {
 const selectKf = (frame: number): void => {
   selectedFrame.value = frame;
   previewFrame.value = frame;
+  kfPanelOpen.value = true; // 点关键帧箭头 → 展开时间线内编辑区
   renderAll();
 };
 
@@ -1114,56 +1141,61 @@ onBeforeUnmount(() => {
             </template>
             <span v-else class="meta">{{ t("editor.stepHint") }}</span>
           </div>
+          <div v-show="kfPanelOpen" class="kf-edit-panel">
+            <div class="kf-edit-head">
+              <WinTextBlock class="editor-label" :Text="t('editor.kfEdit')" FontSize="13" />
+              <WinButton id="kf-panel-close" :Content="t('editor.stepDone')" @Click="kfPanelOpen = false" />
+            </div>
+            <div class="editor-kf-row">
+              <WinTextBlock class="editor-label" :Text="t('editor.frame')" />
+              <input id="kf-frame" ref="kfFrameEl" type="number" min="0" step="1" class="native-input num-input" @change="onKfFrameChange" />
+              <WinTextBlock class="editor-label" :Text="t('editor.easing')" />
+              <select id="kf-easing" ref="kfEasingEl" class="native-select" @change="onKfEasingChange">
+                <option value="linear">linear</option>
+                <option value="easeIn">easeIn</option>
+                <option value="easeOut">easeOut</option>
+                <option value="easeInOut">easeInOut</option>
+              </select>
+              <WinButton id="kf-delete" ref="kfDeleteEl" class="del" :Content="t('editor.deleteKf')" :IsEnabled="kfDeleteEnabled" @Click="onKfDelete" />
+            </div>
+            <div class="editor-kf-row pose-row">
+              <WinToggleSwitch v-model:IsOn="snapOn" :OnContent="t('editor.snapOn')" :OffContent="t('editor.snapOff')" />
+              <WinTextBlock class="editor-label" :Text="t('editor.pose')" FontSize="14" />
+              <label class="pose-axis">
+                {{ t("editor.posX") }}
+                <input id="kf-pose-x" ref="kfPoseXEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'x')" />
+              </label>
+              <label class="pose-axis">
+                {{ t("editor.posY") }}
+                <input id="kf-pose-y" ref="kfPoseYEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'y')" />
+              </label>
+              <label class="pose-axis">
+                {{ t("editor.posZ") }}
+                <input id="kf-pose-z" ref="kfPoseZEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'z')" />
+              </label>
+            </div>
+            <div class="editor-kf-row pose-row">
+              <WinTextBlock class="editor-label" :Text="t('editor.poseRot')" FontSize="14" />
+              <label class="pose-axis">
+                {{ t("editor.posRx") }}
+                <input id="kf-pose-rx" ref="kfPoseRxEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
+              </label>
+              <label class="pose-axis">
+                {{ t("editor.posRy") }}
+                <input id="kf-pose-ry" ref="kfPoseRyEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
+              </label>
+              <label class="pose-axis">
+                {{ t("editor.posRz") }}
+                <input id="kf-pose-rz" ref="kfPoseRzEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
+              </label>
+            </div>
+            <pre id="kf-pose" ref="kfPoseEl" class="kf-pose"></pre>
+          </div>
           <p id="tl-meta" ref="tlMetaEl" class="page-note"></p>
         </div>
 
         <!-- 其余编辑功能（选中关键帧 / 添加 / 补帧预览 / 保存），去标题精简 -->
         <div class="editor-details">
-          <div class="editor-kf-row">
-            <WinTextBlock class="editor-label" :Text="t('editor.frame')" />
-            <input id="kf-frame" ref="kfFrameEl" type="number" min="0" step="1" class="native-input num-input" @change="onKfFrameChange" />
-            <WinTextBlock class="editor-label" :Text="t('editor.easing')" />
-            <select id="kf-easing" ref="kfEasingEl" class="native-select" @change="onKfEasingChange">
-              <option value="linear">linear</option>
-              <option value="easeIn">easeIn</option>
-              <option value="easeOut">easeOut</option>
-              <option value="easeInOut">easeInOut</option>
-            </select>
-            <WinButton id="kf-delete" ref="kfDeleteEl" class="del" :Content="t('editor.deleteKf')" :IsEnabled="kfDeleteEnabled" @Click="onKfDelete" />
-          </div>
-          <div class="editor-kf-row pose-row">
-            <WinToggleSwitch v-model:IsOn="snapOn" :OnContent="t('editor.snapOn')" :OffContent="t('editor.snapOff')" />
-            <WinTextBlock class="editor-label" :Text="t('editor.pose')" FontSize="14" />
-            <label class="pose-axis">
-              {{ t("editor.posX") }}
-              <input id="kf-pose-x" ref="kfPoseXEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'x')" />
-            </label>
-            <label class="pose-axis">
-              {{ t("editor.posY") }}
-              <input id="kf-pose-y" ref="kfPoseYEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'y')" />
-            </label>
-            <label class="pose-axis">
-              {{ t("editor.posZ") }}
-              <input id="kf-pose-z" ref="kfPoseZEl" type="number" step="0.05" class="native-input num-input" @input="onPoseInput($event, 'z')" />
-            </label>
-          </div>
-          <div class="editor-kf-row pose-row">
-            <WinTextBlock class="editor-label" :Text="t('editor.poseRot')" FontSize="14" />
-            <label class="pose-axis">
-              {{ t("editor.posRx") }}
-              <input id="kf-pose-rx" ref="kfPoseRxEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
-            </label>
-            <label class="pose-axis">
-              {{ t("editor.posRy") }}
-              <input id="kf-pose-ry" ref="kfPoseRyEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
-            </label>
-            <label class="pose-axis">
-              {{ t("editor.posRz") }}
-              <input id="kf-pose-rz" ref="kfPoseRzEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
-            </label>
-          </div>
-          <pre id="kf-pose" ref="kfPoseEl" class="kf-pose"></pre>
-
           <div class="editor-add">
             <WinTextBlock class="editor-label" :Text="t('editor.frame')" />
             <input id="kf-add-frame" ref="addFrameEl" type="number" min="0" step="1" class="native-input num-input" value="30" />
@@ -1512,6 +1544,33 @@ onBeforeUnmount(() => {
   background: var(--accent-hover, #59d5ff);
   z-index: 2;
   pointer-events: none;
+}
+
+.tl-playhead::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: 9px;
+  height: 5px;
+  border-radius: 1px;
+  background: #fff; /* 末端白色杠标志 */
+}
+
+.kf-edit-panel {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--stroke-divider);
+  border-radius: var(--ControlCornerRadius, 6px);
+  background: var(--ctrl-fill-secondary, rgba(128, 128, 138, 0.14));
+}
+
+.kf-edit-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
 }
 
 .tl-kf {

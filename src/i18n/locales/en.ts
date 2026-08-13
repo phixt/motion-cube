@@ -248,6 +248,7 @@ export const en: Record<string, string> = {
   "editor.stepDuration": "Step duration (seconds per move, min 0.1):",
   "editor.stepDone": "Done",
   "editor.stepHint": "Click a step block (S1…) on the timeline to set its duration here",
+  "editor.kfEdit": "Keyframe edit (←/→ per frame, Shift+←/→ jump keyframes)",
   "editor.frameOf": "Frame {frame} / {total} ({sec} s)",
   "editor.needKf": "At least 2 keyframes are needed for interpolation",
   "editor.noKfSelected": "Click a keyframe on the timeline to edit it",

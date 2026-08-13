@@ -255,6 +255,7 @@ export const zhCN: Record<string, string> = {
   "editor.stepDuration": "动作时长（每步完成秒数，最小 0.1）：",
   "editor.stepDone": "完成",
   "editor.stepHint": "点击时间线上的动作块（S1…）后在此单独设定时长",
+  "editor.kfEdit": "关键帧编辑（←/→ 逐帧，Shift+←/→ 跳关键帧）",
   "editor.frameOf": "帧 {frame} / {total}（{sec} s）",
   "editor.needKf": "至少需要 2 个关键帧才能补帧",
   "editor.noKfSelected": "点击时间线上的关键帧进行编辑",
