@@ -210,6 +210,7 @@ export const zhCN: Record<string, string> = {
   "editor.tecSearch": "搜索手法…",
   "editor.formulaSearch": "搜索公式…",
   "editor.searchEmpty": "无匹配结果",
+  "editor.formulaNone": "未分类",
   "editor.formula": "关联公式",
   "editor.newName": "手法名称",
   "editor.newAdd": "新建手法",

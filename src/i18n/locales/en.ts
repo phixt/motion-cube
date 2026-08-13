@@ -214,6 +214,7 @@ export const en: Record<string, string> = {
   "editor.tecSearch": "Search techniques…",
   "editor.formulaSearch": "Search formulas…",
   "editor.searchEmpty": "No matches",
+  "editor.formulaNone": "Uncategorized",
   "editor.formula": "Linked formula",
   "editor.newName": "Technique name",
   "editor.newAdd": "New technique",

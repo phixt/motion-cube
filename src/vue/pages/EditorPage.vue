@@ -12,6 +12,8 @@ import { Euler, Quaternion } from "three";
 import { CubePlayer } from "../../cube/CubePlayer";
 import { GrayOverlay } from "../../cube/GrayOverlay";
 import { createGrayState, presetGrayState, type GrayPreset, type GrayState } from "../../cube/stickering";
+import { categoryLabelPath } from "../../data/category";
+import type { Formula } from "../../data/formula";
 import { loadLibrary, saveLibrary, upsertTechniqueInLib } from "../../data/libraryStore";
 import {
   createTechnique,
@@ -478,6 +480,31 @@ const filteredNewFormulas = computed(() => {
   if (!q) return lib.value.formulas;
   return lib.value.formulas.filter((f) => {
     return f.name.toLowerCase().includes(q) || f.moves.toLowerCase().includes(q);
+  });
+});
+
+/** 新建手法：公式按分类分组（分类路径为组标题，未分类收尾；组内保持过滤顺序） */
+const groupedNewFormulas = computed(() => {
+  const groups = new Map<string, { label: string; formulas: Formula[] }>();
+  for (const f of filteredNewFormulas.value) {
+    let label = "";
+    if (f.categoryId) {
+      const cat = lib.value.categories.find((c) => c.id === f.categoryId);
+      if (cat) label = categoryLabelPath(cat, lib.value.categories);
+    }
+    const key = label || "\u0000"; // 未分类固定排最后
+    let g = groups.get(key);
+    if (!g) {
+      g = { label, formulas: [] };
+      groups.set(key, g);
+    }
+    g.formulas.push(f);
+  }
+  return [...groups.values()].sort((a, b) => {
+    if (!a.label && !b.label) return 0;
+    if (!a.label) return 1;
+    if (!b.label) return -1;
+    return a.label.localeCompare(b.label, "zh-CN");
   });
 });
 
@@ -1460,13 +1487,16 @@ onBeforeUnmount(() => {
           <input id="tec-new-name" ref="newNameEl" class="native-input" :placeholder="t('editor.newName')" />
           <input id="new-formula-search" v-model="formulaSearch" class="native-input" :placeholder="t('editor.formulaSearch')" />
           <div class="formula-list">
-            <button
-              v-for="f in filteredNewFormulas"
-              :key="f.id"
-              class="tec-item"
-              :class="{ active: selectedFormulaId === f.id }"
-              @click="selectedFormulaId = f.id">{{ f.name }}</button>
-            <p v-if="filteredNewFormulas.length === 0" class="meta list-empty">{{ t("editor.searchEmpty") }}</p>
+            <template v-for="g in groupedNewFormulas" :key="g.label || '__none__'">
+              <div class="formula-group-label">{{ g.label || t("editor.formulaNone") }}</div>
+              <button
+                v-for="f in g.formulas"
+                :key="f.id"
+                class="tec-item"
+                :class="{ active: selectedFormulaId === f.id }"
+                @click="selectedFormulaId = f.id">{{ f.name }}</button>
+            </template>
+            <p v-if="groupedNewFormulas.length === 0" class="meta list-empty">{{ t("editor.searchEmpty") }}</p>
           </div>
           <WinButton id="tec-new-add" :Content="t('editor.newAdd')" Style="AccentButtonStyle" @Click="onNewAdd" />
         </div>
@@ -2044,11 +2074,24 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  max-height: 170px;
+  max-height: 190px;
   overflow-y: auto;
   border: 1px solid var(--stroke-divider);
   border-radius: var(--ControlCornerRadius, 4px);
   padding: 4px;
+}
+
+.formula-group-label {
+  padding: 4px 8px 0;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  border-top: 1px solid var(--stroke-divider);
+  margin-top: 2px;
+}
+
+.formula-group-label:first-child {
+  border-top: none;
+  margin-top: 0;
 }
 
 .tec-item {
