@@ -242,14 +242,4 @@ onBeforeUnmount(() => cubeMq.removeEventListener("change", onCubeMq));
     text-align: center;
   }
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .bg-drift-a,
-  .bg-drift-b,
-  .bg-drift-c,
-  .bg-drift-d,
-  .bg-drift-e {
-    animation: none;
-  }
-}
 </style>

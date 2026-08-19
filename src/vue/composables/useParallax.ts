@@ -1,7 +1,7 @@
 /**
  * 首页鼠标视差：全局单一输入源。
  * - Pointer Events（仅精细指针设备），输出无单位 CSS 变量 --par-u / --par-v 到页面根节点
- * - 帧率无关 lerp（1-e^(-λΔt)）；reduced-motion 优先于用户强度；强度=0 时暂停 rAF
+ * - 帧率无关 lerp（1-e^(-λΔt)）；强度由显式设置控制（不受系统 reduced-motion 影响）；强度=0 时暂停 rAF
  * - 离开窗口 / 失焦 / 页面隐藏时归零或暂停；onScopeDispose 清理全部监听
  * 注意：不要在模板里把视差值绑定成 Vue 响应式做每帧渲染，直接消费 CSS 变量。
  */
@@ -12,7 +12,6 @@ const DAMPING = 5;
 
 export function useParallax(root: Ref<HTMLElement | null>): void {
   const finePointer = window.matchMedia("(pointer: fine)");
-  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   let activeEl: HTMLElement | null = null;
   let raw = { u: 0, v: 0 };
@@ -22,7 +21,6 @@ export function useParallax(root: Ref<HTMLElement | null>): void {
   let lastT = 0;
 
   function effectiveScale(): number {
-    if (reducedMotion.matches) return 0;
     return PARALLAX_SCALE[parallaxIntensityRef.value] ?? PARALLAX_SCALE[2];
   }
 
@@ -109,7 +107,6 @@ export function useParallax(root: Ref<HTMLElement | null>): void {
   document.addEventListener("mouseleave", onReset);
   window.addEventListener("blur", onReset);
   document.addEventListener("visibilitychange", onVisibility);
-  reducedMotion.addEventListener("change", onSettingOrMotionChange);
   if (!finePointer.matches) scale = 0;
 
   onScopeDispose(() => {
@@ -118,6 +115,5 @@ export function useParallax(root: Ref<HTMLElement | null>): void {
     document.removeEventListener("mouseleave", onReset);
     window.removeEventListener("blur", onReset);
     document.removeEventListener("visibilitychange", onVisibility);
-    reducedMotion.removeEventListener("change", onSettingOrMotionChange);
   });
 }

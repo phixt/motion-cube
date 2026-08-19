@@ -98,13 +98,4 @@ const cellStyle = (face: (typeof FACES)[number]): Record<string, string> => ({
     transform: rotateY(360deg);
   }
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .cube-spin {
-    animation: none;
-  }
-  .cube-parallax {
-    transform: none;
-  }
-}
 </style>

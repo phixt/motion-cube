@@ -2,7 +2,7 @@
 
 > 更新：2026-08-19　✅ 已完成 ｜ 🚧 进行中 ｜ ⬜ 待办
 
-## 首页视差界面（2026-08-19 ✅ + 版本 0.3.1）
+## 首页视差界面（2026-08-19 ✅）
 
 - ✅ **伪 3D 魔方**（`PseudoCube3D.vue`）：CSS 3D 6 face × 3×3 纯色格 + 1px 极细格线
   （stickerless，无边框黑格）；transform 三层分离——tilt（rotateX -18° 静态倾斜）/
@@ -12,8 +12,8 @@
 - ✅ **鼠标视差单一输入源**（`useParallax.ts` composable）：Pointer Events（仅
   `(pointer: fine)`）、帧率无关 lerp（1-e^(-λΔt)，λ=5）、强度缩放、`--par-u/--par-v`
   无单位 CSS 变量写到 StartPage 根节点（不污染 documentElement）；离窗/失焦/页面
-  隐藏暂停或归零；`parallaxIntensity=0` 停 rAF；`prefers-reduced-motion` 优先于
-  用户强度（强制归零并停自转）；onScopeDispose 全量清理（HMR 不泄漏）
+  隐藏暂停或归零；`parallaxIntensity=0` 停 rAF；强度只由显式设置控制，不受系统
+  reduced-motion 影响（产品决策：强制视差，可用"视差: 关"显式停用）；onScopeDispose 全量清理（HMR 不泄漏）
 - ✅ **首页布局**（StartPage.vue）：左右两列 grid（`minmax(0,1fr) auto`），左标题/
   副标题/进入游戏、右魔方（装饰列）；远景层 = 圆环/菱形/三角抽象几何淡出，慢漂移
   动画与视差分层（外层 JS transform、内层 CSS drift），`pointer-events:none` +
@@ -31,7 +31,7 @@
 - ✅ 验证：typecheck/build 绿；puppeteer + 像素扫描确认——1440/1920 宽、100%/150%
   缩放、明暗主题魔方不裁切（投影溢出已修）、窄屏魔方卸载、视差变量随强度缩放
   （中 0.7 时 u=0.60 对应鼠标 0.86）、按钮循环 + 持久化；console 无错误
-- ✅ **版本 0.3.0 → 0.3.1**（package.json + tauri.conf.json 同步）
+- ✅ **版本**：不更新（保持 0.3.0，package.json + tauri.conf.json 同步）
 
 ## 标灰面板交互重构（2026-08-12）
 
