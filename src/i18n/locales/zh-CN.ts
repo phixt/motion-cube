@@ -97,6 +97,17 @@ export const zhCN: Record<string, string> = {
   "hud.statusCleared": "已清空",
   "hud.statusReset": "已重置",
 
+  // 求解
+  "solve.btn": "求解",
+  "solve.solving": "求解中",
+  "solve.methodCfop": "CFOP",
+  "solve.methodRoux": "Roux",
+  "solve.total": "共 {n} 步",
+  "solve.empty": "魔方已还原",
+  "solve.demo": "演示求解",
+  "solve.close": "关闭",
+  "solve.fail": "求解失败",
+
   // 按键设置页
   "keymap.title": "设置",
   "keymap.action": "动作",

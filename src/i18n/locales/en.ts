@@ -99,6 +99,17 @@ export const en: Record<string, string> = {
   "hud.statusCleared": "Cleared",
   "hud.statusReset": "Reset",
 
+  // Solver
+  "solve.btn": "Solve",
+  "solve.solving": "Solving",
+  "solve.methodCfop": "CFOP",
+  "solve.methodRoux": "Roux",
+  "solve.total": "{n} moves",
+  "solve.empty": "Cube already solved",
+  "solve.demo": "Play solve",
+  "solve.close": "Close",
+  "solve.fail": "Solve failed",
+
   // Keymap page
   "keymap.title": "Settings",
   "keymap.action": "Action",

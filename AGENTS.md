@@ -25,4 +25,11 @@
   `scripts/gen-cuberoot-algs.mjs` 生成（含最小 54 贴纸引擎语义校验）；访问器
   `src/data/algDb.ts` 导出 `BUILTIN_LIBRARY`（公式 id `cr-<caseId>`，tags=CFOP/Roux）；
   公式库页「加载内置公式库」按钮合并落库。
+- **求解器**（移植自 rubik-cube.html，纯 TS、无运行时依赖）：`src/cube/solver/`——
+  engine（54 贴纸引擎+code 置换表）、search（ItemSolver PDB/IDA*/descend）、
+  algs（OLL/PLL/CMLL 坐标 + 逐条核验的内置 LL 公式库 + algGraph）、f2lTable（150 case）、
+  cfop/roux 阶段解、`solve.ts` 入口 `solve(state, method)`（自动处理中心漂移并映射回
+  真实魔方，重放校验 isUniform）；GamePage「求解」面板（方法切换/阶段展示/演示）。
+  验证：`node scripts/smoke-solver.ts` / `scripts/smoke-solver-edge.ts`（tsx）、
+  `scripts/playtest-solver.mjs`。
 - playtest：`node scripts/playtest-ui.mjs`（先起 dev server，SPIKE_URL 指向非 5173 端口）。

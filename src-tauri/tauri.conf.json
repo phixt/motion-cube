@@ -1,7 +1,7 @@
 {
   "productName": "MotionCube",
   "identifier": "com.phixt.motion-cube",
-  "version": "0.3.0",
+  "version": "0.3.2",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5174",

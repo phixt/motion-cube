@@ -2,6 +2,30 @@
 
 > 更新：2026-08-19　✅ 已完成 ｜ 🚧 进行中 ｜ ⬜ 待办
 
+## 求解器移植（2026-08-19 ✅）
+
+- ✅ **引擎**（`src/cube/solver/engine.ts`）：54 贴纸引擎，54 值状态 Uint8Array；
+  坐标右手系（+x→R +y→U +z→F），贴纸/块读取（棱/角 24-值 code、中心 6 槽）、
+  EDGE/CORNER/CENTER 置换表、整块旋转（rotMatrix/transformMove/viewState/
+  normalizeOrientation，中心漂移自动归位并把解法步映射回真实魔方）、tidyAlg、
+  randomScramble、isUniform/isSolved
+- ✅ **搜索**（`search.ts`）：ItemSolver——子集模式数据库（subsetSize 3/4）+ IDA* +
+  exact PDB 最优下坡；buildAllowed 杀掉同面合并/同轴交换重复；combinations
+- ✅ **顶层图库**（`algs.ts` + `algsRaw.ts`）：OLL/PLL/CMLL 坐标；内置公式库
+  （Sune/Anti/OLL*/PLL* 全部/CMLL-a..g）逐条 applyAlg 核验分类（pureLL/rouxSafe/
+  orientationNeutral），不符即弃；algGraph = 整条公式为边的 Dijkstra（权=四分之一转）
+- ✅ **F2L 表**（`f2lTable.ts`）：150 case 最短 <R,U,F> 插入（从 HTML 程序化提取，
+  防手抄错误）+ EJECT 标准弹出，贪心选最短槽位
+- ✅ **CFOP**（`cfop.ts`）：Cross=精确 4 棱 PDB 下坡、F2L=查表、OLL/PLL=图库 BFS
+- ✅ **Roux**（`roux.ts`）：左块=全面转 IDA*、右块=<R,U,M> IDA*、CMLL=块安全图库、
+  LSE=<M,U> 三段（4a 棱定向/4b UL-UR/4c L4E）
+- ✅ **入口**（`solve.ts`）：normalizeOrientation → 阶段解 → transformMove 映射回真实
+  魔方 → 重放校验 isUniform；`SOLVER_METHODS` cfop/roux
+- ✅ **UI**（GamePage）：解法切换（CFOP/Roux）+「求解」→ 阶段面板（每阶段公式/步数、
+  总步数/耗时）+「演示求解」（播放打乱+解法全程）+ 已还原提示；i18n 中英
+- ✅ 验证：typecheck/build 绿；Node 冒烟（随机 25 步打乱×5，CFOP/Roux 均六面 uniform、
+  含 M/E/S 打乱/中心漂移/已解态边界）；puppeteer 实测 UI 求解全流程；版本升至 **0.3.2**
+
 ## 求解器公式库扩展（2026-08-19 用户待办 ⬜）
 
 - ⬜ **CFOP 进阶集**：更快的 C/F——快速十字（预判）+ 高级 F2L（双向/多槽

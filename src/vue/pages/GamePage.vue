@@ -8,6 +8,10 @@ import { createGameSession, type GameSession } from "../../game/session";
 import { clearSnapshot, loadSnapshot, saveSnapshot } from "../../data/snapshot";
 import { parseMoves } from "../../notation/alg";
 import { useI18n } from "../i18n";
+import { applyAlg as applyAlgState, solvedState, solve as solveCube } from "../../cube/solver";
+import type { SolveResult } from "../../cube/solver";
+import { baseFaceSetupAlg } from "../../cube/stickering";
+import { loadSettings } from "../../settings";
 
 const { t } = useI18n();
 
@@ -20,6 +24,11 @@ const playing = ref(false);
 const status = ref("");
 const speed = ref(1);
 const moves = ref<string[]>([]);
+
+const solveMethod = ref<"cfop" | "roux">("cfop");
+const solving = ref(false);
+const solveResult = ref<SolveResult | null>(null);
+const solveError = ref("");
 
 let session: GameSession | null = null;
 
@@ -40,10 +49,10 @@ onMounted(() => {
     onStatus: (s) => (status.value = s),
     onPlaying: (p) => (playing.value = p),
   });
-  // 进度快照：进入游戏恢复上次达成步骤
+// 进度快照：进入游戏恢复上次达成步骤
   const snap = loadSnapshot();
   if (snap) {
-    session.player.element.alg = snap.alg;
+    session.player.setMoves(snap.alg);
     // cubing 惰性渲染：恢复状态后强制重绘
     void session.player.element
       .experimentalCurrentVantages()
@@ -84,6 +93,48 @@ const clearProgress = (): void => {
   session?.player.reset();
   moves.value = [];
 };
+
+/** 当前真实魔方状态：已解 + 底色整体旋转 + 玩家步 */
+const currentState = (): Uint8Array => {
+  const setup = baseFaceSetupAlg(loadSettings().baseFace);
+  const alg = (setup ? setup + " " : "") + (session?.player.currentAlg ?? "");
+  return applyAlgState(solvedState(), alg);
+};
+
+const doSolve = (): void => {
+  if (!session || solving.value) return;
+  solving.value = true;
+  solveResult.value = null;
+  solveError.value = "";
+  status.value = t("solve.solving");
+  // 让状态栏/按钮先刷新，再跑同步求解（首解会建表 ~几百 ms）
+  void nextTick(() => {
+    try {
+      const res = solveCube(currentState(), solveMethod.value);
+      solveResult.value = res;
+      status.value = res.moves.length ? t("solve.total", { n: res.moves.length }) : t("solve.empty");
+    } catch (e) {
+      solveError.value = (e as Error).message;
+      status.value = t("solve.fail", { error: solveError.value });
+    } finally {
+      solving.value = false;
+    }
+  });
+};
+
+const closeSolve = (): void => {
+  solveResult.value = null;
+  solveError.value = "";
+};
+
+/** 演示：从当前打乱态播放 打乱 + 解法 全程 */
+const demoSolve = (): void => {
+  if (!session || !solveResult.value) return;
+  const cur = session.player.currentAlg;
+  const full = (cur ? cur + " " : "") + solveResult.value.moves.join(" ");
+  session.player.setMoves(full);
+  session.player.play();
+};
 </script>
 
 <template>
@@ -102,6 +153,11 @@ const clearProgress = (): void => {
       <WinButton id="btn-clear-progress" :Content="t('hud.clearProgress')" @Click="clearProgress" />
       <WinTextBlock class="speed-label" :Text="`${t('hud.speed')} ${speed.toFixed(1)}x`" FontSize="13" />
       <WinSlider id="speed" class="hud-speed" v-model:Value="speed" :Minimum="0.1" :Maximum="3" StepFrequency="0.1" />
+      <span id="solve-method" class="solve-method">
+        <WinButton id="btn-method-cfop" :class="['method-btn', { active: solveMethod === 'cfop' }]" :Content="t('solve.methodCfop')" @Click="solveMethod = 'cfop'" />
+        <WinButton id="btn-method-roux" :class="['method-btn', { active: solveMethod === 'roux' }]" :Content="t('solve.methodRoux')" @Click="solveMethod = 'roux'" />
+        <WinButton id="btn-solve" :Content="t('solve.btn')" @Click="doSolve" />
+      </span>
       <span id="hud-status" class="hud-status">{{ status }}</span>
     </div>
 
@@ -110,6 +166,36 @@ const clearProgress = (): void => {
     <main ref="stageEl" class="stage"></main>
 
     <div ref="grayPanelEl" id="gray-panel" class="gray-panel"></div>
+
+    <div v-if="solving" class="solve-panel">
+      <div class="solve-title">{{ t("solve.solving") }}…</div>
+    </div>
+
+    <div v-else-if="solveError" class="solve-panel">
+      <div class="solve-title">{{ t("solve.fail") }}</div>
+      <div class="solve-error">{{ solveError }}</div>
+      <WinButton :Content="t('solve.close')" @Click="closeSolve" />
+    </div>
+
+    <div v-else-if="solveResult" class="solve-panel">
+      <div class="solve-title">
+        {{ solveResult.short }}
+        <span class="panel-muted">
+          {{ t("solve.total", { n: solveResult.moves.length }) }} · {{ Math.round(solveResult.ms) }}ms
+        </span>
+      </div>
+      <ul class="solve-stages">
+        <li v-for="(s, i) in solveResult.stages" :key="i" class="solve-stage">
+          <span class="stage-short">{{ s.short }}</span>
+          <span class="stage-moves">{{ s.moves.join(" ") || "–" }}</span>
+          <span class="stage-count">{{ s.moves.length }}</span>
+        </li>
+      </ul>
+      <div class="solve-actions">
+        <WinButton v-if="solveResult.moves.length" :Content="t('solve.demo')" @Click="demoSolve" />
+        <WinButton :Content="t('solve.close')" @Click="closeSolve" />
+      </div>
+    </div>
 
     <div id="bottom-panel" class="bottom-panel">
       <div class="panel-title">
@@ -180,6 +266,85 @@ const clearProgress = (): void => {
 .hud-status {
   color: var(--SystemFillColorCautionBrush, #f6a625);
   font-size: 13px;
+}
+
+.solve-method {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.solve-method .method-btn.active {
+  --btn-accent: var(--accent-base, #60cdfe);
+  border-color: var(--accent-base, #60cdfe);
+}
+
+.solve-panel {
+  position: absolute;
+  right: 12px;
+  top: 118px;
+  z-index: 28;
+  width: 340px;
+  max-height: calc(100% - 130px);
+  overflow: auto;
+  padding: 10px 12px;
+  border-radius: var(--ControlCornerRadius, 8px);
+  background: var(--flyout-bg, rgba(20, 20, 24, 0.88));
+  -webkit-backdrop-filter: var(--flyout-backdrop);
+  backdrop-filter: var(--flyout-backdrop);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.solve-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text-primary);
+}
+
+.solve-error {
+  color: var(--SystemFillColorCautionBrush, #f6a625);
+  margin-bottom: 8px;
+  word-break: break-all;
+}
+
+.solve-stages {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}
+
+.solve-stage {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--stroke-divider, rgba(128, 128, 128, 0.2));
+}
+
+.stage-short {
+  flex: 0 0 64px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.stage-moves {
+  flex: 1;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.stage-count {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.solve-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .key-help {
