@@ -9,7 +9,7 @@
   （exe + bundle/nsis 安装器）；打包后启动验证用 Start-Process + 截图确认渲染
 - **版本号**：package.json 与 src-tauri/tauri.conf.json 的 version 必须同步
   （tauri 打包以 conf 为准）；功能/修复提交时评估 bump
-- **自动化（GitHub Actions）**：尚未配置；可加 .github/workflows（CI:
+- **自动化（GitHub Actions）**：已配置；已加 .github/workflows（CI:
   typecheck/build/verify/playtest；发布: tag 触发 tauri 打包上传 Releases）
 - **Windows**：优先 PowerShell 7（pwsh）；中文输出前设置 UTF-8
   （PowerShell `[Console]::OutputEncoding`、Python `sys.stdout.reconfigure`）；
