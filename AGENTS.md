@@ -20,4 +20,9 @@
 - Vite 8 + Vue 3.5 + TypeScript + cubing.js（3D 魔方）+ three.js（手模型）+ WinUIonWeb 壳。
 - 数据持久化全在 localStorage（settings/keymap/editorKeymap/library/handRig）。
 - 编辑器以 3D 视图为中心 + 左侧 PS 风格侧边栏；页面不滚动（详情区内部滚动）。
+- **内置公式库**：`data/samples/cuberoot-algs.json`（爬自 api.cuberoot.me，241 个
+  case：2-look-oll/oll/2-look-pll/pll/f2l + 2-look-cmll/cmll/eo4a/lse-eolr）由
+  `scripts/gen-cuberoot-algs.mjs` 生成（含最小 54 贴纸引擎语义校验）；访问器
+  `src/data/algDb.ts` 导出 `BUILTIN_LIBRARY`（公式 id `cr-<caseId>`，tags=CFOP/Roux）；
+  公式库页「加载内置公式库」按钮合并落库。
 - playtest：`node scripts/playtest-ui.mjs`（先起 dev server，SPIKE_URL 指向非 5173 端口）。

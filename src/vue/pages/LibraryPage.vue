@@ -34,6 +34,7 @@ import {
   type LibraryData,
 } from "../../data/libraryStore";
 import { SAMPLE_LIBRARY } from "../../data/samples";
+import { BUILTIN_LIBRARY } from "../../data/algDb";
 import { useI18n } from "../i18n";
 
 const { t } = useI18n();
@@ -190,6 +191,12 @@ const loadSamples = (): void => {
   lib.value = mergeLibrary(lib.value, SAMPLE_LIBRARY);
   persist();
   setStatus(t("library.importOk", { n: SAMPLE_LIBRARY.formulas.length, m: SAMPLE_LIBRARY.techniques.length }));
+};
+
+const loadBuiltin = (): void => {
+  lib.value = mergeLibrary(lib.value, BUILTIN_LIBRARY);
+  persist();
+  setStatus(t("library.importOk", { n: BUILTIN_LIBRARY.formulas.length, m: 0 }));
 };
 
 const onFileChange = async (e: Event): Promise<void> => {
@@ -434,6 +441,7 @@ watch([tecSearch, pageSize], () => {
     </div>
 
     <div class="lib-actions">
+      <WinButton id="btn-builtin" :Content="t('library.loadBuiltin')" @Click="loadBuiltin" />
       <WinButton id="btn-samples" :Content="t('library.loadSamples')" @Click="loadSamples" />
       <WinButton id="btn-import" :Content="t('library.import')" @Click="($refs.fileInput as HTMLInputElement | undefined)?.click()" />
       <input ref="fileInput" type="file" accept="application/json,.json" class="hidden-file" @change="onFileChange" />

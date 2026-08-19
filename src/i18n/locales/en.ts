@@ -177,6 +177,7 @@ export const en: Record<string, string> = {
   "library.import": "Import JSON",
   "library.export": "Export JSON",
   "library.loadSamples": "Load samples",
+  "library.loadBuiltin": "Load built-in library",
   "library.importOk": "Imported {n} formulas / {m} techniques",
   "library.importFail": "Import failed: {error}",
   "library.exportOk": "Exported",

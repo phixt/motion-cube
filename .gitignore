@@ -40,3 +40,6 @@ lerna-debug.log*
 *.sw?
 .DS_Store
 Thumbs.db
+
+# cuberoot API 抓取缓存（可重新 --fetch 生成）
+.cache/

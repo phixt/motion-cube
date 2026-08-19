@@ -2,6 +2,27 @@
 
 > 更新：2026-08-19　✅ 已完成 ｜ 🚧 进行中 ｜ ⬜ 待办
 
+## 内置公式库（2026-08-19 ✅）
+
+- ✅ **cuberoot.me 公式库爬取内置**：`scripts/gen-cuberoot-algs.mjs` 拉取公开 API
+  （api.cuberoot.me/v1/alg/sets/3x3），内置 CFOP（2-look-oll/oll/2-look-pll/pll/f2l）
+  与 Roux（2-look-cmll/cmll/eo4a/lse-eolr）共 **9 个集合 241 个 case**
+- ✅ **校验管线**：清洗装饰字符（`·`/`↑`/`↓`、去括号分组、`2'` 等价 `2`）；
+  cubing/alg 解析校验（保证 TwistyPlayer 可播放）+ 内置最小 54 贴纸引擎语义校验
+  （对已解魔方施加 setup+alg，整块旋转无关地检查集合不变量：OLL/2-look-oll=顶面同色、
+  PLL/2-look-pll=六面同色、CMLL/2-look-cmll=顶层四角归位、F2L=非顶层全归位；
+  EO/LSE 仅解析校验）；主公式优先 cuberoot 源、无单手(oh)标签
+- ✅ **数据**：`data/samples/cuberoot-algs.json`（version 1，含 fetchedAt/source、
+  每 case 的 setup/主公式/备选公式），241/242 通过，仅 `cmll/H Column` 为刮取数据
+  不一致（其 4 条公式与 setup 在所有 AUF 下均不符）被丢弃
+- ✅ **接入**：`src/data/algDb.ts`——`BUILTIN_LIBRARY`（LibraryData）+ 统计导出；
+  复用示例分类 cat-oll/cat-pll/cat-cmll，新增 cat-2look-oll/cat-2look-pll/cat-f2l/
+  cat-2look-cmll/cat-lse；公式 id `cr-<caseId>`，tags=CFOP/Roux
+- ✅ **UI**：公式库页「加载内置公式库」按钮（btn-builtin，与加载示例并列），
+  mergeLibrary 合并 + localStorage 持久化 + 状态提示；重复点击幂等
+- ✅ 验证：typecheck/build 绿；puppeteer 实测——点击后 241 条公式 + 8 分类落库、
+  分组折叠可见、页信息总数 241、重复加载仍 241；版本保持 0.3.0 不 bump
+
 ## 首页视差界面（2026-08-19 ✅）
 
 - ✅ **伪 3D 魔方**（`PseudoCube3D.vue`）：CSS 3D 6 face × 3×3 纯色格 + 1px 极细格线

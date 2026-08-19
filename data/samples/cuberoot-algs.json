@@ -1,0 +1,2619 @@
+{
+  "version": 1,
+  "source": "https://cuberoot.me/zh/alg/3x3 (api.cuberoot.me/v1/alg/sets)",
+  "fetchedAt": "2026-08-07T20:15:28.778Z",
+  "sets": {
+    "2-look-oll": {
+      "label": "2-Look OLL",
+      "group": "cfop",
+      "cases": [
+        {
+          "id": 7996,
+          "name": "Bar",
+          "subgroup": "Edges",
+          "setup": "F U R U' R' F'",
+          "alg": "F R U R' U' F'",
+          "alts": []
+        },
+        {
+          "id": 7997,
+          "name": "L shape",
+          "subgroup": "Edges",
+          "setup": "F R U R' U' F'",
+          "alg": "F U R U' R' F'",
+          "alts": []
+        },
+        {
+          "id": 7998,
+          "name": "Sune",
+          "subgroup": "Corners",
+          "setup": "R U2' R' U' R U' R'",
+          "alg": "R U R' U R U2 R'",
+          "alts": []
+        },
+        {
+          "id": 7999,
+          "name": "Antisune",
+          "subgroup": "Corners",
+          "setup": "R U R' U R U2' R'",
+          "alg": "R U2 R' U' R U' R'",
+          "alts": []
+        },
+        {
+          "id": 8000,
+          "name": "H OLL",
+          "subgroup": "Corners",
+          "setup": "R U2' R' U' R U R' U' R U' R' U'",
+          "alg": "U R U R' U R U' R' U R U2 R'",
+          "alts": []
+        },
+        {
+          "id": 8001,
+          "name": "T OLL",
+          "subgroup": "Corners",
+          "setup": "F R' F' r U R U' r'",
+          "alg": "r U R' U' r' F R F'",
+          "alts": []
+        },
+        {
+          "id": 8002,
+          "name": "L OLL",
+          "subgroup": "Corners",
+          "setup": "r U R' U' r' F R F'",
+          "alg": "F R' F' r U R U' r'",
+          "alts": []
+        },
+        {
+          "id": 8003,
+          "name": "Pi OLL",
+          "subgroup": "Corners",
+          "setup": "R' U2 R2 U R2' U R2 U2' R'",
+          "alg": "R U2 R2' U' R2 U' R2' U2' R",
+          "alts": []
+        },
+        {
+          "id": 8004,
+          "name": "U OLL",
+          "subgroup": "Corners",
+          "setup": "R' U2' R' D' R U2' R' D R2'",
+          "alg": "R2 D' R U2 R' D R U2 R",
+          "alts": []
+        }
+      ]
+    },
+    "oll": {
+      "label": "OLL",
+      "group": "cfop",
+      "cases": [
+        {
+          "id": 3932,
+          "name": "OLL 27",
+          "subgroup": "OCLL [6,7]",
+          "setup": "R U2' R' U' R U' R'",
+          "alg": "R U R' U R U2' R'",
+          "alts": [
+            "U' R' U2' R U R' U R",
+            "R U R' U R U2 R'",
+            "U L' U2 L U L' U L"
+          ]
+        },
+        {
+          "id": 3931,
+          "name": "OLL 26",
+          "subgroup": "OCLL [6,7]",
+          "setup": "R U R' U R U2' R' y'",
+          "alg": "R' U' R U' R' U2 R",
+          "alts": [
+            "U2 L' U R U' L U R' U2",
+            "U R U2 R' U' R U' R' U'",
+            "U2 L' U' L U' L' U2 L U2"
+          ]
+        },
+        {
+          "id": 3929,
+          "name": "OLL 24",
+          "subgroup": "OCLL [6,7]",
+          "setup": "F R' F' r U R U' r'",
+          "alg": "r U R' U' r' F R F'",
+          "alts": [
+            "U2 R' F' r U R U' r' F U2",
+            "U R U R D R' U' R D' R2 U'",
+            "U' x' R U R' D R U' R' D' x U"
+          ]
+        },
+        {
+          "id": 3930,
+          "name": "OLL 25",
+          "subgroup": "OCLL [6,7]",
+          "setup": "R' F' r U R U' r' F y'",
+          "alg": "F R' F' r U R U' r'",
+          "alts": [
+            "U F' r U R' U' r' F R",
+            "U F' L F R' F' L' F R",
+            "U' l U' R' D R U R' D' x"
+          ]
+        },
+        {
+          "id": 3928,
+          "name": "OLL 23",
+          "subgroup": "OCLL [6,7]",
+          "setup": "R U2' R D R' U2' R D' R2'",
+          "alg": "R2 D R' U2 R D' R' U2 R'",
+          "alts": [
+            "U2 R2' D' R U2 R' D R U2 R",
+            "U2 R2 D' R U2 R' D R U2 R U2",
+            "R U R' U R U2 R2 U' R U' R' U2 R"
+          ]
+        },
+        {
+          "id": 3927,
+          "name": "OLL 22",
+          "subgroup": "OCLL [6,7]",
+          "setup": "R' U2' R2' U R2' U R2' U2' R'",
+          "alg": "R' U2' R2 U R2' U R2 U2' R'",
+          "alts": [
+            "f R U R' U' S' R U R' U' F'",
+            "f R U R' U' f' F R U R' U' F'",
+            "R U2 R2' U' R2 U' R2' U' U' R"
+          ]
+        },
+        {
+          "id": 3926,
+          "name": "OLL 21",
+          "subgroup": "OCLL [6,7]",
+          "setup": "R U R' U R U' R' U R U2' R' y'",
+          "alg": "R U R' U R U' R' U R U2' R'",
+          "alts": [
+            "F U2 S R' U2 R' U2' R U2 f'",
+            "U R' U2' R U R' U' R U R' U R",
+            "R U R' U R U' R' U R U2 R'"
+          ]
+        },
+        {
+          "id": 3933,
+          "name": "OLL 28",
+          "subgroup": "OELL [2]",
+          "setup": "R U R' U' M' U R U' r'",
+          "alg": "R' F R S R' F' R S'",
+          "alts": [
+            "U2 M' U M U2 M' U M",
+            "U' S' R U' R' S R U R'",
+            "R2' F2 r U r' F2 R F' R"
+          ]
+        },
+        {
+          "id": 3962,
+          "name": "OLL 57",
+          "subgroup": "OELL [2]",
+          "setup": "r U R' U' M U R U' R'",
+          "alg": "R U R' U' M' U R U' r'",
+          "alts": [
+            "U R U' R' S' R U R' S U'",
+            "U R U R' S' R U' R' S U'",
+            "R U R' U' R' r U R U' r'"
+          ]
+        },
+        {
+          "id": 3950,
+          "name": "OLL 45",
+          "subgroup": "T [2]",
+          "setup": "F U R U' R' F'",
+          "alg": "F R U R' U' F'",
+          "alts": [
+            "U R' F' U' F U R U'",
+            "U2 f U R U' R' f' U2",
+            "U2 F' L' U' L U F U2"
+          ]
+        },
+        {
+          "id": 3938,
+          "name": "OLL 33",
+          "subgroup": "T [2]",
+          "setup": "F R' F' R U R U' R'",
+          "alg": "R U R' U' R' F R F'",
+          "alts": [
+            "U2 L' U' L U L F' L' F",
+            "R U R' F' U' F R U' R' U",
+            "U2 L' U' L U L F' L' F U2"
+          ]
+        },
+        {
+          "id": 3910,
+          "name": "OLL 5",
+          "subgroup": "O [1,2]",
+          "setup": "r' U' R U' R' U2' r",
+          "alg": "r' U2 R U R' U r",
+          "alts": [
+            "U2 l' U2 L U L' U l U2",
+            "U2 R' F2 r U r' F R U2",
+            "U2 R' F2 L F L' F R U2"
+          ]
+        },
+        {
+          "id": 3911,
+          "name": "OLL 6",
+          "subgroup": "O [1,2]",
+          "setup": "r U R' U R U2' r'",
+          "alg": "r U2 R' U' R U' r'",
+          "alts": [
+            "U2 l U2 L' U' L U' l' U2",
+            "F U' R2 D R' U' R D' R2 U F'",
+            "U' x' D R2 U' R' U R' D' x U"
+          ]
+        },
+        {
+          "id": 3942,
+          "name": "OLL 37",
+          "subgroup": "K [2]",
+          "setup": "F R U' R' U R U R' F'",
+          "alg": "F R' F' R U R U' R'",
+          "alts": [
+            "U F' r U r' U' r' F r",
+            "U' f' U f R' U' R' U R",
+            "U F' r U r' U' r' F r U2"
+          ]
+        },
+        {
+          "id": 3940,
+          "name": "OLL 35",
+          "subgroup": "K [2]",
+          "setup": "R U2' R' F R' F' R2' U2' R'",
+          "alg": "R U2' R2' F R F' R U2' R'",
+          "alts": [
+            "R U2 R' R' F R F' R U2 R'",
+            "R U2 R' d' R' F R U' R' F' R",
+            "U L' U2 L2 F' L' F L' U2 L U"
+          ]
+        },
+        {
+          "id": 3951,
+          "name": "OLL 46",
+          "subgroup": "C [2]",
+          "setup": "R' U' F R' F' R U R",
+          "alg": "R' U' R' F R F' U R",
+          "alts": [
+            "R' F' U' F R U' R' U2 R",
+            "l' U2 L2 F' L' F U L' U l",
+            "U F R U R' U' F' U' R U R' U R U2 R' U'"
+          ]
+        },
+        {
+          "id": 3939,
+          "name": "OLL 34",
+          "subgroup": "C [2]",
+          "setup": "F U R' U' R' F' R U R2' U' R' y2'",
+          "alg": "U f R f' U' r' U' R U M' U'",
+          "alts": [
+            "F R U R' U' R' F' r U R U' r'",
+            "U2 R U R' U' B' R' F R F' B U2",
+            "U2 R U R2 U' R' F R U R U' F' U2"
+          ]
+        },
+        {
+          "id": 3945,
+          "name": "OLL 40",
+          "subgroup": "Z [1,2]",
+          "setup": "R' U' F U R U' R' F' R y'",
+          "alg": "R r D r' U r D' r' U' R'",
+          "alts": [
+            "U R' F R U R' U' F' U R U'",
+            "U' f R' F' R U R U' R' S' U",
+            "U' L' U' L F U F' U' L' U2 L U"
+          ]
+        },
+        {
+          "id": 3944,
+          "name": "OLL 39",
+          "subgroup": "Z [1,2]",
+          "setup": "L U F' U' L' U L F L' y'",
+          "alg": "U' f' r U r' U' r' F r S U",
+          "alts": [
+            "U' f' L F L' U' L' U L S U",
+            "U L F' L' U' L U F U' L' U'",
+            "U' R U R' F' U' F U R U2 R' U"
+          ]
+        },
+        {
+          "id": 3915,
+          "name": "OLL 10",
+          "subgroup": "Y [1,2]",
+          "setup": "R U2' R' F R' F' R U' R U' R'",
+          "alg": "R U R' U R' F R F' R U2 R'",
+          "alts": [
+            "U M' R' U2 R U R' U R U M U'",
+            "U F U F' R' F R U' R' F' R U'",
+            "U2 L' U' L U L F' L2 U' L U F U2"
+          ]
+        },
+        {
+          "id": 3914,
+          "name": "OLL 9",
+          "subgroup": "Y [1,2]",
+          "setup": "F U R U' R2' F' R U R U' R' y'",
+          "alg": "R U2' R' U' S' R U' R' S",
+          "alts": [
+            "U2 F' U' F r U' r' U r U r'",
+            "U R U R' U' R' F R2 U R' U' F'",
+            "U2 F' U' F r U' r' U r U r' U2"
+          ]
+        },
+        {
+          "id": 3943,
+          "name": "OLL 38",
+          "subgroup": "W [1,2]",
+          "setup": "F R' F' R U R U R' U' R U' R'",
+          "alg": "R' U2 r' D' r U2 r' D r R",
+          "alts": [
+            "R U R' U R U' R' U' R' F R F'",
+            "U F R U' R' S U' R U R' f' U'",
+            "r U R' U' r' F R U R U' R' F'"
+          ]
+        },
+        {
+          "id": 3941,
+          "name": "OLL 36",
+          "subgroup": "W [1,2]",
+          "setup": "F' L F L' U' L' U' L U L' U L y2'",
+          "alg": "R U R' U' F' U2 F U R U R'",
+          "alts": [
+            "U R U R2 F' U' F U R2 U2 R' U'",
+            "U2 R' F' U' F2 U R U' R' F' R U2",
+            "U2 L' U' L U' L' U L U L F' L' F U2"
+          ]
+        },
+        {
+          "id": 3949,
+          "name": "OLL 44",
+          "subgroup": "P [2,4]",
+          "setup": "f U R U' R' f'",
+          "alg": "f R U R' U' f'",
+          "alts": [
+            "U R U B U' B' R' U'",
+            "U' L U F U' F' L' U",
+            "U2 F U R U' R' F' U2"
+          ]
+        },
+        {
+          "id": 3948,
+          "name": "OLL 43",
+          "subgroup": "P [2,4]",
+          "setup": "f' U' L' U L f",
+          "alg": "f' L' U' L U f",
+          "alts": [
+            "B' U' R' U R B",
+            "U R' U' F' U F R U'",
+            "U2 F' U' L' U L F U2"
+          ]
+        },
+        {
+          "id": 3937,
+          "name": "OLL 32",
+          "subgroup": "P [2,4]",
+          "setup": "f R' F' R U R U' R' S'",
+          "alg": "S R U R' U' R' F R f'",
+          "alts": [
+            "R U B' U' R' U R B R'",
+            "U S' L' U' L U f U F'",
+            "U2 L U F' U' L' U L F L'"
+          ]
+        },
+        {
+          "id": 3936,
+          "name": "OLL 31",
+          "subgroup": "P [2,4]",
+          "setup": "R' F R U R' U' F' U R",
+          "alg": "U S R U R' U' f' U' F",
+          "alts": [
+            "U2 S' L' U' L U L F' L' f",
+            "U S R U R' U' f' U' F U'",
+            "U2 S' L' U' L U L F' L' f U2"
+          ]
+        },
+        {
+          "id": 3912,
+          "name": "OLL 7",
+          "subgroup": "N [2,4]",
+          "setup": "r U2' R' U' R U' r'",
+          "alg": "r U R' U R U2' r'",
+          "alts": [
+            "r U R' U R U2 r'",
+            "L' U2 L U2 L F' L' F",
+            "U2 l U L' U L U2 l' U2"
+          ]
+        },
+        {
+          "id": 3913,
+          "name": "OLL 8",
+          "subgroup": "N [2,4]",
+          "setup": "r' U2' R U R' U r y2'",
+          "alg": "l' U' L U' L' U2 l",
+          "alts": [
+            "R' F' r U' r' F2 R",
+            "R U2 R' U2 R' F R F'",
+            "U2 r' U' R U' R' U2 r U2"
+          ]
+        },
+        {
+          "id": 3916,
+          "name": "OLL 11",
+          "subgroup": "N [2,4]",
+          "setup": "M U' R U2' R' U' R U' R2' r",
+          "alg": "M R U R' U R U2' R' U M'",
+          "alts": [
+            "r' R2 U R' U R U2' R' U M'",
+            "U' S U R U R' U R U2' R' S'",
+            "U2 S' U2 R U R' U R U2' R' S"
+          ]
+        },
+        {
+          "id": 3917,
+          "name": "OLL 12",
+          "subgroup": "N [2,4]",
+          "setup": "F U R U' R' F' U' F U R U' R' F'",
+          "alg": "S F' U' F U' F' U2 F U' S'",
+          "alts": [
+            "U' M' R' U' R U' R' U2 R U' M U",
+            "F R U R' U' F' U F R U R' U' F'",
+            "U' S R' U' R U' R' U2 R U2 S' U"
+          ]
+        },
+        {
+          "id": 3947,
+          "name": "OLL 42",
+          "subgroup": "G [2,4]",
+          "setup": "F U R U' R' F' R' U2' R U R' U R",
+          "alg": "U F S' R U R' U' F' U S U'",
+          "alts": [
+            "U R' U' F2 u' R U R' D R2 B U'",
+            "R' U' R U' R' U2 R F R U R' U' F'",
+            "U R' F R F' R' F R F' R U R' U' R U R' U'"
+          ]
+        },
+        {
+          "id": 3946,
+          "name": "OLL 41",
+          "subgroup": "G [2,4]",
+          "setup": "F U R U' R' F' R U2' R' U' R U' R' y2'",
+          "alg": "M U' F' L' U' L U F M'",
+          "alts": [
+            "U' S U' R' F' U' F U R S' U",
+            "U2 F U R2 D R' U' R D' R2 F' U2",
+            "U2 R U R' U R U2 R' F R U R' U' F' U2"
+          ]
+        },
+        {
+          "id": 3934,
+          "name": "OLL 29",
+          "subgroup": "G [2,4]",
+          "setup": "M F R' F' R U R U' R' U' M'",
+          "alg": "F R f' U' S F' U f R' S'",
+          "alts": [
+            "r2' D' r U r' D r2 U' r' U' r",
+            "M U R U R' U' R' F R F' M'",
+            "r2 D' r U r' D r2 U' r' U' r"
+          ]
+        },
+        {
+          "id": 3935,
+          "name": "OLL 30",
+          "subgroup": "G [2,4]",
+          "setup": "F U R U2' R' U R U2' R' U' F' y2'",
+          "alg": "U S' R' U' R f R' U R U' F' U'",
+          "alts": [
+            "U2 F U R U2 R' U' R U2 R' U' F' U2",
+            "U2 F R' F R2 U' R' U' R U R' F2 U2",
+            "U' r' D' r U' r' D r2 U' r' U r U r' U"
+          ]
+        },
+        {
+          "id": 3920,
+          "name": "OLL 15",
+          "subgroup": "J [2,4]",
+          "setup": "r' U' r U' R' U R r' U r",
+          "alg": "r' U' M' U' R U r' U r",
+          "alts": [
+            "r' U' r R' U' R U r' U r",
+            "U2 l' U' l L' U' L U l' U l U2",
+            "U2 R' F' R L' U' L U R' F R U2"
+          ]
+        },
+        {
+          "id": 3921,
+          "name": "OLL 16",
+          "subgroup": "J [2,4]",
+          "setup": "r U r' U R U' R' r U' r'",
+          "alg": "r U M U R' U' r U' r'",
+          "alts": [
+            "r U r' R U R' U' r U' r'",
+            "U2 R B M' B r' U' R B' R'",
+            "U2 R' F R U R' U' F' R U' R' U2 R"
+          ]
+        },
+        {
+          "id": 3918,
+          "name": "OLL 13",
+          "subgroup": "J [2,4]",
+          "setup": "F' U' F r U' r' U r U r'",
+          "alg": "R U' L' D B' U' f M S'",
+          "alts": [
+            "L F' L' U' L F L' F' U F",
+            "F U R U2' R' U' R U R' F'",
+            "F U R U' R2 F' R U R U' R'"
+          ]
+        },
+        {
+          "id": 3919,
+          "name": "OLL 14",
+          "subgroup": "J [2,4]",
+          "setup": "F U F' R' F R U' R' F' R",
+          "alg": "L' U R D' B U f' M S",
+          "alts": [
+            "R' F R U R' F' R F U' F'",
+            "U2 r' U r U r' U' r f R' f'",
+            "S R U R' U' R' F R2 U R' U' f'"
+          ]
+        },
+        {
+          "id": 3956,
+          "name": "OLL 51",
+          "subgroup": "I [4]",
+          "setup": "f U R U' R' U R U' R' f'",
+          "alg": "f R U R' U' R U R' U' f'",
+          "alts": [
+            "U r' F' U' F U F' U' F U r U'",
+            "U2 F U R U' R' U R U' R' F' U2",
+            "U' R' U' R' F R F' R U' R' U2 R U"
+          ]
+        },
+        {
+          "id": 3957,
+          "name": "OLL 52",
+          "subgroup": "I [4]",
+          "setup": "F R U R' d R' U' R U' R'",
+          "alg": "R U R' U R U' B U' B' R'",
+          "alts": [
+            "U2 R' F' U' F U' R U R' U R",
+            "R U R' U R U' y R U' R' F'",
+            "U2 R' F' U' F U' R U R' U R U2"
+          ]
+        },
+        {
+          "id": 3961,
+          "name": "OLL 56",
+          "subgroup": "I [4]",
+          "setup": "r U r' R U R' U' R U R' U' r U' r'",
+          "alg": "R' F' L' F R2 F' U' L U F R'",
+          "alts": [
+            "F R U R' U' R F' L F R' F' L'",
+            "R' F' R U' r' F rM' U' r' F2 R",
+            "x' R U r B' R2' f R U' R' f' R"
+          ]
+        },
+        {
+          "id": 3960,
+          "name": "OLL 55",
+          "subgroup": "I [4]",
+          "setup": "F R' F' U2' R U R' U R2' U2' R'",
+          "alg": "r U2 R2 F R F' U2 r' F R F'",
+          "alts": [
+            "R U2 R2 U' R U' R' U2 F R F'",
+            "U R' F U R U' R2 F' R2 U R' U' R U'",
+            "U R' F R U R U' R2 F' R2 U' R' U R U R' U'"
+          ]
+        },
+        {
+          "id": 3954,
+          "name": "OLL 49",
+          "subgroup": "V [3,6]",
+          "setup": "r' U r2' U' r2' U' r2' U r' y2'",
+          "alg": "R B' R2' F R2 B R2' F' R",
+          "alts": [
+            "U' R' U2' R U R' U R F R U R' U' F'",
+            "l U' l2 U l2 U l2 U' l",
+            "U2 r U' r2 U r2 U r2 U' r U2"
+          ]
+        },
+        {
+          "id": 3955,
+          "name": "OLL 50",
+          "subgroup": "V [3,6]",
+          "setup": "r U' r2' U r2' U r2' U' r",
+          "alg": "r' U r2 U' r2 U' r2 U r'",
+          "alts": [
+            "U2 R' F R2 B' R2 F' R2 B R' U2",
+            "U2 l' U l2 U' l2 U' l2 U l' U2",
+            "U' R U2 R' U' R U' R' F R U R' U' F' U"
+          ]
+        },
+        {
+          "id": 3953,
+          "name": "OLL 48",
+          "subgroup": "V [3,6]",
+          "setup": "F U R U' R' U R U' R' F'",
+          "alg": "F R U R' U' R U R' U' F'",
+          "alts": [
+            "F R' F' U2 R U R' U R2 U2 R'",
+            "U2 f U R U' R' U R U' R' f' U2",
+            "R U2 R' U' R U R' U2 R' F R F'"
+          ]
+        },
+        {
+          "id": 3952,
+          "name": "OLL 47",
+          "subgroup": "V [3,6]",
+          "setup": "F' U' L' U L U' L' U L F",
+          "alg": "F' L' U' L U L' U' L U F",
+          "alts": [
+            "R' U' R' F R F' R' F R F' U R",
+            "U' R' F' U' F U F' U' F U R U",
+            "U' F R' F' R U2 R U' R' U R U2 R' U"
+          ]
+        },
+        {
+          "id": 3959,
+          "name": "OLL 54",
+          "subgroup": "F",
+          "setup": "r U2' R' U' R U R' U' R U' r'",
+          "alg": "r U R' U R U' R' U R U2' r'",
+          "alts": [
+            "U2 F R' F' R U2' F2 r U r' F",
+            "r U R' U R U' R' U R U2 r'",
+            "U2 l U L' U L U' L' U L U2 l' U2"
+          ]
+        },
+        {
+          "id": 3958,
+          "name": "OLL 53",
+          "subgroup": "F",
+          "setup": "r' U2' R U R' U' R U R' U r",
+          "alg": "F' r U r' U2' F2 R' F' R F'",
+          "alts": [
+            "r' U' R U' R' U R U' R' U2 r",
+            "U r' U2 R U R' U' R U R' U r U'",
+            "U' l' U2 L U L' U' L U L' U l U"
+          ]
+        },
+        {
+          "id": 3908,
+          "name": "OLL 3",
+          "subgroup": "D [7,8]",
+          "setup": "F U R U' R' F' U f U R U' R' f' y",
+          "alg": "MR U R' U r U2' r' U M'",
+          "alts": [
+            "U2 M' U r' U2' r U R' U R2 r'",
+            "L F' L' F U S' L U L' U' L' S",
+            "U R' F2 R2 U2' R' F R U2' R2' F2 R"
+          ]
+        },
+        {
+          "id": 3909,
+          "name": "OLL 4",
+          "subgroup": "D [7,8]",
+          "setup": "F U R U' R' F' U' f U R U' R' f' y",
+          "alg": "ML' U' L U' l' U2 l U' M'",
+          "alts": [
+            "R' F R F' U' S R' U' R U R S'",
+            "U' f R U R' U' f' U F R U R' U' F'",
+            "U' R' F2 R2 U2' R' F' R U2' R2' F2 R"
+          ]
+        },
+        {
+          "id": 3923,
+          "name": "OLL 18",
+          "subgroup": "D [7,8]",
+          "setup": "r' U2' R U R' U r2' U2' R' U' R U' r'",
+          "alg": "r U R' U R U2 r2 U' R U' R' U2 r",
+          "alts": [
+            "R D r' U' r D' R' U' R2 F R F' R",
+            "U F S' R U' R' S R U2 R' U' F' U'",
+            "B U2 B' B' R B R' U2 S' U B U' b'"
+          ]
+        },
+        {
+          "id": 3907,
+          "name": "OLL 2",
+          "subgroup": "D [7,8]",
+          "setup": "f U R U' R' f' F U R U' R' F'",
+          "alg": "F R U R' U' S R U R' U' f'",
+          "alts": [
+            "F R U R' U' F' f R U R' U' f'",
+            "U' R U' R2 D' r U r' D R2 U R' U",
+            "U r U r' U2 R U2 R' U2 r U' r' U"
+          ]
+        },
+        {
+          "id": 3924,
+          "name": "OLL 19",
+          "subgroup": "D [7,8]",
+          "setup": "F R' F' R M U R U' R' U' M'",
+          "alg": "U S' R U R' S U' R' F R F'",
+          "alts": [
+            "M U R U R' U' M' R' F R F'",
+            "R' U2 F R U R' U' F2 U2 F R",
+            "r' R U R U R' U' r R2 F R F'"
+          ]
+        },
+        {
+          "id": 3922,
+          "name": "OLL 17",
+          "subgroup": "D [7,8]",
+          "setup": "F R' F' R U2' F R' F' R U' R U' R'",
+          "alg": "U' F' r U r' U' S r' F r S' U",
+          "alts": [
+            "U2 F R' F' R U S' R U' R' S U2",
+            "R U R' U R' F R F' U2 R' F R F'",
+            "U2 F R' F' R2 r' U R U' R' U' M' U2"
+          ]
+        },
+        {
+          "id": 3906,
+          "name": "OLL 1",
+          "subgroup": "D [7,8]",
+          "setup": "F R' F' R U2' F R' F' R2' U2' R'",
+          "alg": "R U B' R B R2' U' R' F R F'",
+          "alts": [
+            "R U2' R2' F R F' U2' R' F R F'",
+            "U R U' R2' D' r U' r' D R2 U R'",
+            "F R U R' U' F' S R U R' U' R' F R f'"
+          ]
+        },
+        {
+          "id": 3925,
+          "name": "OLL 20",
+          "subgroup": "D [7,8]",
+          "setup": "r U R' U' M2' U R U' R' U' M'",
+          "alg": "S R' U' R U R U R U' R' S'",
+          "alts": [
+            "S R U R' U' R' U' R' U R S'",
+            "R2' S' R2 U S2' U R2' S' R2",
+            "r U R' U' M2' U R U' R' U' M'"
+          ]
+        }
+      ]
+    },
+    "2-look-pll": {
+      "label": "2-Look PLL",
+      "group": "cfop",
+      "cases": [
+        {
+          "id": 8005,
+          "name": "Matching Corners (aka Headlights)",
+          "subgroup": "Corners",
+          "setup": "R2' B2' R F R' B2' R F' R",
+          "alg": "R' F R' B2 R F' R' B2 R2",
+          "alts": []
+        },
+        {
+          "id": 8006,
+          "name": "No Matching (aka No Headlights)",
+          "subgroup": "Corners",
+          "setup": "F R' F' R U R U' R' F R U' R' U R U R' F'",
+          "alg": "F R U' R' U' R U R' F' R U R' U' R' F R F'",
+          "alts": []
+        },
+        {
+          "id": 8007,
+          "name": "Ua perm",
+          "subgroup": "Edges",
+          "setup": "M2' U' M U2' M' U' M2'",
+          "alg": "M2 U M U2 M' U M2",
+          "alts": [
+            "R U' R U R U R U' R' U' R2",
+            "U2 R U R' U R' U' R2 U' R' U R' U R"
+          ]
+        },
+        {
+          "id": 8008,
+          "name": "Ub perm",
+          "subgroup": "Edges",
+          "setup": "M2' U M U2' M' U M2'",
+          "alg": "M2 U' M U2 M' U' M2",
+          "alts": [
+            "U2 R' U R' U' R' U' R' U R U R2 U2"
+          ]
+        },
+        {
+          "id": 8009,
+          "name": "H perm",
+          "subgroup": "Edges",
+          "setup": "M2' U M2' U2' M2' U M2'",
+          "alg": "M2 U' M2 U2 M2 U' M2",
+          "alts": []
+        },
+        {
+          "id": 8010,
+          "name": "Z perm",
+          "subgroup": "Edges",
+          "setup": "U2' M U2' M2' U2' M U M2' U M2'",
+          "alg": "M2 U' M2 U' M' U2 M2 U2 M' U2",
+          "alts": []
+        }
+      ]
+    },
+    "pll": {
+      "label": "PLL",
+      "group": "cfop",
+      "cases": [
+        {
+          "id": 4305,
+          "name": "Aa",
+          "subgroup": "Adj Swap",
+          "setup": "x R2' D2' R U R' D2' R U' R x'",
+          "alg": "x R' U R' D2 R U' R' D2 R2 x'",
+          "alts": [
+            "U x' R2 D2 R' U' R D2 R' U R' x U'",
+            "U' xL2 D2' L' U' L D2' L' U L' x' U",
+            "U2 x' L' U L' D2' L U' L' D2' L2 x U2"
+          ]
+        },
+        {
+          "id": 4306,
+          "name": "Ab",
+          "subgroup": "Adj Swap",
+          "setup": "x R' U R' D2' R U' R' D2' R2 x'",
+          "alg": "x R2' D2 R U R' D2 R U' R x'",
+          "alts": [
+            "U x' R U' R D2 R' U R D2 R2' x U'",
+            "U' x L U' L D2' L' U L D2' L2' x' U",
+            "U2 R' D' R U2 R' D R U R' D' R U R' D R U2"
+          ]
+        },
+        {
+          "id": 4307,
+          "name": "E",
+          "subgroup": "Opp Swap",
+          "setup": "x' D R U R' D' R U' R' D R U' R' D' R U R' x",
+          "alg": "U R U' L D2' L' U M' x' U' R D2 R' U L' U'",
+          "alts": [
+            "x' R U' R' D R U R' D' R U R' D R U' R' D' x",
+            "R U R' U R' U' R F' R U R' U' R' F R2 U' R2' U R U'",
+            "U R2 U F' R' U R U' R' U R U' R' U R U' F U' R2 U'"
+          ]
+        },
+        {
+          "id": 4308,
+          "name": "F",
+          "subgroup": "Adj Swap",
+          "setup": "S' R U' R2' F R U R U' R2' F' R f R' F' R",
+          "alg": "R2 B2 R2' L U' L F2 R' D L' F2 M x U",
+          "alts": [
+            "R2' F R F' R' U' F' U F R2 U R' U' R U",
+            "U' R' U R U' R2' F' U' F U R F R' F' R2",
+            "R' F R f' R' F R2 U R' U' R' F' R2 U R' S"
+          ]
+        },
+        {
+          "id": 4309,
+          "name": "Ga",
+          "subgroup": "Adj Swap",
+          "setup": "f' L' f L2 u L' U L U' L u' L2'",
+          "alg": "L2 u L' U L' U' L u' L2' f' L f",
+          "alts": [
+            "U2 R2 u R' U R' U' R u' R2' F' U F U2",
+            "U2 R2' S2 U R2 D' R2' D B2' U' F2 r2 U2",
+            "U2 R2 u R' U R' U' R u' R2 F' U F U' U'"
+          ]
+        },
+        {
+          "id": 4310,
+          "name": "Gb",
+          "subgroup": "Adj Swap",
+          "setup": "L2 u L' U L' U' L u' L2' f' L f",
+          "alg": "f' L' f L2 u L' U L U' L u' L2'",
+          "alts": [
+            "U R' d' F R2 u R' U R U' R u' R2' U'",
+            "U2 F' U' F R2 u R' U R U' R u' R2' U2",
+            "U R' U' R y R2 u R' U R U' R u' R2' U'"
+          ]
+        },
+        {
+          "id": 4311,
+          "name": "Gc",
+          "subgroup": "Adj Swap",
+          "setup": "f R f' R2' u' R U' R' U R' u R2",
+          "alg": "R2' u' R U' R U R' u R2 f R' f'",
+          "alts": [
+            "R2 u' R U' R U R' u R2 y R U' R'",
+            "R2' S2 U' R2 D R2' D' F2 U B2' r2",
+            "U2 L2' U' L U' L U L' U L2' UD' L U' L' D U"
+          ]
+        },
+        {
+          "id": 4312,
+          "name": "Gd",
+          "subgroup": "Adj Swap",
+          "setup": "R2' u' R U' R U R' u R2 f R' f'",
+          "alg": "R2 B2 U' R2' D R2 D' F2' U S2' r2'",
+          "alts": [
+            "U2 F U F' L2 u' L U' L' U L' u L2 U2",
+            "U R U R' y' R2 u' R U' R' U R' u R2 U'",
+            "U2 R2 F' R U R U' R' F' R U2 R' U2 R' F2 R2 U2"
+          ]
+        },
+        {
+          "id": 4313,
+          "name": "H",
+          "subgroup": "EPLL",
+          "setup": "M2 U' M2 U2' M2 U' M2",
+          "alg": "M2' U M2' U2 M2' U M2'",
+          "alts": [
+            "M2 U2 M2 U' M2 U2 M2 U",
+            "M2 U2 M2 U M2 U2 M2 U'",
+            "R2 S2' R2' U' R2 S2' R2' U"
+          ]
+        },
+        {
+          "id": 4314,
+          "name": "Ja",
+          "subgroup": "Adj Swap",
+          "setup": "L' U' L2' F L' U' L' U L F' L' U L",
+          "alg": "L' U' L F L' U' L U L F' L2 U L",
+          "alts": [
+            "U' r' F R' F2 r U' r' F2 r R U'",
+            "U z D' R U' R2' D R' D' R2 UD z' U",
+            "U' z U' R D' R2' U R' U' R2 UD z' U'"
+          ]
+        },
+        {
+          "id": 4315,
+          "name": "Jb",
+          "subgroup": "Adj Swap",
+          "setup": "R U R2' F' R U R U' R' F R U' R'",
+          "alg": "R U R' F' R U R' U' R' F R2 U' R'",
+          "alts": [
+            "U R U R2' F' R U R U' R' F R U' R' U",
+            "r' F R F' r U2 R' U R U2 R' U",
+            "L' U R U' L U2 R' U R U2 R' U"
+          ]
+        },
+        {
+          "id": 4316,
+          "name": "Na",
+          "subgroup": "Opp Swap",
+          "setup": "F' R U R' U' R' F R2 F U' R' U' R U F' R'",
+          "alg": "f R' F R2 f' U S R' F R2 B' R F' z' U",
+          "alts": [
+            "R F U' R' U R U F' R2' F' R U R U' R' F",
+            "R2 U2' B2 U R2' U2' R2 B2 U B2 U2' B2 R2' U'",
+            "R U R' U R U R' F' R U R' U' R' F R2 U' R' U2 R U' R'"
+          ]
+        },
+        {
+          "id": 4317,
+          "name": "Nb",
+          "subgroup": "Opp Swap",
+          "setup": "F r' F' r U r U' r2' D' F r U r' F' D r",
+          "alg": "f' L F' L2' f U' S' L F' L2' B L' F z U'",
+          "alts": [
+            "r' D' F r U' r' F' D r2 U r' U' r' F r F'",
+            "L' F' U L U' L' U' F L2 F L' U' L' U L F'",
+            "R' U R U' R' F' U' F R U R' F R' F' R U' R"
+          ]
+        },
+        {
+          "id": 4318,
+          "name": "Ra",
+          "subgroup": "Adj Swap",
+          "setup": "L2 F' L' U' L' U L F L' U2 L U2' L'",
+          "alg": "L U2 L' U F R' F' L F R F' U L'",
+          "alts": [
+            "L U2 L' U2' L F' L' U' L U L F L2'",
+            "U' F U2 S R B' D' F R2' F2 R' F D z' U",
+            "R U2' R2' F R F' R U' R' F' U F R U' R' U'"
+          ]
+        },
+        {
+          "id": 4319,
+          "name": "Rb",
+          "subgroup": "Adj Swap",
+          "setup": "R2' F R U R U' R' F' R U2' R' U2 R",
+          "alg": "R' U2' R U' F' L F R' F' L' F U' R",
+          "alts": [
+            "R' U2' R U2 R' F R U R' U' R' F' R2",
+            "U F R U' R2' U2' R F' r' F M' U2' R U",
+            "R' U2 R' D' R U' R' D R U R U' R' U' R"
+          ]
+        },
+        {
+          "id": 4320,
+          "name": "T",
+          "subgroup": "Adj Swap",
+          "setup": "F R U' R' U R U R2' F' R U R U' R'",
+          "alg": "R2' u' R2 u R2' y R2 u R2' u' R2 U",
+          "alts": [
+            "R U R' U' R' F R2 U' R' U' R U R' F'",
+            "R U R' U' R' F R2 U' R' U F' L' U L U2",
+            "U2 L' U' L U L F' L2 U L U L' U' L F U2"
+          ]
+        },
+        {
+          "id": 4321,
+          "name": "Ua",
+          "subgroup": "EPLL",
+          "setup": "R2' U S' U2 S U R2'",
+          "alg": "R2 U' S' U2' S U' R2",
+          "alts": [
+            "U M2 U M U2 M' U M2 U'",
+            "U' M2 U M' U2 M U M2 U",
+            "U2 L2 U' L2' S' L2 S U L2' U2"
+          ]
+        },
+        {
+          "id": 4322,
+          "name": "Ub",
+          "subgroup": "EPLL",
+          "setup": "M2' U M U2' M' U M2' U",
+          "alg": "M2 u M' u2 M' u M2 U'",
+          "alts": [
+            "U' M2 U' M U2 M' U' M2",
+            "U M2 U' M' U2 M U' M2 U2",
+            "U2 R2' U R2 S R2' S' U' R2 U"
+          ]
+        },
+        {
+          "id": 4323,
+          "name": "V",
+          "subgroup": "Opp Swap",
+          "setup": "y F' R' F' R U' R U R2' F R d R U' R",
+          "alg": "R' U R' d' R' F' R2 U' R' U R' F R F",
+          "alts": [
+            "R' U2' R U2 L U' R' U L' U L U' R U L'",
+            "U2 F U' F U L F L2 U L U' L F' L' F' U2",
+            "U F' U F' U' R' F' R2 U' R' U R' F R F U'"
+          ]
+        },
+        {
+          "id": 4324,
+          "name": "Y",
+          "subgroup": "Opp Swap",
+          "setup": "F R' F' R U R U' R2' U' R U R f' U' f",
+          "alg": "U F R U' R' U' R d R U R' B' R U' R2",
+          "alts": [
+            "f' U f R' U' R' U R2 U R' U' R' F R F'",
+            "U R2 U' R2' U' R2 U F U F' R2' F U' F'",
+            "U F R' F R2 U' R' U' R U R' F' R U R' U' F'"
+          ]
+        },
+        {
+          "id": 4325,
+          "name": "Z",
+          "subgroup": "EPLL",
+          "setup": "M' U' M2 U' M2 U' M' U2' M2",
+          "alg": "U S M2 S' u M2 u' M2",
+          "alts": [
+            "M2' U2 M U M2' U M2' U M",
+            "U' M2 U M2 U M' U2 M2 U2 M'",
+            "U M2 U2' M U' M2 U' M2 U' M U"
+          ]
+        }
+      ]
+    },
+    "f2l": {
+      "label": "F2L",
+      "group": "cfop",
+      "cases": [
+        {
+          "id": 3823,
+          "name": "A+",
+          "subgroup": "Free Pairs",
+          "setup": "F R' F' R",
+          "alg": "U R U' R'",
+          "alts": [
+            "R' F R F'",
+            "y' r' U' R U M'",
+            "y U F' L F L2 U L"
+          ]
+        },
+        {
+          "id": 3824,
+          "name": "A-",
+          "subgroup": "Free Pairs",
+          "setup": "R' F R F'",
+          "alg": "F R' F' R",
+          "alts": [
+            "U' F' U F",
+            "y U' L' U L",
+            "y' U' R' U R"
+          ]
+        },
+        {
+          "id": 3825,
+          "name": "B-",
+          "subgroup": "Free Pairs",
+          "setup": "F' U F",
+          "alg": "F' U' F",
+          "alts": [
+            "y L' U' L",
+            "y' R' U' R",
+            "S U R U' R' S'"
+          ]
+        },
+        {
+          "id": 3826,
+          "name": "B+",
+          "subgroup": "Free Pairs",
+          "setup": "R U' R'",
+          "alg": "R U R'",
+          "alts": [
+            "y F U F'",
+            "y' f R f'",
+            "y2 L U L'"
+          ]
+        },
+        {
+          "id": 3827,
+          "name": "W+",
+          "subgroup": "Disconnected Pairs",
+          "setup": "R U R' U2' R U' R' U",
+          "alg": "F2 L' U' L U F2",
+          "alts": [
+            "U' R U R' U2 R U' R'",
+            "U' R U R' U' R U2 R'",
+            "U' R U R' U R' F R F'"
+          ]
+        },
+        {
+          "id": 3828,
+          "name": "W-",
+          "subgroup": "Disconnected Pairs",
+          "setup": "F' U' F U2' F' U F U'",
+          "alg": "U' r U' R' U R U r'",
+          "alts": [
+            "d R' U' R U2 R' U R",
+            "U F' U' F U2 F' U F",
+            "y' U R' U' R U2 R' U R"
+          ]
+        },
+        {
+          "id": 3829,
+          "name": "M+",
+          "subgroup": "Disconnected Pairs",
+          "setup": "R U R' U2' R U2' R' U",
+          "alg": "M' U' M U2 r U' r'",
+          "alts": [
+            "U' R U2 R' U' R U2 R'",
+            "U' R U2 R' U2 R U' R'",
+            "U' R U2 R' U R' F R F'"
+          ]
+        },
+        {
+          "id": 3830,
+          "name": "M-",
+          "subgroup": "Disconnected Pairs",
+          "setup": "r' U' R2 U' R2' U2' r",
+          "alg": "r' U2 R2 U R2 U r",
+          "alts": [
+            "d R' U2 R U R' U2 R",
+            "y U L' U2 L U2 L' U L",
+            "y' U R' U2 R U2 R' U R"
+          ]
+        },
+        {
+          "id": 3831,
+          "name": "R-",
+          "subgroup": "Disconnected Pairs",
+          "setup": "F' U F U' R U R' U",
+          "alg": "U' R U' R' U F' U' F",
+          "alts": [
+            "U' R U' R' d R' U' R",
+            "d R' U' R U' R' U' R",
+            "F R U R' U' F' R U' R'"
+          ]
+        },
+        {
+          "id": 3832,
+          "name": "R+",
+          "subgroup": "Disconnected Pairs",
+          "setup": "R U' R' U' R U' R' U",
+          "alg": "U' R U R' U R U R'",
+          "alts": [
+            "d R' U R d' R U R'",
+            "U2 R U' R' U' R U R'",
+            "y' U R' U R U' f R f'"
+          ]
+        },
+        {
+          "id": 3833,
+          "name": "X-",
+          "subgroup": "Connected Pairs",
+          "setup": "F' U F U' R U2' R' U",
+          "alg": "F' U L' U2 L U2 F",
+          "alts": [
+            "U' R U2 R' U F' U' F",
+            "U' R U2 R' d R' U' R",
+            "y' R U2 R2 U' R2 U' R'"
+          ]
+        },
+        {
+          "id": 3834,
+          "name": "X+",
+          "subgroup": "Connected Pairs",
+          "setup": "R U R' U2' R U R' U' R U R'",
+          "alg": "R' U2 R2 U R2 U R",
+          "alts": [
+            "R' D' R U2 R' D R2 U R'",
+            "R U' R' U R U' R' U2 R U' R'",
+            "U R U' R' U' R U R' U' R U R'"
+          ]
+        },
+        {
+          "id": 3835,
+          "name": "K-",
+          "subgroup": "Connected Pairs",
+          "setup": "r U2' R' U R U' R' U M",
+          "alg": "d R' U R U' R' U' R",
+          "alts": [
+            "y' U R' U R U' R' U' R",
+            "M' U' R U R' U2 R U' r'",
+            "R U' R' U R' F R F' R U' R'"
+          ]
+        },
+        {
+          "id": 3836,
+          "name": "K+",
+          "subgroup": "Connected Pairs",
+          "setup": "R U' R' U' R U R' U",
+          "alg": "U' R U' R' U R U R'",
+          "alts": [
+            "U' R2 D R' U R D' R2",
+            "U2 R2 U R' U R U2 R2",
+            "R U2 R' U2 R U R' U2 R U' R'"
+          ]
+        },
+        {
+          "id": 3837,
+          "name": "I+",
+          "subgroup": "Connected Pairs",
+          "setup": "R U R' U' R U R' U2' R U' R'",
+          "alg": "F' U F U2 R U R'",
+          "alts": [
+            "M U r U' r' U' M'",
+            "R' D' R U' R' D R U R U' R'",
+            "R U R' U2 R U' R' U R U' R'"
+          ]
+        },
+        {
+          "id": 3838,
+          "name": "I-",
+          "subgroup": "Connected Pairs",
+          "setup": "F' U F U2' R U R'",
+          "alg": "R U' R' U2 F' U' F",
+          "alts": [
+            "R U' R' U2 y' R' U' R",
+            "U F U R U' R' F' R U R'",
+            "U M' U R U' r' U' R U R'"
+          ]
+        },
+        {
+          "id": 3839,
+          "name": "H+",
+          "subgroup": "Connected Pairs",
+          "setup": "R U' R' U R U2' R'",
+          "alg": "R U2 R' U' R U R'",
+          "alts": [
+            "y2 L U2 L' U' L U L'",
+            "R U R' U' R U2 R' U2 R U R'",
+            "y L F' L' F L' U L U' L' U L"
+          ]
+        },
+        {
+          "id": 3840,
+          "name": "H-",
+          "subgroup": "Connected Pairs",
+          "setup": "R U R' U' R U R' F R' F' R",
+          "alg": "F' U2 F U F' U' F",
+          "alts": [
+            "y L' U2 L U L' U' L",
+            "y' R' U2 R U R' U' R",
+            "R' F R F' R U' R' U R U' R'"
+          ]
+        },
+        {
+          "id": 3841,
+          "name": "Q+",
+          "subgroup": "Disconnected Pairs",
+          "setup": "R U R' U' R U2' R' U'",
+          "alg": "U R U2 R2 F R F'",
+          "alts": [
+            "U R U2 R' U R U' R'",
+            "d f R2 f' U f R' f'",
+            "R U' R' U R U' R' U R U R'"
+          ]
+        },
+        {
+          "id": 3842,
+          "name": "Q-",
+          "subgroup": "Disconnected Pairs",
+          "setup": "R U R' F R' F' R2' U R' U",
+          "alg": "U' F' U2 F U' F' U F",
+          "alts": [
+            "y U' L' U2 L U' L' U L",
+            "y' U' R' U2 R U' R' U R",
+            "U' R U' R2 F R F' R U' R'"
+          ]
+        },
+        {
+          "id": 3843,
+          "name": "P+",
+          "subgroup": "Disconnected Pairs",
+          "setup": "R U' R' U2' R U R'",
+          "alg": "R B U2 B' R'",
+          "alts": [
+            "y F R U2 R' F'",
+            "R U' R' U2 R U R'",
+            "U2 R U R' U R U' R'"
+          ]
+        },
+        {
+          "id": 3844,
+          "name": "P-",
+          "subgroup": "Disconnected Pairs",
+          "setup": "F' L' U2' L F",
+          "alg": "F' L' U2 L F",
+          "alts": [
+            "r U' r' U2 r U r'",
+            "y U2 L' U' L U' L' U L",
+            "y' U2 R' U' R U' R' U R"
+          ]
+        },
+        {
+          "id": 3845,
+          "name": "G+",
+          "subgroup": "Connected Pairs",
+          "setup": "R U' R' U R U' R' U2' R U' R'",
+          "alg": "U2 R2 U2 R' U' R U' R2",
+          "alts": [
+            "R U' R2 D' R U2 R' D R",
+            "R U R' U2 R U R' U' R U R'",
+            "U R U' R' U' R U' R' U R U' R'"
+          ]
+        },
+        {
+          "id": 3846,
+          "name": "G-",
+          "subgroup": "Connected Pairs",
+          "setup": "R U R' F R U R' U' F'",
+          "alg": "F U R U' R' F' R U' R'",
+          "alts": [
+            "U' R U R2 F R F' R U' R'",
+            "y U' L' U L U L' U L U' L' U L",
+            "y' R' U' R U2 R' U' R U R' U' R"
+          ]
+        },
+        {
+          "id": 3847,
+          "name": "E+",
+          "subgroup": "Corner In Slot",
+          "setup": "F' R U R' U' R' F R",
+          "alg": "U' R' F R F' R U R'",
+          "alts": [
+            "R' F' R U R U' R' F",
+            "U' F' U F U R U' R'",
+            "U' F' R U R' U' R' F R"
+          ]
+        },
+        {
+          "id": 3848,
+          "name": "E-",
+          "subgroup": "Corner In Slot",
+          "setup": "F' U' F U R U R' U'",
+          "alg": "R S' R' U R S R'",
+          "alts": [
+            "U R U' R' F R' F' R",
+            "U R U' R' U' F' U F",
+            "U R U R' U' y L' U' L"
+          ]
+        },
+        {
+          "id": 3849,
+          "name": "J+",
+          "subgroup": "Corner In Slot",
+          "setup": "R U R' U' R U R'",
+          "alg": "R U' R' U R U' R'",
+          "alts": [
+            "F' U' F U2 R U' R'",
+            "y' f R' f' U f R' f'",
+            "y' f R' f' r' U' R U M'"
+          ]
+        },
+        {
+          "id": 3850,
+          "name": "J-",
+          "subgroup": "Corner In Slot",
+          "setup": "R' F R F' U R U' R'",
+          "alg": "F' U F U' F' U F",
+          "alts": [
+            "y L' U L U' L' U L",
+            "R U R' U' F R' F' R",
+            "y' R' U R U' R' U R"
+          ]
+        },
+        {
+          "id": 3851,
+          "name": "L-",
+          "subgroup": "Corner In Slot",
+          "setup": "F R' F' R F R' F' R",
+          "alg": "R' F R F' U R U' R'",
+          "alts": [
+            "y L' U' L U L' U' L",
+            "R' F R F' R' F R F'",
+            "y' R' U' R U R' U' R"
+          ]
+        },
+        {
+          "id": 3852,
+          "name": "L+",
+          "subgroup": "Corner In Slot",
+          "setup": "R U' R' U R U' R'",
+          "alg": "R U R' U' R U R'",
+          "alts": [
+            "U2 F' U F R U R'",
+            "U' F R' F' R2 U R'",
+            "U' R U2 R' U2 R U R'"
+          ]
+        },
+        {
+          "id": 3853,
+          "name": "T",
+          "subgroup": "Edge In Slot",
+          "setup": "R U R' F R' F' R U",
+          "alg": "F' U F R U2 R'",
+          "alts": [
+            "R U' R' U y L' U L",
+            "R U' R' U y' R' U R",
+            "U' R' F R F' R U' R'"
+          ]
+        },
+        {
+          "id": 3854,
+          "name": "S",
+          "subgroup": "Edge In Slot",
+          "setup": "R U' R' U R U' R' U R U' R'",
+          "alg": "R2 U R2 U R2 U2 R2",
+          "alts": [
+            "U' F R' F' R U' R U R'",
+            "R U R' U' R U R' U' R U R'",
+            "U R U' R' U R U' R' U R U' R'"
+          ]
+        },
+        {
+          "id": 3855,
+          "name": "U+",
+          "subgroup": "Edge In Slot",
+          "setup": "R U R' U2' R U R' U",
+          "alg": "y R' D R U' R' D' R",
+          "alts": [
+            "U' R U' R' U2 R U' R'",
+            "U' R U' R' U' R U2 R'",
+            "R U R' U' R U' R' U R U' R'"
+          ]
+        },
+        {
+          "id": 3856,
+          "name": "U-",
+          "subgroup": "Edge In Slot",
+          "setup": "R U' R' U2' R U' R' U'",
+          "alg": "U R U R' U2 R U R'",
+          "alts": [
+            "U' R U2 R' U R U R'",
+            "U R' D' R U' R' D R",
+            "y U L' U L U2 L' U L"
+          ]
+        },
+        {
+          "id": 3857,
+          "name": "V+",
+          "subgroup": "Edge In Slot",
+          "setup": "F' U F U' R U' R' U",
+          "alg": "U' R U R' U F' U' F",
+          "alts": [
+            "U' R U R' d R' U' R",
+            "U2 R U R' F R' F' R",
+            "U2 R U R' y' U' R' U R"
+          ]
+        },
+        {
+          "id": 3858,
+          "name": "V-",
+          "subgroup": "Edge In Slot",
+          "setup": "R U' R' U2' F R' F' R U2'",
+          "alg": "U F' U' F U' R U R'",
+          "alts": [
+            "U2 R' F R F' U2 R U R'",
+            "R2 u R U R' U' u' R' U R'",
+            "R U R' U R U R' U' F' U' F"
+          ]
+        },
+        {
+          "id": 3859,
+          "name": "F",
+          "subgroup": "Pieces In Slot",
+          "setup": "R U' R U2' F R2' F' U2' R2'",
+          "alg": "R2 U2 F R2 F' U2 R' U R'",
+          "alts": [
+            "R U2 R' U R U2 R' U F' U' F",
+            "R U R' U2 R U2 R' U y' R' U' R",
+            "R' F R F' R U' R' U R U' R' U2 R U' R'"
+          ]
+        },
+        {
+          "id": 3860,
+          "name": "D+",
+          "subgroup": "Pieces In Slot",
+          "setup": "R U' R' U R U2' R' U R U' R'",
+          "alg": "R2 U2 R' U' R U' R' U2 R'",
+          "alts": [
+            "R U R' U' R U2 R' U' R U R'",
+            "R U' R' U' R U R' U2 R U' R'",
+            "R U' R' U' R U R' U' R U2 R'"
+          ]
+        },
+        {
+          "id": 3861,
+          "name": "D-",
+          "subgroup": "Pieces In Slot",
+          "setup": "R U' R' U' R U R' U2' R U' R'",
+          "alg": "R U2 R U R' U R U2 R2",
+          "alts": [
+            "R U R' U2 R U' R' U R U R'",
+            "R U2 R' U R U' R' U R U R'",
+            "R U' R' U R U2 R' U R U' R'"
+          ]
+        },
+        {
+          "id": 3862,
+          "name": "C+",
+          "subgroup": "Pieces In Slot",
+          "setup": "R U R' F U R U' R' F' R U R'",
+          "alg": "F' L' U2 L F R U R'",
+          "alts": [
+            "r U' r' U2 r U r' R U R'",
+            "R U' R' F R U R' U' F' R U' R'",
+            "R U' R' U' R U' R' U y' R' U' R"
+          ]
+        },
+        {
+          "id": 3863,
+          "name": "C-",
+          "subgroup": "Pieces In Slot",
+          "setup": "R F U R U' R' F' U' R'",
+          "alg": "R U' R' F' L' U2 L F",
+          "alts": [
+            "R U' R' r U' r' U2 r U r'",
+            "R U R' U' y M U' R' F R U M'",
+            "R U R' U' R U' R' U2 y' R' U' R"
+          ]
+        }
+      ]
+    },
+    "2-look-cmll": {
+      "label": "2-Look CMLL",
+      "group": "roux",
+      "cases": [
+        {
+          "id": 8011,
+          "name": "Sune",
+          "subgroup": "Orient",
+          "setup": "R U2' R' U' R U' R'",
+          "alg": "R U R' U R U2 R'",
+          "alts": []
+        },
+        {
+          "id": 8012,
+          "name": "Antisune",
+          "subgroup": "Orient",
+          "setup": "R U R' U R U2' R'",
+          "alg": "R U2 R' U' R U' R'",
+          "alts": []
+        },
+        {
+          "id": 8013,
+          "name": "H CMLL",
+          "subgroup": "Orient",
+          "setup": "R U2' R' U' R U R' U' R U' R' U'",
+          "alg": "U R U R' U R U' R' U R U2 R'",
+          "alts": []
+        },
+        {
+          "id": 8014,
+          "name": "T CMLL",
+          "subgroup": "Orient",
+          "setup": "F R' F' R U R U' R'",
+          "alg": "R U R' U' R' F R F'",
+          "alts": []
+        },
+        {
+          "id": 8015,
+          "name": "L CMLL",
+          "subgroup": "Orient",
+          "setup": "R U R' U' R' F R F'",
+          "alg": "F R' F' R U R U' R'",
+          "alts": []
+        },
+        {
+          "id": 8016,
+          "name": "U CMLL",
+          "subgroup": "Orient",
+          "setup": "F U R U' R' F'",
+          "alg": "F R U R' U' F'",
+          "alts": []
+        },
+        {
+          "id": 8017,
+          "name": "Pi CMLL",
+          "subgroup": "Orient",
+          "setup": "F U R U' R' U R U' R' F'",
+          "alg": "F R U R' U' R U R' U' F'",
+          "alts": []
+        },
+        {
+          "id": 8018,
+          "name": "Adjacent Swap",
+          "subgroup": "Permute",
+          "setup": "U R U R2' F' R U R U' R' F R U' R'",
+          "alg": "R U R' F' R U R' U' R' F R2 U' R' U'",
+          "alts": []
+        },
+        {
+          "id": 8019,
+          "name": "Diagonal Swap",
+          "subgroup": "Permute",
+          "setup": "F R' F' R U R U' R' F R U' R' U R U R' F'",
+          "alg": "F R U' R' U' R U R' F' R U R' U' R' F R F'",
+          "alts": []
+        }
+      ]
+    },
+    "cmll": {
+      "label": "CMLL",
+      "group": "roux",
+      "cases": [
+        {
+          "id": 3707,
+          "name": "O Adjacent",
+          "subgroup": "Solved",
+          "setup": "R U R2' F' R U R U' R' F R U' R'",
+          "alg": "R U2 R' U' R U2 L' U R' U' L U",
+          "alts": [
+            "R U2 R' U' R U2 r' F R' F' r U",
+            "R U R' F' R U R' U' R' F R2 U' R'",
+            "r U R' F' R U R' U' R' F R2 U' r'"
+          ]
+        },
+        {
+          "id": 3708,
+          "name": "O Diagonal",
+          "subgroup": "Solved",
+          "setup": "F R' F' R U R U' R' F R U' R' U R U R' F'",
+          "alg": "F R' F R2 U' R' U' R U R' F' R U R' U' F'",
+          "alts": [
+            "F R U' R' U' R U R' F' R U R' U' R' F R F'"
+          ]
+        },
+        {
+          "id": 3709,
+          "name": "H Columns",
+          "subgroup": "H",
+          "setup": "R U R' U R U' R' U R U2' R'",
+          "alg": "R U2 R' U' R U R' U' R U' R'",
+          "alts": []
+        },
+        {
+          "id": 3710,
+          "name": "H Rows",
+          "subgroup": "H",
+          "setup": "F U R U' R' U R U' R' U R U' R' F'",
+          "alg": "F R U R' U' R U R' U' R U R' U' F'",
+          "alts": [
+            "F U R U' R' U R U' R' U R U' R' F'",
+            "F R U r' U' R U R' U' R U R' M' U' F'"
+          ]
+        },
+        {
+          "id": 3712,
+          "name": "H Row",
+          "subgroup": "H",
+          "setup": "r' F R F' r U' R' U' R U' R' U",
+          "alg": "U' R U R' U R U r' F R' F' r",
+          "alts": [
+            "U' R U R' U R U L' U R' U' L"
+          ]
+        },
+        {
+          "id": 3713,
+          "name": "Pi Right Bar",
+          "subgroup": "Pi",
+          "setup": "F U R U' R' U R U' R' F'",
+          "alg": "R' U2 R2 U R2 U R2 U2 R' U2",
+          "alts": [
+            "F R U R' U' R U R' U' F'"
+          ]
+        },
+        {
+          "id": 3714,
+          "name": "Pi Down Slash",
+          "subgroup": "Pi",
+          "setup": "R U2 R' U' R U R' U2' R' F R F' U'",
+          "alg": "U F U R U' R2 F' R U2 R U2 R'",
+          "alts": [
+            "U F R' F' R U2 R U' R' U R U2 R'",
+            "R' U2 R U R' U' R U2 R f' U' f U",
+            "U M F R' F' r U2 R U' R' U R U2 R'"
+          ]
+        },
+        {
+          "id": 3715,
+          "name": "Pi X",
+          "subgroup": "Pi",
+          "setup": "F U R U' R' U F' U' R' F' R U",
+          "alg": "U' R' F R U F U' R U R' U' F'",
+          "alts": []
+        },
+        {
+          "id": 3716,
+          "name": "Pi Up Slash",
+          "subgroup": "Pi",
+          "setup": "F R' F' R U2 R U' R' U R U2' R'",
+          "alg": "R U2 R' U2 R' F R2 U R' U' F'",
+          "alts": [
+            "R U2 R' U' R U R' U2 R' F R F'",
+            "R U2 R' U' R U R' U2 r' F R F' M'",
+            "R U R' U' R' F R2 U R' U' R U R' U' F'"
+          ]
+        },
+        {
+          "id": 3717,
+          "name": "Pi Columns",
+          "subgroup": "Pi",
+          "setup": "r U' r2' D' r U' r' D r2 U r' U",
+          "alg": "U' R U2 R' U R' D' R U2 R' D R2 U' R' U'",
+          "alts": [
+            "U' r U' r2 D' r U r' D r2 U r'"
+          ]
+        },
+        {
+          "id": 3718,
+          "name": "Pi Left Bar",
+          "subgroup": "Pi",
+          "setup": "R' U2' R U R' F R' F' R U R U",
+          "alg": "U' R' U' R' F R F' R U' R' U2 R",
+          "alts": [
+            "U' r U R' U R' F R F' R U' R' U R U2 r'"
+          ]
+        },
+        {
+          "id": 3719,
+          "name": "U Up Slash",
+          "subgroup": "U",
+          "setup": "R U2' R D R' U2' R D' R2' U2'",
+          "alg": "r U' r' U' r U' r' U' F' U2 F",
+          "alts": [
+            "R' U2 R U2 F U' R' U R U F' U'",
+            "U2 R2 D R' U2 R D' R' U2 R'",
+            "L2 D L' U2 L D' L' U2 L' U2"
+          ]
+        },
+        {
+          "id": 3720,
+          "name": "U Down Slash",
+          "subgroup": "U",
+          "setup": "R' U2' R' D' R U2' R' D R2",
+          "alg": "R' r' D' r U2 r' D r U2 R",
+          "alts": [
+            "R2 D' R U2 R' D R U2 R",
+            "U2 L2 D' L U2 L' D L U2 L U2"
+          ]
+        },
+        {
+          "id": 3721,
+          "name": "U Bottom Row",
+          "subgroup": "U",
+          "setup": "R' F' R U R2' F2' U' F' U F' R2",
+          "alg": "U' R U R' U' R U' R' U2 R U' R' U2 R U R' U2",
+          "alts": [
+            "R2 F U' F U F2 R2 U' R' F R",
+            "U' R2 F2 r U r' F R2 U2 r' U' r",
+            "R' U' R U' R' U2 R2 U R' U R U2 R'"
+          ]
+        },
+        {
+          "id": 3722,
+          "name": "U Rows",
+          "subgroup": "U",
+          "setup": "F U R2 D R' U' R D' R2' F' U",
+          "alg": "U' F R2 D R' U R D' R2 U' F'",
+          "alts": [
+            "R' F R U' R' U' R U R' F' R U R' U' R' F R F' R"
+          ]
+        },
+        {
+          "id": 3723,
+          "name": "U X",
+          "subgroup": "U",
+          "setup": "r' D' r U r' D r U' r U r' U2'",
+          "alg": "U2 r U' r' U r' D' r U' r' D r",
+          "alts": []
+        },
+        {
+          "id": 3724,
+          "name": "U Upper Row",
+          "subgroup": "U",
+          "setup": "F U R U' R' F' U",
+          "alg": "U' F R U R' U' F'",
+          "alts": []
+        },
+        {
+          "id": 3725,
+          "name": "T Left Bar",
+          "subgroup": "T",
+          "setup": "F R' F' r U R U' r' U",
+          "alg": "U' R U R' U' R' F R F'",
+          "alts": [
+            "U' r U R' U' r' F R F'"
+          ]
+        },
+        {
+          "id": 3726,
+          "name": "T Right Bar",
+          "subgroup": "T",
+          "setup": "F' L F l' U' L' U l U'",
+          "alg": "U L' U' L U L F' L' F",
+          "alts": [
+            "U r' F' r U r U' r' F",
+            "U2 R' U' R' D' R U R' D R2 U'"
+          ]
+        },
+        {
+          "id": 3727,
+          "name": "T Rows",
+          "subgroup": "T",
+          "setup": "F2' R U' R' U R U R2' F' R F'",
+          "alg": "R' U R U2 R' U' R U2 R' U' R U' R' U R",
+          "alts": [
+            "F R' F R2 U' R' U' R U R' F2",
+            "r' U r U2 R2 F' r U' r' F2 R2",
+            "U' R U R' U R U2 R2 F' r U' r' F2 R"
+          ]
+        },
+        {
+          "id": 3728,
+          "name": "T Bottom Row",
+          "subgroup": "T",
+          "setup": "R' F R' F' R2 U2 r' U' r",
+          "alg": "r' U r U2 R2 F R F' R",
+          "alts": [
+            "R U R2 F R F' U r U r'"
+          ]
+        },
+        {
+          "id": 3729,
+          "name": "T Top Row",
+          "subgroup": "T",
+          "setup": "r U' r' U r' D' r U' r' D r",
+          "alg": "r' D' r U r' D r U' r U r'",
+          "alts": [
+            "R F R' U' R F' R' U R' F' R"
+          ]
+        },
+        {
+          "id": 3730,
+          "name": "T Columns",
+          "subgroup": "T",
+          "setup": "R' U R2 D r' U2' r D' R2' U' R",
+          "alg": "R' U R2 D r' U2 r D' R2 U' R",
+          "alts": []
+        },
+        {
+          "id": 3731,
+          "name": "Sune Left Bar",
+          "subgroup": "Sune",
+          "setup": "R U2' R' U' R U' R' U'",
+          "alg": "U R U R' U R U2 R'",
+          "alts": [
+            "U r U R' U R U2 r'",
+            "U' L U L' U L U2 L' U2"
+          ]
+        },
+        {
+          "id": 3732,
+          "name": "Sune X",
+          "subgroup": "Sune",
+          "setup": "F' L F L' U2 L' U2' L U'",
+          "alg": "U L' U2 L U2 r U' r' F",
+          "alts": [
+            "U r' F2 r U2 r U' r' F",
+            "U L' U2 L U2 L F' L' F",
+            "U R' F2 R U2 R U' r' F M'"
+          ]
+        },
+        {
+          "id": 3733,
+          "name": "Sune Up Slash",
+          "subgroup": "Sune",
+          "setup": "R U2 R' U2' R' F R F' U'",
+          "alg": "U F R' F' R U2 R U2 R'",
+          "alts": [
+            "U M F R' F' r U2 R U2 R'",
+            "U F U R U' R2 F' R U R U' R'"
+          ]
+        },
+        {
+          "id": 3734,
+          "name": "Sune Columns",
+          "subgroup": "Sune",
+          "setup": "R2 D R' U R D' R' U R' U' R U' R'",
+          "alg": "U2 R' F2 R2 U2 R' F R U2 R2 F2 R U",
+          "alts": [
+            "F R' U2 R F' R' F U2 F' R",
+            "R U R' U R U' R D R' U' R D' R2"
+          ]
+        },
+        {
+          "id": 3735,
+          "name": "Sune Right Bar",
+          "subgroup": "Sune",
+          "setup": "R U2 R' F R' F' R U' R U' R' U",
+          "alg": "U' R U R' U R' F R F' R U2 R'",
+          "alts": [
+            "U' R U R' U r' F R F' r U2 R'",
+            "U' R U R' U L' U R U' L U2 R'",
+            "U' R U R' F' R U R' U R U2 R' F R U' R'"
+          ]
+        },
+        {
+          "id": 3736,
+          "name": "Sune Down Slash",
+          "subgroup": "Sune",
+          "setup": "L' U R U' L U R' U'",
+          "alg": "U r U' r' F R' F' R",
+          "alts": [
+            "U R U' r' F R' F' r",
+            "U R U' L' U R' U' L",
+            "U' L U' R' U L' U' R U2"
+          ]
+        },
+        {
+          "id": 3737,
+          "name": "Anti Sune Right Bar",
+          "subgroup": "Anti Sune",
+          "setup": "R' U2 R U R' U R U'",
+          "alg": "U R' U' R U' R' U2 R",
+          "alts": [
+            "U r' U' R U' R' U2 r",
+            "U' L' U' L U' L' U2 L U2"
+          ]
+        },
+        {
+          "id": 3738,
+          "name": "Anti Sune Columns",
+          "subgroup": "Anti Sune",
+          "setup": "R U R' U R U' R D R' U' R D' R2' U",
+          "alg": "U' L' U' L U L F' L' F L' U' L U' L' U2 L",
+          "alts": [
+            "U' R' F U2 F' R F R' U2 R F'",
+            "U' R2 D R' U R D' R' U R' U' R U' R'"
+          ]
+        },
+        {
+          "id": 3739,
+          "name": "Anti Sune Down Slash",
+          "subgroup": "Anti Sune",
+          "setup": "L' U2' L U2 L F' L' F U",
+          "alg": "U' M F' r U R' U2 R' F2 R",
+          "alts": [
+            "U' F' L F L' U2 L' U2 L",
+            "U' F' r U r' U2 r' F2 r",
+            "U' F' r U r' U2 L' U2 L"
+          ]
+        },
+        {
+          "id": 3740,
+          "name": "Anti Sune X",
+          "subgroup": "Anti Sune",
+          "setup": "F R' F' R U2' R U2 R' U",
+          "alg": "U' R U2 R' U2 R' F R F'",
+          "alts": [
+            "U' R U2 R' U2 r' F R F' M'",
+            "U' R U R' U' R' F R2 U R' U' F'"
+          ]
+        },
+        {
+          "id": 3741,
+          "name": "Anti Sune Up Slash",
+          "subgroup": "Anti Sune",
+          "setup": "R U' L' U R' U' L U",
+          "alg": "U' R' F R F' r U r'",
+          "alts": [
+            "U' r' F R F' r U R'",
+            "U' L' U R U' L U R'",
+            "U R' U L U' R U L' U2"
+          ]
+        },
+        {
+          "id": 3742,
+          "name": "Anti Sune Left Bar",
+          "subgroup": "Anti Sune",
+          "setup": "R' U' F R' F' R U' R U R' U R",
+          "alg": "R' U' R U' R' U R' F R F' U R",
+          "alts": [
+            "U L' U' L U' L F' L' F L' U2 L U'"
+          ]
+        },
+        {
+          "id": 3743,
+          "name": "L Best",
+          "subgroup": "L",
+          "setup": "R' U' R' D' R U R' D R2",
+          "alg": "R2 D' R U' R' D R U R",
+          "alts": []
+        },
+        {
+          "id": 3744,
+          "name": "L Good",
+          "subgroup": "L",
+          "setup": "r U R' U' r' F R F' U2'",
+          "alg": "U' r U' r' U' F' U F",
+          "alts": [
+            "U2 F R' F' R U R U' R'",
+            "U2 F R' F' r U R U' r'",
+            "U2 R U R' U' R' F R F' R U R' U' R' F R F'"
+          ]
+        },
+        {
+          "id": 3745,
+          "name": "L Pure",
+          "subgroup": "L",
+          "setup": "R U R' U R U' R' U R U' R' U R U2' R'",
+          "alg": "R U R' U R U' R' U R U' R' U R U2 R'",
+          "alts": [
+            "R U R' U r U' R' U R U' R' U R U2 r'",
+            "R U2 R' U' R U R' U' R U R' U' R U' R'",
+            "U' R' U2 R U R' U' R U R' U' R U R' U R U"
+          ]
+        },
+        {
+          "id": 3746,
+          "name": "L Front Commutator",
+          "subgroup": "L",
+          "setup": "F R' F' R U2' F R' F' R U' R U' R'",
+          "alg": "U2 R U2 R D R' U2 R D' R2",
+          "alts": [
+            "U2 R U2 r D r' U2 r D' r' R'",
+            "U r' D' r U2 r' D r U2 r U r'",
+            "R U R' U R' F R F' U2 R' F R F'"
+          ]
+        },
+        {
+          "id": 3747,
+          "name": "L Diagonal",
+          "subgroup": "L",
+          "setup": "R2' F' R U R U' R' F R U' R' U R",
+          "alg": "U2 R U2 R2 F R F' R U2 R'",
+          "alts": [
+            "U2 r U2 R2 F R F' R U2 r'",
+            "R' U' R U R' F' R U R' U' R' F R2"
+          ]
+        },
+        {
+          "id": 3748,
+          "name": "L Back Commutator",
+          "subgroup": "L",
+          "setup": "R2' D' R U2' R' D R U2' R U'",
+          "alg": "U R' U2 R' D' R U2 R' D R2",
+          "alts": [
+            "U R' U2 r' D' r U2 r' D r R",
+            "U2 r D r' U2 r D' r' U2 r' U' r"
+          ]
+        }
+      ]
+    },
+    "eo4a": {
+      "label": "LSE 棱朝向 (4a)",
+      "group": "roux",
+      "cases": [
+        {
+          "id": 3814,
+          "name": "All 6",
+          "subgroup": null,
+          "setup": "r U' r' U' M U r U R'",
+          "alg": "R U' r' U' M' U r U r'",
+          "alts": [
+            "M' U M U2 M U M' U M U M'",
+            "M' U M U2 M U M' U M U' M'",
+            "M' U' M' U2 M' U' M U' M' U' M'"
+          ]
+        },
+        {
+          "id": 3815,
+          "name": "2 Top 2 Bot",
+          "subgroup": null,
+          "setup": "M U M' U2' M U2' M",
+          "alg": "M' U2 M' U2 M U' M'",
+          "alts": [
+            "M' U2 M U2 M U M'",
+            "M' U2 M' U2 M U M'",
+            "M U2 M' U2 M' U M'"
+          ]
+        },
+        {
+          "id": 3816,
+          "name": "Bottom 2",
+          "subgroup": null,
+          "setup": "M U M' U M U' M",
+          "alg": "M' U' M U' M' U' M' U",
+          "alts": [
+            "M' U' M' U M U M'",
+            "M' U M' U' M U M'",
+            "M' U' M' U M U' M'"
+          ]
+        },
+        {
+          "id": 3817,
+          "name": "Top 2 Front 2",
+          "subgroup": null,
+          "setup": "M U M",
+          "alg": "M' U M",
+          "alts": [
+            "M' U M'",
+            "M' U' M'",
+            "y2 M U M'"
+          ]
+        },
+        {
+          "id": 3818,
+          "name": "4 Top",
+          "subgroup": null,
+          "setup": "M U M U2' M U2' M",
+          "alg": "M' U2 M U2 M' U M'",
+          "alts": [
+            "M' U2 M' U2 M' U M'",
+            "M' U2 M U2 M' U' M'",
+            "M' U2 M' U2 M' U' M'"
+          ]
+        },
+        {
+          "id": 3819,
+          "name": "2 Top Opp",
+          "subgroup": null,
+          "setup": "M U M U M' U' M",
+          "alg": "M' U' M U M' U M'",
+          "alts": [
+            "M' U' M U M' U' M'",
+            "R U R' U' M' U R U' r'",
+            "R U r' U r' U' r2 U' r' U r' U R"
+          ]
+        },
+        {
+          "id": 3820,
+          "name": "2 Top Adj",
+          "subgroup": null,
+          "setup": "M U M U2' M U' M",
+          "alg": "M' U M U M' U M U",
+          "alts": [
+            "M' U M' U2 M' U M'",
+            "M' U M' U2 M' U' M'",
+            "U M' U' M U2 M' U' M'"
+          ]
+        },
+        {
+          "id": 3821,
+          "name": "1 Top 1 Bot",
+          "subgroup": null,
+          "setup": "M U M' U M U M",
+          "alg": "M U' M' U' M U' M'",
+          "alts": [
+            "M U M' U M U M'",
+            "M' U' M' U' M U' M'",
+            "U' M' U M' U2 M U M'"
+          ]
+        },
+        {
+          "id": 3822,
+          "name": "2 Top Adj 2 Bot",
+          "subgroup": null,
+          "setup": "M U M U M2'",
+          "alg": "M2 U' M' U' M'",
+          "alts": [
+            "U M2 U M' U M'",
+            "M' U' M U M U' M'",
+            "U M' U' M' U' M' U' M' U'"
+          ]
+        },
+        {
+          "id": 8108,
+          "name": "Back Arrow",
+          "subgroup": "3-mover",
+          "setup": "M U' M'",
+          "alg": "M U M'",
+          "alts": []
+        },
+        {
+          "id": 8109,
+          "name": "2 Adj / 0",
+          "subgroup": "7-mover",
+          "setup": "M U M U2' M U M",
+          "alg": "M' U' M' U2 M' U' M'",
+          "alts": []
+        }
+      ]
+    },
+    "lse-eolr": {
+      "label": "LSE EOLR",
+      "group": "roux",
+      "cases": [
+        {
+          "id": 8062,
+          "name": "Arrow (UF DF)",
+          "subgroup": "Arrow",
+          "setup": "M' U M2 U M'",
+          "alg": "M",
+          "alts": []
+        },
+        {
+          "id": 8063,
+          "name": "Arrow (UB UR)",
+          "subgroup": "Arrow",
+          "setup": "U M2 U M' U' M",
+          "alg": "M' U M",
+          "alts": []
+        },
+        {
+          "id": 8064,
+          "name": "Arrow (UF UR)",
+          "subgroup": "Arrow",
+          "setup": "M' U M2 U M' U' M' U2' M U'",
+          "alg": "U M' U2 M U M",
+          "alts": []
+        },
+        {
+          "id": 8065,
+          "name": "Arrow (DF DB)",
+          "subgroup": "Arrow",
+          "setup": "M' U M2 U M' U M U M' U",
+          "alg": "U' M U' M' U' M",
+          "alts": []
+        },
+        {
+          "id": 8066,
+          "name": "1 / 1 (UF UR)",
+          "subgroup": "1 / 1",
+          "setup": "U M2 U M' U' M' U' M U' M",
+          "alg": "M' U M' U M U M",
+          "alts": []
+        },
+        {
+          "id": 8067,
+          "name": "1 / 1 (UF DF)",
+          "subgroup": "1 / 1",
+          "setup": "U M2 U M U' M' U' M U' M'",
+          "alg": "M U M' U M U M'",
+          "alts": [
+            "U' M' U M' U2 M U M"
+          ]
+        },
+        {
+          "id": 8068,
+          "name": "1 / 1 (UF UB)",
+          "subgroup": "1 / 1",
+          "setup": "M' U M2 U M' U' M U2' M U2' M U M'",
+          "alg": "M U' M' U2 M' U2 M' U M",
+          "alts": []
+        },
+        {
+          "id": 8069,
+          "name": "1 / 1 (UR UB)",
+          "subgroup": "1 / 1",
+          "setup": "M' U M2 U M U M U M'",
+          "alg": "M U' M' U' M'",
+          "alts": []
+        },
+        {
+          "id": 8070,
+          "name": "1 / 1 (UR UL)",
+          "subgroup": "1 / 1",
+          "setup": "U M2 U M U' M' U2' M U' M U",
+          "alg": "U' M' U M' U2 M U M'",
+          "alts": []
+        },
+        {
+          "id": 8071,
+          "name": "1 / 1 (UR DF)",
+          "subgroup": "1 / 1",
+          "setup": "M' U M2 U M U M U M",
+          "alg": "M' U' M' U' M'",
+          "alts": []
+        },
+        {
+          "id": 8072,
+          "name": "1 / 1 (UR DB)",
+          "subgroup": "1 / 1",
+          "setup": "U M2 U M' U' M' U' M U' M'",
+          "alg": "M U M' U M U M",
+          "alts": []
+        },
+        {
+          "id": 8073,
+          "name": "1 / 1 (UB DF)",
+          "subgroup": "1 / 1",
+          "setup": "M' U M2 U M U' M U' M' U' M' U2' M U'",
+          "alg": "U M' U2 M U M U M' U M'",
+          "alts": []
+        },
+        {
+          "id": 8074,
+          "name": "1 / 1 (UB DB)",
+          "subgroup": "1 / 1",
+          "setup": "M' U M2 U M U2' M U' M U",
+          "alg": "U' M' U M' U2 M'",
+          "alts": []
+        },
+        {
+          "id": 8075,
+          "name": "1 / 1 (DF DB)",
+          "subgroup": "1 / 1",
+          "setup": "M' U M2 U M' U' M U2' M U2' M U M",
+          "alg": "M' U' M' U2 M' U2 M' U M",
+          "alts": []
+        },
+        {
+          "id": 8076,
+          "name": "2 Adj / 2 (UF UL)",
+          "subgroup": "2 Adj / 2",
+          "setup": "U M2 U M' U' M' U' M' U2' M U'",
+          "alg": "U M' U2 M U M U M",
+          "alts": []
+        },
+        {
+          "id": 8077,
+          "name": "2 Adj / 2 (UF UR)",
+          "subgroup": "2 Adj / 2",
+          "setup": "M' U M2 U M U' M U2' M' U2' M' U M",
+          "alg": "M' U' M U2 M U2 M' U M'",
+          "alts": []
+        },
+        {
+          "id": 8078,
+          "name": "2 Adj / 2 (UF UB)",
+          "subgroup": "2 Adj / 2",
+          "setup": "U M2 U M' U M U M U M U'",
+          "alg": "U M' U' M' U' M' U' M",
+          "alts": []
+        },
+        {
+          "id": 8079,
+          "name": "2 Adj / 2 (UL UB)",
+          "subgroup": "2 Adj / 2",
+          "setup": "M' U M2 U M U' M2' U",
+          "alg": "U' M2 U M'",
+          "alts": []
+        },
+        {
+          "id": 8080,
+          "name": "2 Adj / 2 (UF DF)",
+          "subgroup": "2 Adj / 2",
+          "setup": "U M2 U M' U' M' U' M2' U",
+          "alg": "U' M2 U M U M",
+          "alts": []
+        },
+        {
+          "id": 8081,
+          "name": "2 Adj / 2 (UL DF)",
+          "subgroup": "2 Adj / 2",
+          "setup": "M' U M2 U M U' M U2' M U2'",
+          "alg": "U2 M' U2 M' U M'",
+          "alts": []
+        },
+        {
+          "id": 8082,
+          "name": "2 Adj / 2 (DF DB)",
+          "subgroup": "2 Adj / 2",
+          "setup": "U M2 U M U M U M U M U'",
+          "alg": "U M' U' M' U' M' U' M'",
+          "alts": []
+        },
+        {
+          "id": 8083,
+          "name": "2 Adj / 0 (UF UL)",
+          "subgroup": "2 Adj / 0",
+          "setup": "M' U M2 U M' U2' M U M U'",
+          "alg": "U M' U' M' U2 M",
+          "alts": []
+        },
+        {
+          "id": 8084,
+          "name": "2 Adj / 0 (UF UR)",
+          "subgroup": "2 Adj / 0",
+          "setup": "M' U M2 U M' U M' U M U M U2' M",
+          "alg": "M' U2 M' U' M' U' M U' M",
+          "alts": []
+        },
+        {
+          "id": 8085,
+          "name": "2 Adj / 0 (UF UB)",
+          "subgroup": "2 Adj / 0",
+          "setup": "M' U M2 U M' U M' U2' M U' M' U' M",
+          "alg": "M' U M U M' U2 M U' M",
+          "alts": []
+        },
+        {
+          "id": 8086,
+          "name": "2 Adj / 0 (UL UB)",
+          "subgroup": "2 Adj / 0",
+          "setup": "M' U M2 U M' U M U M' U' M U M U'",
+          "alg": "U M' U' M' U M U' M' U' M",
+          "alts": []
+        },
+        {
+          "id": 8087,
+          "name": "2 Adj / 0 (UF DF)",
+          "subgroup": "2 Adj / 0",
+          "setup": "U M2 U M U M' U2' M U' M' U2'",
+          "alg": "U2 M U M' U2 M U' M'",
+          "alts": []
+        },
+        {
+          "id": 8088,
+          "name": "2 Adj / 0 (UL DF)",
+          "subgroup": "2 Adj / 0",
+          "setup": "U M2 U M' U' M U2' M U' M",
+          "alg": "M' U M' U2 M' U M",
+          "alts": []
+        },
+        {
+          "id": 8089,
+          "name": "2 Adj / 0 (DF DB)",
+          "subgroup": "2 Adj / 0",
+          "setup": "U M2 U M U M U2' M U' M",
+          "alg": "M' U M' U2 M' U' M'",
+          "alts": []
+        },
+        {
+          "id": 8090,
+          "name": "2 Opp / 2 (UF UR)",
+          "subgroup": "2 Opp / 2",
+          "setup": "U M2 U M' U' M' U2' M U2' M",
+          "alg": "M' U2 M' U2 M U M",
+          "alts": []
+        },
+        {
+          "id": 8091,
+          "name": "2 Opp / 2 (UR UL)",
+          "subgroup": "2 Opp / 2",
+          "setup": "M' U M2 U M' U2' M U2' M U M2'",
+          "alg": "M2 U' M' U2 M' U2 M",
+          "alts": []
+        },
+        {
+          "id": 8092,
+          "name": "2 Opp / 2 (UF DF)",
+          "subgroup": "2 Opp / 2",
+          "setup": "U M2 U M U' M U2' M U2' M U M2'",
+          "alg": "M2 U' M' U2 M' U2 M' U M'",
+          "alts": []
+        },
+        {
+          "id": 8093,
+          "name": "2 Opp / 2 (DF DB)",
+          "subgroup": "2 Opp / 2",
+          "setup": "M' U M2 U M U2' M U2' M",
+          "alg": "M' U2 M' U2 M'",
+          "alts": []
+        },
+        {
+          "id": 8094,
+          "name": "2 Opp / 2 (UR DF)",
+          "subgroup": "2 Opp / 2",
+          "setup": "M' U M2 U M U M U2' M' U' M' U2' M",
+          "alg": "M' U2 M U M U2 M' U' M'",
+          "alts": []
+        },
+        {
+          "id": 8095,
+          "name": "2 Opp / 2 (UF UB)",
+          "subgroup": "2 Opp / 2",
+          "setup": "U M2 U M' U2' M U M' U M' U2' M U2' M",
+          "alg": "M' U2 M' U2 M U' M U' M' U2 M",
+          "alts": []
+        },
+        {
+          "id": 8096,
+          "name": "2 Opp / 0 (UF UR)",
+          "subgroup": "2 Opp / 0",
+          "setup": "U M2 U M U' M U' M' U M",
+          "alg": "M' U' M U M' U M'",
+          "alts": []
+        },
+        {
+          "id": 8097,
+          "name": "2 Opp / 0 (UF UB)",
+          "subgroup": "2 Opp / 0",
+          "setup": "U M2 U M U M U' M' U M",
+          "alg": "M' U' M U M' U' M'",
+          "alts": []
+        },
+        {
+          "id": 8098,
+          "name": "2 Opp / 0 (UF DF)",
+          "subgroup": "2 Opp / 0",
+          "setup": "U M2 U M U M' U M U' M'",
+          "alg": "M U M' U' M U' M'",
+          "alts": []
+        },
+        {
+          "id": 8099,
+          "name": "2 Opp / 0 (UR DF)",
+          "subgroup": "2 Opp / 0",
+          "setup": "M' U M2 U M' U M' U' M",
+          "alg": "M' U M U' M",
+          "alts": []
+        },
+        {
+          "id": 8100,
+          "name": "2 Opp / 0 (UR UL)",
+          "subgroup": "2 Opp / 0",
+          "setup": "M' U M2 U M U M' U2' M U M U M",
+          "alg": "M' U' M' U' M' U2 M U' M'",
+          "alts": []
+        },
+        {
+          "id": 8101,
+          "name": "2 Opp / 0 (DF DB)",
+          "subgroup": "2 Opp / 0",
+          "setup": "U M2 U r U R' U' M U R U' R'",
+          "alg": "U S R' F R S' R' F' R",
+          "alts": [
+            "R U R' U' M' U R U' r'"
+          ]
+        },
+        {
+          "id": 8102,
+          "name": "0 / 2 (UF UR)",
+          "subgroup": "0 / 2",
+          "setup": "M' U M2 U M U' M U M",
+          "alg": "M' U' M' U M'",
+          "alts": []
+        },
+        {
+          "id": 8103,
+          "name": "0 / 2 (UL UR)",
+          "subgroup": "0 / 2",
+          "setup": "M' U M2 U M' U M U2' M' U M' U M",
+          "alg": "M' U' M U' M U2 M' U' M",
+          "alts": []
+        },
+        {
+          "id": 8104,
+          "name": "0 / 2 (UF DF)",
+          "subgroup": "0 / 2",
+          "setup": "U M2 U M' U' M' U' M U M U'",
+          "alg": "U M' U' M' U M U M",
+          "alts": []
+        },
+        {
+          "id": 8105,
+          "name": "0 / 2 (DF DB)",
+          "subgroup": "0 / 2",
+          "setup": "U M2 U M U M' U' M U M",
+          "alg": "M' U' M' U M U' M'",
+          "alts": []
+        },
+        {
+          "id": 8106,
+          "name": "All 6 (UF DF)",
+          "subgroup": "All 6",
+          "setup": "M' U M2 U M' U2' M U M' U M U' M' U",
+          "alg": "U' M U M' U' M U' M' U2 M",
+          "alts": []
+        },
+        {
+          "id": 8107,
+          "name": "All 6 (DF DB)",
+          "subgroup": "All 6",
+          "setup": "U M2 U M' U M U2' M U M' U M U M",
+          "alg": "M' U' M' U' M U' M' U2 M' U' M",
+          "alts": []
+        }
+      ]
+    }
+  }
+}

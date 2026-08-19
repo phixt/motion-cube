@@ -176,6 +176,7 @@ export const zhCN: Record<string, string> = {
   "library.import": "导入 JSON",
   "library.export": "导出 JSON",
   "library.loadSamples": "加载示例",
+  "library.loadBuiltin": "加载内置公式库",
   "library.importOk": "已导入 {n} 条公式 / {m} 条手法",
   "library.importFail": "导入失败：{error}",
   "library.exportOk": "已导出",
