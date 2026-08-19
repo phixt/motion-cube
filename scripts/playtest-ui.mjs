@@ -72,6 +72,37 @@ const clearAndType = async (selector, text) => {
   });
   await page.type(selector, text);
 };
+/** 展开公式库/编辑器所有折叠的分类组（分类可嵌套，父组展开后才会渲染子组，需多轮） */
+const expandFormulaGroups = () =>
+  page.evaluate(async () => {
+    for (let i = 0; i < 6; i++) {
+      const closed = [...document.querySelectorAll(".formula-group-label")].filter((b) =>
+        (b.textContent ?? "").includes("\u25B8"),
+      );
+      if (closed.length === 0) break;
+      closed.forEach((b) => b.click());
+      await new Promise((r) => setTimeout(r, 50));
+    }
+  });
+/** 侧边栏分组按标题展开（编辑器；默认全折叠） */
+const openSbGroup = (title) =>
+  page.evaluate((ti) => {
+    const head = [...document.querySelectorAll(".sb-group-head")].find((b) =>
+      (b.textContent ?? "").includes(ti),
+    );
+    if (head && (head.textContent ?? "").includes("\u25B8")) head.click();
+  }, title);
+/** 编辑器中按名称点选手法（.tec-item 按钮） */
+const clickTecItem = (name) =>
+  page.evaluate((n) => {
+    const btn = [...document.querySelectorAll(".tec-item")].find((b) =>
+      (b.textContent ?? "").trim() === n,
+    );
+    if (!btn) throw new Error(`手法未找到：${n}`);
+    btn.click();
+  }, name);
+/** 读取编辑器播放头魔方公式（自身维护的 currentAlg） */
+const edAlg = () => page.evaluate(() => globalThis.__motionCubeEditor?.player?.currentAlg ?? "");
 
 // 1) 开始页
 await page.goto(URL, { waitUntil: "networkidle0", timeout: 30000 });
@@ -119,27 +150,27 @@ await page.click('.base-swatch[data-face="D"]'); // 恢复默认底，保证后�
 await sleep(150);
 await shot("ui-04-keymap-rebound");
 
-// 4b) 键位作用域：编辑器独立默认（R=KeyR），同步按钮把游戏配置拷到编辑器
+// 4b) 键位作用域：编辑器独立功能键（默认 Space 播放），与游戏公式键互不影响
+// （同步按钮已移除，编辑器不再拥有 R 等游戏键）。
 await page.evaluate(() => {
   const el = [...document.querySelectorAll(".scope-btn")].find((b) => (b.textContent ?? "").includes("编辑器"));
-  el?.click();
+  if (!el) throw new Error("找不到编辑器作用域按钮");
+  el.click();
 });
 await sleep(250);
-const edRBinding = await page.$eval('[data-action="R"] .binding', (el) => el.textContent);
-if (edRBinding !== "R") throw new Error(`编辑器 R 默认绑定应为 R：${edRBinding}`);
-await page.evaluate(() => {
-  const el = [...document.querySelectorAll(".scope-btn")].find((b) => (b.textContent ?? "").includes("同步"));
-  el?.click();
-});
-await sleep(250);
-const edRSynced = await page.$eval('[data-action="R"] .binding', (el) => el.textContent);
-if (edRSynced !== "T") throw new Error(`同步后编辑器 R 应为 T：${edRSynced}`);
+const edPlayBinding = await page.$eval('[data-action="play"] .binding', (el) => el.textContent);
+if (edPlayBinding !== "Space") throw new Error(`编辑器 play 默认应为 Space：${edPlayBinding}`);
+const edHasGameR = await page.$('[data-action="R"]');
+if (edHasGameR) throw new Error("编辑器作用域不应出现游戏键 R");
+// 游戏 R 已在 4) 改绑为 T，编辑器功能键必须保持默认（相互独立）
+const edPlayAfter = await page.$eval('[data-action="play"] .binding', (el) => el.textContent);
+if (edPlayAfter !== "Space") throw new Error(`游戏改键不应影响编辑器：${edPlayAfter}`);
 await page.evaluate(() => {
   const el = [...document.querySelectorAll(".scope-btn")].find((b) => (b.textContent ?? "").includes("游戏"));
   el?.click();
 });
 await sleep(250);
-console.log("keymap scope/sync ok");
+console.log("keymap scope independence ok");
 
 // 5) 改键生效：游戏页按 T 应执行 R
 await clickNav("游戏");
@@ -281,6 +312,11 @@ await clickNav("公式库");
 await page.waitForSelector("#formula-rows");
 await page.click("#btn-samples");
 await sleep(300);
+// 公式按分类分组折叠展示，先展开全部组再断言公式名
+await page.evaluate(() => {
+  document.querySelectorAll(".formula-group-label").forEach((b) => b.click());
+});
+await sleep(200);
 let formulaText = await page.$eval("#formula-rows", (el) => el.textContent ?? "");
 if (!formulaText.includes("V Perm")) throw new Error("示例公式未加载");
 const techniqueText = await page.$eval("#technique-rows", (el) => el.textContent ?? "");
@@ -288,43 +324,90 @@ if (!techniqueText.includes("单拨 U")) throw new Error("示例手法未加载"
 console.log("library samples ok");
 await shot("ui-09-library");
 
-// 8b) 动画编辑器骨架：选手法、时间线、选中/移动/添加关键帧、补帧预览、保存
+// 8b) 动画编辑器骨架：侧边栏选手法、时间线、选中/移动/添加关键帧、保存
 await clickNav("动画编辑");
-await page.waitForSelector("#tec-select");
-const tecOptions = await page.$$eval("#tec-select option", (els) => els.map((o) => o.textContent));
-if (!tecOptions.includes("单拨 U（示例）")) throw new Error(`编辑器手法列表异常：${tecOptions}`);
-const flickTecId = await page.evaluate(() => {
-  const sel = document.querySelector("#tec-select");
-  for (const o of sel.options) if (o.textContent === "单拨 U（示例）") return o.value;
-  return "";
-});
-await page.select("#tec-select", flickTecId);
+await page.waitForSelector(".editor-page");
+await openSbGroup("手法");
+await sleep(250);
+await clickTecItem("单拨 U（示例）");
 await sleep(300);
-let kfFrames = await page.$$eval("#tl-track .tl-kf", (els) => els.map((e) => e.dataset.frame).sort());
+let kfFrames = await page.$$eval("#tl-ruler .tl-kf", (els) => els.map((e) => e.dataset.frame).sort());
 if (kfFrames.join() !== ["0", "30", "60"].join()) throw new Error(`示例手法关键帧应 0/30/60：${kfFrames}`);
-await page.click('#tl-track .tl-kf[data-frame="30"]');
-await sleep(200);
+const bandCount = await page.$$eval("#tl-track .tl-step-band", (els) => els.length);
+if (bandCount < 1) throw new Error(`示例手法应有动作刻度：${bandCount}`);
+console.log(`editor technique+timeline ok (${bandCount} bands)`);
+
+// 选中关键帧 30：kf 面板展开、帧号回显
+await page.click('#tl-ruler .tl-kf[data-frame="30"]');
+await sleep(250);
 if ((await page.$eval("#kf-frame", (el) => el.value)) !== "30") throw new Error("选中关键帧未回显帧号");
-const selPose = await page.$eval("#kf-pose", (el) => el.textContent ?? "");
-if (!selPose.includes("PIP")) throw new Error("选中关键帧姿态摘要缺失");
+
+// 移动 30 → 45：关键帧应随之迁移
 await clearAndType("#kf-frame", "45");
 await page.$eval("#kf-frame", (el) => el.dispatchEvent(new Event("change")));
 await sleep(250);
-kfFrames = await page.$$eval("#tl-track .tl-kf", (els) => els.map((e) => e.dataset.frame).sort());
+kfFrames = await page.$$eval("#tl-ruler .tl-kf", (els) => els.map((e) => e.dataset.frame).sort());
 if (!kfFrames.includes("45") || kfFrames.includes("30")) throw new Error(`移动关键帧失败：${kfFrames}`);
-await clearAndType("#kf-add-frame", "90");
+
+// 添加关键帧：把播放头拖到 46 帧，点 #kf-add 在该帧建帧
+await page.click('#tl-ruler .tl-kf[data-frame="45"]');
+await sleep(200);
+const rulerBox = await page.$eval("#tl-ruler", (el) => {
+  const r = el.getBoundingClientRect();
+  return { left: r.x, width: r.width, top: r.y + r.height / 2 };
+});
+await page.mouse.click(rulerBox.left + rulerBox.width * (46 / 60), rulerBox.top); // 总长 60 帧 → 46 帧处
+await sleep(200);
+if ((await page.$eval("#kf-frame", (el) => el.value)) !== "46") throw new Error("播放头未定位到 46 帧");
 await page.click("#kf-add");
 await sleep(250);
-kfFrames = await page.$$eval("#tl-track .tl-kf", (els) => els.map((e) => e.dataset.frame).sort());
-if (!kfFrames.includes("90")) throw new Error(`添加关键帧失败：${kfFrames}`);
-await page.$eval("#pv-slider", (el) => {
-  el.value = "22";
+kfFrames = await page.$$eval("#tl-ruler .tl-kf", (els) => els.map((e) => e.dataset.frame).sort());
+if (!kfFrames.includes("46")) throw new Error(`添加关键帧失败：${kfFrames}`);
+console.log("kf move/add ok");
+
+// 8e) 起终自动路径：首末关键帧之间生成中间关键帧（0/45/46/60 → 含 15/30）
+await page.click("#auto-path");
+await sleep(300);
+kfFrames = await page.$$eval("#tl-ruler .tl-kf", (els) => els.map((e) => e.dataset.frame).sort());
+if (!kfFrames.includes("15") || !kfFrames.includes("30")) {
+  throw new Error(`自动路径未生成中间关键帧：${kfFrames}`);
+}
+console.log(`auto path ok: ${kfFrames.join(",")}`);
+
+// 8f) 姿态坐标编辑：选中关键帧 30，改手掌 X → 提交后回显（吸附 1/3 块边长）
+await page.click('#tl-ruler .tl-kf[data-frame="30"]');
+await sleep(250);
+await page.$eval("#kf-pose-x", (el) => {
+  el.value = "1";
   el.dispatchEvent(new Event("input"));
 });
-await sleep(150);
-const pvText = await page.$eval("#pv-pose", (el) => el.textContent ?? "");
-if (!pvText.includes("PIP")) throw new Error("补帧插值读数缺失");
-if ((await page.$$eval("#pv-table tr", (els) => els.length)) < 3) throw new Error("补帧采样表行数异常");
+await sleep(250);
+await page.click("#kf-frame"); // 失焦，触发面板跟随播放头回写
+await sleep(200);
+const poseX = await page.$eval("#kf-pose-x", (el) => el.value);
+if (poseX !== "1.00") throw new Error(`姿态坐标未更新：${poseX}`);
+console.log("pose edit ok");
+
+// 8g) 插入中间帧：选中 30 与其后 45 之间插入 38
+await page.click('#tl-ruler .tl-kf[data-frame="30"]');
+await sleep(200);
+await page.click("#kf-insert-mid");
+await sleep(300);
+let kfFramesMid = await page.$$eval("#tl-ruler .tl-kf", (els) => els.map((e) => e.dataset.frame).sort());
+if (!kfFramesMid.includes("38")) throw new Error(`插入中间帧失败：${kfFramesMid}`);
+console.log(`insert mid ok: ${kfFramesMid.join(",")}`);
+
+// 8h) 正弦路径：中间帧关节 bend 改为正弦缓动（与线性插值不同）
+await page.click('#tl-ruler .tl-kf[data-frame="15"]');
+await sleep(200);
+const bendBefore = await page.$eval("#kf-bend-index-1", (el) => el.value);
+await page.click("#sine-path");
+await sleep(300);
+const bendAfter = await page.$eval("#kf-bend-index-1", (el) => el.value);
+if (bendBefore === bendAfter) throw new Error(`正弦路径未改变中间帧姿态：${bendBefore}`);
+console.log(`sine path ok: index PIP ${bendBefore} -> ${bendAfter}`);
+
+// 保存
 await page.click("#editor-save");
 await sleep(250);
 const edStatus = await page.$eval("#editor-status", (el) => el.textContent ?? "");
@@ -332,112 +415,51 @@ if (!edStatus.includes("已保存")) throw new Error(`编辑器保存状态异�
 console.log("editor skeleton ok");
 await shot("ui-15-editor");
 
-// 8c) 3D 视口：魔方 + 手注入、手型切换、滑块驱动
+// 8c) 3D 视口：魔方 + 手注入、手型切换
 if ((await page.$("#editor-view twisty-player")) === null) throw new Error("编辑器缺少 3D 视口魔方");
 const handApiOk = await page.evaluate(() => {
   const h = globalThis.__motionCubeEditor?.handView;
   return !!h && typeof h.setPose === "function" && typeof h.setHandType === "function";
 });
 if (!handApiOk) throw new Error("编辑器手视图 API 未暴露");
+await openSbGroup("手");
+await sleep(150);
 await page.select("#view-hand", "right");
 await sleep(250);
 await page.select("#view-hand", "left");
 await sleep(250);
-await page.$eval("#pv-slider", (el) => {
-  el.value = "45";
-  el.dispatchEvent(new Event("input"));
-});
-await sleep(300);
 console.log("editor 3d viewport ok");
 
-// 8d) 播放器整合：正放从起始态（公式逆序状态 U'）执行公式 → 还原态
-const preAlg = await page.evaluate(async () => {
-  const el = globalThis.__motionCubeEditor?.player?.element;
-  try {
-    return (await el?.experimentalModel.alg.get())?.alg?.toString() ?? "";
-  } catch {
-    return "";
-  }
-});
+// 8d) 播放器整合：正放从起始态（公式逆序 U'）执行公式 → 驱动魔方
+await page.click('#tl-ruler .tl-kf[data-frame="0"]'); // 播放头归零（onPvPlay 会重设起始态）
+await sleep(200);
+await page.evaluate(() => globalThis.__motionCubeEditor?.player?.reset());
+await sleep(200);
+const preAlg = await edAlg();
+if (preAlg !== "") throw new Error(`重置后魔方应为空：${preAlg}`);
 await page.click("#editor-big-play");
-await sleep(2600);
-const cubeAlg = await page.evaluate(async () => {
-  const el = globalThis.__motionCubeEditor?.player?.element;
-  if (!el) return "";
-  try {
-    const r = await el.experimentalModel.alg.get();
-    return r?.alg?.toString() ?? "";
-  } catch (e) {
-    return `ERR:${e.message}`;
-  }
-});
-if (String(preAlg) === String(cubeAlg)) throw new Error(`正放未驱动魔方：${preAlg}`);
-if (String(cubeAlg) !== "") throw new Error(`正放结束应回还原态：${cubeAlg}`);
+await sleep(1200);
+const cubeAlg = await edAlg();
+if (cubeAlg === "" || cubeAlg === preAlg) throw new Error(`正放未驱动魔方：${preAlg} -> ${cubeAlg}`);
+await page.click("#editor-big-play"); // 暂停
 console.log(`player integration ok: ${preAlg} -> ${cubeAlg}`);
 
-// 8d2) 编辑器快捷键：U 拧视口魔方、Escape 重置（独立配置默认与游戏一致）
-const edAlg = async () =>
-  page.evaluate(async () => {
-    const el = globalThis.__motionCubeEditor?.player?.element;
-    try {
-      return (await el?.experimentalModel.alg.get())?.alg?.toString() ?? "";
-    } catch {
-      return "ERR";
-    }
-  });
-const edA0 = await edAlg();
-await page.keyboard.press("u");
-await sleep(300);
-const edA1 = await edAlg();
-if (edA1 === edA0) throw new Error(`编辑器 U 键未拧动魔方：${edA0}`);
-await page.keyboard.press("Escape");
-await sleep(300);
-const edA2 = await edAlg();
-if (edA2 !== "") throw new Error(`编辑器 Esc 未重置魔方：${edA2}`);
-console.log("editor keymap ok");
-
-// 8e) 起终自动路径：首末关键帧之间生成中间关键帧（单拨 U：0/30/60 → 含 15/45）
-await page.click("#auto-path");
-await sleep(300);
-const kfFramesAuto = await page.$$eval("#tl-track .tl-kf", (els) => els.map((e) => e.dataset.frame).sort());
-if (!kfFramesAuto.includes("15") || !kfFramesAuto.includes("45")) {
-  throw new Error(`自动路径未生成中间关键帧：${kfFramesAuto}`);
-}
-console.log(`auto path ok: ${kfFramesAuto.join(",")}`);
-
-// 8f) 姿态坐标编辑：选中关键帧 30，改手掌 X → 姿态摘要同步
-await page.click('#tl-track .tl-kf[data-frame="30"]');
+// 8d2) 编辑器功能键（独立配置）：←/→ 逐帧、Shift+→ 跳下一关键帧（16→30）
+await page.click('#tl-ruler .tl-kf[data-frame="15"]');
 await sleep(200);
-await page.$eval("#kf-pose-x", (el) => {
-  el.value = "1";
-  el.dispatchEvent(new Event("input"));
-});
-await sleep(250);
-const poseText = await page.$eval("#kf-pose", (el) => el.textContent ?? "");
-if (!poseText.includes("palm pos (1.00")) throw new Error(`姿态坐标未更新：${poseText.split("\n").slice(-1)}`);
-console.log("pose edit ok");
-
-// 8g) 插入中间帧：选中 30 与其后 45 之间插入 38
-await page.click('#tl-track .tl-kf[data-frame="30"]');
+await page.evaluate(() => document.activeElement?.blur?.()); // 移出输入框焦点
+await page.keyboard.press("ArrowRight"); // 15 → 16
 await sleep(200);
-await page.click("#kf-insert-mid");
-await sleep(300);
-let kfFramesMid = await page.$$eval("#tl-track .tl-kf", (els) => els.map((e) => e.dataset.frame).sort());
-if (!kfFramesMid.includes("38")) throw new Error(`插入中间帧失败：${kfFramesMid}`);
-console.log(`insert mid ok: ${kfFramesMid.join(",")}`);
-
-// 8h) 正弦路径：中间帧关节 bend 改为正弦缓动（与线性插值不同）
-await page.click('#tl-track .tl-kf[data-frame="15"]');
+if ((await page.$eval("#kf-frame", (el) => el.value)) !== "16") throw new Error("→ 步进未生效");
+await page.keyboard.down("Shift");
+await page.keyboard.press("ArrowRight"); // 跳到 16 之后最近关键帧 = 30
+await page.keyboard.up("Shift");
 await sleep(200);
-const pipBefore = await page.$eval("#kf-pose", (el) => (el.textContent.match(/index\s+PIP:(\d+)/) || [])[1]);
-await page.click("#sine-path");
-await sleep(300);
-const pipAfter = await page.$eval("#kf-pose", (el) => (el.textContent.match(/index\s+PIP:(\d+)/) || [])[1]);
-if (pipBefore === pipAfter) throw new Error(`正弦路径未改变中间帧姿态：${pipBefore}`);
-console.log(`sine path ok: index PIP ${pipBefore} -> ${pipAfter}`);
+if ((await page.$eval("#kf-frame", (el) => el.value)) !== "30") throw new Error(`Shift+→ 跳关键帧未生效`);
+console.log("editor functional keys ok");
 
 // 8i) 编辑器标灰面板 + 不可变选项
-await page.click("#editor-gray-toggle");
+await openSbGroup("标灰");
 await sleep(300);
 await page.click('#gray-panel .gray-preset[data-preset="cross"]');
 await sleep(400);
@@ -457,31 +479,15 @@ await page.$eval("#editor-view", (el) => el.scrollIntoView({ block: "center" }))
 await sleep(400);
 await shot("ui-16-editor-view");
 
-// 8k) 自动动作刻度 + 复杂公式播放：无关键帧手法也有步骤带，播放逐步驱动魔方
-await page.evaluate(() => {
-  const sel = document.querySelector("#tec-select");
-  const opt = [...sel.options].find((o) => (o.textContent ?? "").includes("V Perm（手法）"));
-  if (opt) {
-    sel.value = opt.value;
-    sel.dispatchEvent(new Event("change"));
-  }
-});
+// 8k) 复杂公式播放：V Perm 手法（无关键帧、16 个动作刻度）播放逐步驱动魔方
+await clickTecItem("V Perm（手法）");
 await sleep(500);
 const vSteps = await page.$$eval("#tl-track .tl-step-band", (els) => els.length);
 if (vSteps < 2) throw new Error(`V Perm 手法应有多个动作刻度：${vSteps}`);
-const vAlg = async () =>
-  page.evaluate(async () => {
-    const el = globalThis.__motionCubeEditor?.player?.element;
-    try {
-      return (await el?.experimentalModel.alg.get())?.alg?.toString() ?? "";
-    } catch {
-      return "";
-    }
-  });
-const vA0 = await vAlg();
+const vA0 = await edAlg();
 await page.click("#editor-big-play");
-await sleep(900);
-const vA1 = await vAlg();
+await sleep(1200);
+const vA1 = await edAlg();
 if (vA1 === vA0) throw new Error(`复杂公式播放未驱动魔方：${vA0}`);
 await page.click("#editor-big-play"); // 暂停
 console.log(`auto step mapping + complex play ok (${vSteps} steps)`);
@@ -493,6 +499,8 @@ await page.type("#f-name", "测试 OLL");
 await page.type("#f-moves", "R U R' U R U2' R'");
 await page.click("#f-submit");
 await sleep(250);
+await expandFormulaGroups(); // 新公式进入（未）分类组，展开后才能断言
+await sleep(150);
 formulaText = await page.$eval("#formula-rows", (el) => el.textContent ?? "");
 if (!formulaText.includes("测试 OLL")) throw new Error("添加公式失败");
 
@@ -504,6 +512,7 @@ const libErr = await page.$eval("#lib-status", (el) => el.textContent ?? "");
 if (!libErr.includes("添加失败")) throw new Error(`非法公式未报错：${libErr}`);
 console.log("library invalid rejected");
 
+await expandFormulaGroups();
 await page.click('[data-name="测试 OLL"] .del');
 await sleep(200);
 formulaText = await page.$eval("#formula-rows", (el) => el.textContent ?? "");
@@ -547,11 +556,14 @@ const tagErr = await page.$eval("#lib-status", (el) => el.textContent ?? "");
 if (!tagErr.includes("最多 4 个标签")) throw new Error(`标签上限未生效：${tagErr}`);
 await page.click("#f-submit");
 await sleep(250);
+await expandFormulaGroups(); // 新公式进入（未）分类组，展开后才能断言
+await sleep(150);
 let catRowText = await page.$eval('#formula-rows [data-name="分类测试"]', (el) => el.textContent ?? "");
 if (!catRowText.includes("ZBLL")) throw new Error("公式未显示分类");
 if (!catRowText.includes("CFOP")) throw new Error("公式未显示标签");
 
 // 9b) 分类级联改选（回归：选择之后应能更改）
+await expandFormulaGroups();
 await page.click('#formula-rows [data-name="分类测试"] .edit');
 await sleep(250);
 let cascadeSelCount = await page.$$eval("#cat-cascade select", (els) => els.length);
@@ -569,6 +581,8 @@ await page.select("#cat-cascade select:nth-child(2)", userZbllId); // 再选用�
 await sleep(250);
 await page.click("#f-submit");
 await sleep(250);
+await expandFormulaGroups(); // 改挂到用户 ZBLL（新出现的折叠组）
+await sleep(150);
 catRowText = await page.$eval('#formula-rows [data-name="分类测试"]', (el) => el.textContent ?? "");
 if (!catRowText.includes("ZBLL")) throw new Error("改选分类未保存");
 console.log("category cascade change ok");
@@ -600,6 +614,7 @@ console.log("category delete cleanup ok");
 await shot("ui-11-categories");
 
 // 10) 删除公式连带删除其手法（手法不能单独存在）
+await expandFormulaGroups();
 await page.click('#formula-rows [data-name="单拨 U"] .del');
 await sleep(250);
 const techAfter = await page.$eval("#technique-rows", (el) => el.textContent ?? "");
@@ -653,3 +668,4 @@ console.log("keymap presets ok");
 
 await browser.close();
 console.log(`\nSHOTS: ${shots.join(", ")}`);
+
