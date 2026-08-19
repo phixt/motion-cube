@@ -1,6 +1,37 @@
 # 项目 TODO 与进度
 
-> 更新：2026-08-13　✅ 已完成 ｜ 🚧 进行中 ｜ ⬜ 待办
+> 更新：2026-08-19　✅ 已完成 ｜ 🚧 进行中 ｜ ⬜ 待办
+
+## 首页视差界面（2026-08-19 ✅ + 版本 0.3.1）
+
+- ✅ **伪 3D 魔方**（`PseudoCube3D.vue`）：CSS 3D 6 face × 3×3 纯色格 + 1px 极细格线
+  （stickerless，无边框黑格）；transform 三层分离——tilt（rotateX -18° 静态倾斜）/
+  parallax（消费 `--par-u/--par-v` 微旋转）/ spin（40s 自转），`preserve-3d` 链上
+  不用 overflow/filter；魔方尺寸 `clamp(100px,15vmin,190px)`（zoom 会放大 vmin，
+  实测 150% 缩放 + 1440 窗口下投影不再溢出右缘，1920 亦通过像素目检）
+- ✅ **鼠标视差单一输入源**（`useParallax.ts` composable）：Pointer Events（仅
+  `(pointer: fine)`）、帧率无关 lerp（1-e^(-λΔt)，λ=5）、强度缩放、`--par-u/--par-v`
+  无单位 CSS 变量写到 StartPage 根节点（不污染 documentElement）；离窗/失焦/页面
+  隐藏暂停或归零；`parallaxIntensity=0` 停 rAF；`prefers-reduced-motion` 优先于
+  用户强度（强制归零并停自转）；onScopeDispose 全量清理（HMR 不泄漏）
+- ✅ **首页布局**（StartPage.vue）：左右两列 grid（`minmax(0,1fr) auto`），左标题/
+  副标题/进入游戏、右魔方（装饰列）；远景层 = 圆环/菱形/三角抽象几何淡出，慢漂移
+  动画与视差分层（外层 JS transform、内层 CSS drift），`pointer-events:none` +
+  `aria-hidden`；窄窗口（<900px）用 v-if 卸载魔方（非仅 CSS 隐藏，动画/视差真正
+  停掉）+ 标题居中 + 背景视差系数减半
+- ✅ **强度设置**（App.vue 标题栏第 4 个循环按钮）：关/弱/中/强 → 乘数
+  `[0, 0.35, 0.7, 1]`（0/1/2/3 直接跳变过大）；`settings.ts` 新增
+  `ParallaxIntensity` 类型 + `parallaxIntensityRef`（模块级 ref 单一来源，App 与
+  useParallax 共用）+ 读取 normalize（旧数据/非法值回退 2）+ localStorage
+  `motion-cube.parallax` 持久化
+- ✅ **配色**：明暗主题各一套低饱和色板（`--cube-face-*` / `--cube-gap` /
+  `--geo-color`，global.css，:root 兜底 + html.theme-dark 覆盖）
+- ✅ **i18n**：`parallax.label/off/low/medium/high` 中英补齐；shot-shell 开始页
+  选择器更新为 `.start-page`
+- ✅ 验证：typecheck/build 绿；puppeteer + 像素扫描确认——1440/1920 宽、100%/150%
+  缩放、明暗主题魔方不裁切（投影溢出已修）、窄屏魔方卸载、视差变量随强度缩放
+  （中 0.7 时 u=0.60 对应鼠标 0.86）、按钮循环 + 持久化；console 无错误
+- ✅ **版本 0.3.0 → 0.3.1**（package.json + tauri.conf.json 同步）
 
 ## 标灰面板交互重构（2026-08-12）
 
@@ -435,10 +466,10 @@
    精选复盘样本 data/samples/cuberoot-recons.json（3 CFOP + 2 Roux + 1 ZB，含分步解法，
    刷新脚本 scripts/fetch-cuberoot.mjs）；公式库示例扩充 5 条 speedcubedb 真实公式
    （OLL 1 / PLL Aa / CMLL O Adjacent / ZBLL U 1 / 1LLL 1 1，verify-data 27/27）
-- ⬜ 动画编辑器：坐标高度 / 吸附 / 起终自动路径 / 函数路径 / 关键帧细化（P1/P2，见上方路线）
-- ⬜ 播放器整合：公式播放 + 手法 stepMapping 帧级同步（P0-B）
-- ⬜ playtest QA 循环（含新页面回归）
-- ⬜ 拇指根独立建模 + 手掌"大鱼际"凸块（2026-08-06 记录，用户反馈；P0-A）
+- ✅ 动画编辑器：坐标高度 / 吸附 / 起终自动路径 / 函数路径 / 关键帧细化（P1/P2，见上方路线）
+- ✅ 播放器整合：公式播放 + 手法 stepMapping 帧级同步（P0-B）
+- ✅ playtest QA 循环（含新页面回归）
+- ✅ 拇指根独立建模 + 手掌"大鱼际"凸块（2026-08-06 记录，用户反馈；P0-A）
   - 现状缺陷：拇指没有"根部"，从手掌前缘角落伸出、与食指冲突；真实拇指根位于掌根（腕侧），
     附着处有大鱼际隆起（thenar eminence）。
   - 方案：① 把拇指根位置从"手掌角落"单独拎出来作为独立参数（贴近掌根/腕侧，配合 CMC 位姿），

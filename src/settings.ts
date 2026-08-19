@@ -1,4 +1,5 @@
 /** 用户设置持久化（localStorage）：按键配置 + 通用设置 */
+import { ref } from "vue";
 import {
   DEFAULT_EDITOR_ACTIONS,
   DEFAULT_KEYMAP,
@@ -13,6 +14,22 @@ import { FACES, type Face } from "./cube/stickering";
 const KEYMAP_KEY = "motion-cube.keymap";
 const EDITOR_ACTIONS_KEY = "motion-cube.editorActions";
 const SETTINGS_KEY = "motion-cube.settings";
+const PARALLAX_KEY = "motion-cube.parallax";
+
+/** 首页视差强度：0=关闭 1=弱 2=中 3=强 */
+export type ParallaxIntensity = 0 | 1 | 2 | 3;
+
+/** 强度 → 位移乘数（不要直接用 0/1/2/3，避免“关→弱”跳跃过大） */
+export const PARALLAX_SCALE = [0, 0.35, 0.7, 1] as const;
+
+export const DEFAULT_PARALLAX_INTENSITY: ParallaxIntensity = 2;
+
+export function normalizeParallaxIntensity(value: unknown): ParallaxIntensity {
+  const n = Number(value);
+  return n === 0 || n === 1 || n === 2 || n === 3
+    ? (n as ParallaxIntensity)
+    : DEFAULT_PARALLAX_INTENSITY;
+}
 
 export type AppSettings = {
   /** 连击冷却（ms）：快速按键时的动画频率限制，0 = 关闭 */
@@ -23,6 +40,8 @@ export type AppSettings = {
   baseFace: Face;
   /** 标尺默认显示 */
   rulerEnabled: boolean;
+  /** 首页视差强度 */
+  parallaxIntensity: ParallaxIntensity;
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -30,7 +49,30 @@ export const DEFAULT_SETTINGS: AppSettings = {
   locale: DEFAULT_LOCALE,
   baseFace: "D",
   rulerEnabled: true,
+  parallaxIntensity: DEFAULT_PARALLAX_INTENSITY,
 };
+
+/** 视差强度响应式来源（模块级单一来源，App 标题栏与 useParallax 共用） */
+export const parallaxIntensityRef = ref<ParallaxIntensity>(
+  normalizeParallaxIntensity(
+    (() => {
+      try {
+        return localStorage.getItem(PARALLAX_KEY);
+      } catch {
+        return undefined;
+      }
+    })() ?? DEFAULT_PARALLAX_INTENSITY,
+  ),
+);
+
+export function saveParallaxIntensity(v: ParallaxIntensity): void {
+  parallaxIntensityRef.value = v;
+  try {
+    localStorage.setItem(PARALLAX_KEY, String(v));
+  } catch {
+    /* ignore */
+  }
+}
 
 export function loadKeymap(): KeymapConfig {
   try {
@@ -82,6 +124,7 @@ export function loadSettings(): AppSettings {
         typeof obj?.rulerEnabled === "boolean"
           ? obj.rulerEnabled
           : DEFAULT_SETTINGS.rulerEnabled,
+      parallaxIntensity: normalizeParallaxIntensity(obj?.parallaxIntensity),
     };
   } catch {
     return DEFAULT_SETTINGS;

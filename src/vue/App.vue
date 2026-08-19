@@ -6,7 +6,13 @@ import WinNavigationView from "../vendor/winui-on-web/components/WinNavigationVi
 import WinTitleBar from "../vendor/winui-on-web/components/WinTitleBar.vue";
 import WinToolTipService from "../vendor/winui-on-web/components/WinToolTipService.vue";
 import { isLocale } from "../i18n";
-import { loadSettings, saveSettings } from "../settings";
+import {
+  loadSettings,
+  parallaxIntensityRef,
+  saveParallaxIntensity,
+  saveSettings,
+  type ParallaxIntensity,
+} from "../settings";
 import { localeRef, setMotionCubeLocale, useI18n } from "./i18n";
 import { APP_ROUTES } from "./router";
 import {
@@ -99,6 +105,15 @@ const cycleUiScale = () => {
 const themeLabel = computed(() => t(`theme.${themeMode.value}`));
 const materialLabel = computed(() => t(`material.${materialMode.value}`));
 const uiScaleLabel = computed(() => `${t("uiScale.label")}: ${Math.round(uiScale.value * 100)}%`);
+
+const PARALLAX_LEVEL_KEYS = ["off", "low", "medium", "high"] as const;
+const parallaxLabel = computed(
+  () => `${t("parallax.label")}: ${t(`parallax.${PARALLAX_LEVEL_KEYS[parallaxIntensityRef.value]}`)}`,
+);
+const cycleParallax = () => {
+  const next = ((parallaxIntensityRef.value + 1) % 4) as ParallaxIntensity;
+  saveParallaxIntensity(next);
+};
 </script>
 
 <template>
@@ -119,6 +134,7 @@ const uiScaleLabel = computed(() => `${t("uiScale.label")}: ${Math.round(uiScale
       <WinButton :Content="`${t('theme.label')}: ${themeLabel}`" @Click="cycleTheme" />
       <WinButton :Content="`${t('material.label')}: ${materialLabel}`" @Click="cycleMaterial" />
       <WinButton :Content="uiScaleLabel" @Click="cycleUiScale" />
+      <WinButton :Content="parallaxLabel" @Click="cycleParallax" />
     </div>
   </WinTitleBar>
 

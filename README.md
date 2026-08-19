@@ -27,8 +27,16 @@ WinUI 控件预览页（壳与控件的独立验证载体）：`npm run dev` 后
 - **主题**：系统 / 浅色 / 深色（`html.theme-light` / `html.theme-dark`）
 - **材质**：Mica（实色）/ Acrylic（磨砂半透明）
 - **缩放**：100% – 200%（默认 150%，高 DPI 适配；全局 `zoom` 缩放，文本/图标/3D 画布统一放大）
+- **视差**：关 / 弱 / 中 / 强（默认中；首页鼠标视差强度，reduced-motion 时强制关闭）
 
-设置持久化在 localStorage（`motion-cube.theme` / `motion-cube.material` / `motion-cube.uiScale`）。
+设置持久化在 localStorage（`motion-cube.theme` / `motion-cube.material` / `motion-cube.uiScale` / `motion-cube.parallax`）。
+
+## 首页视差界面
+
+- 左右布局：左侧标题/副标题/进入游戏，右侧伪 3D 魔方（CSS 3D，6 face × 3×3 格、极细格线分块、低饱和色板明暗各一套）
+- 鼠标视差：远景几何层（圆环/菱形/三角，慢漂移 + 视差）+ 魔方微旋转，由 `useParallax`（单一输入源，rAF + 帧率无关 lerp）输出 `--par-u/--par-v` 到页面根节点
+- 窄窗口（<900px）卸载魔方，标题居中；背景视差减弱
+- 可访问性：`prefers-reduced-motion` 下停自转与视差；装饰层 `aria-hidden` + `pointer-events: none`
 
 ## 测试与 QA
 
