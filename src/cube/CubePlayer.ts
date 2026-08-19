@@ -20,6 +20,8 @@ export class CubePlayer {
   private cubeVisible = true;
   /** 当前公式（自身维护：cubing 的 TwistyPlayer.alg getter 会抛错，不能读取） */
   private _alg = "";
+  /** 设置公式后的延迟重绘定时器（场景懒初始化窗口内重试） */
+  private renderRetries: ReturnType<typeof setTimeout>[] = [];
 
   /** 当前公式（用于编辑器捕获起始态等；cubing 侧不提供读取 API） */
   get currentAlg(): string {
@@ -80,6 +82,34 @@ export class CubePlayer {
   setMoves(moves: string): void {
     this._alg = moves;
     this.element.alg = moves;
+    // 设置 alg 后跳转到时间轴末尾：cubing 的 "auto" 时间戳在 setupAlg 非空时
+    // 解析到 timeRange.start（= 起始态/已还原），导致恢复进度/打乱显示成完成态，
+    // 而数据 currentAlg 已是新状态（“数据到位渲染没跟上”）。experimentalAddMove
+    // 内部正是靠显式 timestampRequest="end" 才显示末态；此处等效。
+    this.element.jumpToEnd();
+    // cubing 惰性渲染：场景懒初始化（IntersectionObserver）可能晚于本调用，
+    // 带延迟重试强制重绘，避免 3D 视图停留在旧帧。
+    this.clearRenderRetries();
+    this.kickRender();
+    this.renderRetries = [500, 2000, 5000].map((ms) =>
+      setTimeout(() => this.kickRender(), ms),
+    );
+  }
+
+  /** 取消挂起的延迟重绘 */
+  private clearRenderRetries(): void {
+    for (const id of this.renderRetries) clearTimeout(id);
+    this.renderRetries = [];
+  }
+
+  /** 强制 cubing 重绘（同 GrayOverlay.requestRender / 编辑器 kickRender 模式） */
+  private async kickRender(): Promise<void> {
+    try {
+      const vantages = await this.element.experimentalCurrentVantages();
+      for (const v of vantages) v.scheduleRender();
+    } catch {
+      // 场景未就绪时忽略
+    }
   }
 
   play(): void {
@@ -93,6 +123,11 @@ export class CubePlayer {
   reset(): void {
     this._alg = "";
     this.element.alg = "";
+    this.clearRenderRetries();
+    this.kickRender();
+    this.renderRetries = [500, 2000].map((ms) =>
+      setTimeout(() => this.kickRender(), ms),
+    );
   }
 
   /** 撤销最后一步（原生动画撤销） */

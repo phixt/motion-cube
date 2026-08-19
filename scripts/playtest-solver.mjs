@@ -64,6 +64,8 @@ async function runSolve(methodBtn, expectStages) {
 
 // CFOP（4+ 阶段）与 Roux（5 阶段）
 const r1 = await runSolve("#btn-method-cfop", 7);
+await page.waitForSelector("#btn-copy-solve", { timeout: 5000 });
+console.log("solve copy button ok");
 await page.screenshot({ path: "spike-shots/solve-01-cfop.png" });
 
 // 再解一次（热表）应更快，结果一致
@@ -136,6 +138,12 @@ if (scrTokens.length !== 20) throw new Error(`打乱按钮应产生 20 步：${s
 const scrStatus = await page.$eval("#hud-status", (el) => el.textContent ?? "");
 if (!/打乱|Scramble/i.test(scrStatus)) throw new Error(`打乱状态提示异常：${scrStatus}`);
 console.log(`scramble button ok: ${scrAlg}`);
+
+// 打乱公式条：显示当前打乱且带复制按钮
+const scrBarAlg = await page.$eval("#scramble-alg", (el) => el.textContent ?? "").catch(() => "");
+if (scrBarAlg !== scrAlg) throw new Error(`打乱公式条未同步显示：${scrBarAlg}`);
+await page.waitForSelector("#btn-copy-scramble", { timeout: 5000 });
+console.log("scramble alg bar ok");
 
 await browser.close();
 console.log("solver UI playtest OK");

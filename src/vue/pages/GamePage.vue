@@ -29,6 +29,39 @@ const solveMethod = ref<"cfop" | "roux">("cfop");
 const solving = ref(false);
 const solveResult = ref<SolveResult | null>(null);
 const solveError = ref("");
+const scrambleAlg = ref("");
+
+/** 复制文本到剪贴板（失败时降级 execCommand；返回是否成功） */
+const copyText = async (text: string): Promise<boolean> => {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+};
+
+const copyScramble = async (): Promise<void> => {
+  if (!scrambleAlg.value) return;
+  status.value = (await copyText(scrambleAlg.value)) ? t("hud.copied") : t("hud.copyFail");
+};
+
+const copySolve = async (): Promise<void> => {
+  if (!solveResult.value || !solveResult.value.moves.length) return;
+  status.value = (await copyText(solveResult.value.moves.join(" "))) ? t("hud.copied") : t("hud.copyFail");
+};
 
 // 解法演示：从当前打乱态逐步施加解法（不重放打乱）
 const demoRunning = ref(false);
@@ -89,6 +122,7 @@ onBeforeUnmount(() => {
 const applyAlg = (): void => {
   cancelDemo();
   const normalized = session?.applyAlg(algText.value);
+  scrambleAlg.value = "";
   if (normalized !== null && normalized !== undefined) algText.value = normalized;
 };
 const togglePlay = (): void => session?.togglePlay();
@@ -96,6 +130,7 @@ const reset = (): void => {
   cancelDemo();
   session?.player.reset();
   moves.value = [];
+  scrambleAlg.value = "";
   status.value = t("hud.statusReset");
 };
 const toggleGray = (): void => session?.gray.togglePanel();
@@ -114,6 +149,7 @@ const clearProgress = (): void => {
   clearSnapshot();
   session?.player.reset();
   moves.value = [];
+  scrambleAlg.value = "";
 };
 
 /** 生成随机打乱（20 步，与 WCA 同风格）并应用 */
@@ -122,6 +158,7 @@ const scrambleCube = (): void => {
   cancelDemo();
   const scr = randomScramble(20).join(" ");
   session.applyAlg(scr);
+  scrambleAlg.value = scr;
   status.value = t("hud.scrambled", { n: 20 });
 };
 
@@ -180,6 +217,7 @@ const demoSolve = async (): Promise<void> => {
   }
   if (demoToken !== myToken) return;
   demoRunning.value = false;
+  scrambleAlg.value = "";
   status.value = t("solve.done");
 };
 </script>
@@ -207,6 +245,12 @@ const demoSolve = async (): Promise<void> => {
         <WinButton id="btn-solve" :Content="t('solve.btn')" @Click="doSolve" />
       </span>
       <span id="hud-status" class="hud-status">{{ status }}</span>
+    </div>
+
+    <div v-if="scrambleAlg" class="scramble-bar">
+      <span class="scramble-label">{{ t("hud.scrambleAlg") }}</span>
+      <code id="scramble-alg" class="scramble-alg">{{ scrambleAlg }}</code>
+      <WinButton id="btn-copy-scramble" :Content="t('hud.copy')" @Click="copyScramble" />
     </div>
 
     <WinTextBlock class="key-help" :Text="t('hud.keyHelp')" FontSize="12" />
@@ -241,6 +285,7 @@ const demoSolve = async (): Promise<void> => {
       </ul>
       <div class="solve-actions">
         <WinButton v-if="solveResult.moves.length" :Content="demoRunning ? t('solve.stop') : t('solve.demo')" @Click="demoSolve" />
+        <WinButton v-if="solveResult.moves.length" id="btn-copy-solve" :Content="t('hud.copy')" @Click="copySolve" />
         <WinButton :Content="t('solve.close')" @Click="closeSolve" />
       </div>
     </div>
@@ -320,6 +365,30 @@ const demoSolve = async (): Promise<void> => {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.scramble-bar {
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 14px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.scramble-label {
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+.scramble-alg {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  font-family: ui-monospace, Consolas, monospace;
+  color: var(--text-primary);
 }
 
 .solve-method .method-btn.active {

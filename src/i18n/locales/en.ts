@@ -87,6 +87,10 @@ export const en: Record<string, string> = {
   "hud.reset": "Reset",
   "hud.scramble": "Scramble",
   "hud.scrambled": "Scrambled ({n} moves)",
+  "hud.scrambleAlg": "Scramble alg",
+  "hud.copy": "Copy",
+  "hud.copied": "Copied",
+  "hud.copyFail": "Copy failed",
   "hud.clearProgress": "Clear progress",
   "hud.speed": "Speed",
   "hud.keyHelp":
