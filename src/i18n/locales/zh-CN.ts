@@ -84,6 +84,8 @@ export const zhCN: Record<string, string> = {
   "hud.play": "播放",
   "hud.pause": "暂停",
   "hud.reset": "重置",
+  "hud.scramble": "打乱",
+  "hud.scrambled": "已打乱 {n} 步",
   "hud.clearProgress": "清除进度",
   "hud.speed": "速度",
   "hud.keyHelp": "拖拽 = 转视角 ｜ 撤销 Backspace ｜ 重置 Esc ｜ 播放/暂停 P ｜ 其余按键见「设置」页",
@@ -105,6 +107,8 @@ export const zhCN: Record<string, string> = {
   "solve.total": "共 {n} 步",
   "solve.empty": "魔方已还原",
   "solve.demo": "演示求解",
+  "solve.stop": "停止演示",
+  "solve.done": "演示完成（已还原）",
   "solve.close": "关闭",
   "solve.fail": "求解失败",
 

@@ -8,7 +8,7 @@ import { createGameSession, type GameSession } from "../../game/session";
 import { clearSnapshot, loadSnapshot, saveSnapshot } from "../../data/snapshot";
 import { parseMoves } from "../../notation/alg";
 import { useI18n } from "../i18n";
-import { applyAlg as applyAlgState, solvedState, solve as solveCube } from "../../cube/solver";
+import { applyAlg as applyAlgState, randomScramble, solvedState, solve as solveCube, prepareSolvers } from "../../cube/solver";
 import type { SolveResult } from "../../cube/solver";
 import { baseFaceSetupAlg } from "../../cube/stickering";
 import { loadSettings } from "../../settings";
@@ -30,6 +30,16 @@ const solving = ref(false);
 const solveResult = ref<SolveResult | null>(null);
 const solveError = ref("");
 
+// 解法演示：从当前打乱态逐步施加解法（不重放打乱）
+const demoRunning = ref(false);
+let demoToken = 0;
+let sleepResolve: (() => void) | null = null;
+const cancelDemo = (): void => {
+  demoToken++;
+  if (sleepResolve) { const r = sleepResolve; sleepResolve = null; r(); }
+  if (demoRunning.value) demoRunning.value = false;
+};
+
 let session: GameSession | null = null;
 
 const logMove = (move: string): void => {
@@ -43,12 +53,16 @@ const logMove = (move: string): void => {
 onMounted(() => {
   if (!stageEl.value || !grayPanelEl.value) return;
   session = createGameSession(stageEl.value, grayPanelEl.value, {
-    onMove: logMove,
-    onUndo: () => moves.value.pop(),
-    onReset: () => (moves.value = []),
+    onMove: (m) => { cancelDemo(); logMove(m); },
+    onUndo: () => { cancelDemo(); moves.value.pop(); },
+    onReset: () => { cancelDemo(); moves.value = []; },
     onStatus: (s) => (status.value = s),
     onPlaying: (p) => (playing.value = p),
   });
+  // 求解表预热：避免首次点击求解把建表（PDB+图库，~几百 ms）算进求解耗时
+  const run = (): void => { try { prepareSolvers(); } catch { /* 预热失败也可在首次求解时惰性建表 */ } };
+  if ("requestIdleCallback" in window) (window as unknown as { requestIdleCallback: (f: () => void, o?: { timeout: number }) => void }).requestIdleCallback(run, { timeout: 2000 });
+  else setTimeout(run, 100);
 // 进度快照：进入游戏恢复上次达成步骤
   const snap = loadSnapshot();
   if (snap) {
@@ -67,16 +81,23 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  cancelDemo();
   session?.dispose();
   session = null;
 });
 
 const applyAlg = (): void => {
+  cancelDemo();
   const normalized = session?.applyAlg(algText.value);
   if (normalized !== null && normalized !== undefined) algText.value = normalized;
 };
 const togglePlay = (): void => session?.togglePlay();
-const reset = (): void => session?.player.reset();
+const reset = (): void => {
+  cancelDemo();
+  session?.player.reset();
+  moves.value = [];
+  status.value = t("hud.statusReset");
+};
 const toggleGray = (): void => session?.gray.togglePanel();
 
 watch(speed, (v) => session?.setSpeed(v));
@@ -89,9 +110,19 @@ watch(
 );
 
 const clearProgress = (): void => {
+  cancelDemo();
   clearSnapshot();
   session?.player.reset();
   moves.value = [];
+};
+
+/** 生成随机打乱（20 步，与 WCA 同风格）并应用 */
+const scrambleCube = (): void => {
+  if (!session) return;
+  cancelDemo();
+  const scr = randomScramble(20).join(" ");
+  session.applyAlg(scr);
+  status.value = t("hud.scrambled", { n: 20 });
 };
 
 /** 当前真实魔方状态：已解 + 底色整体旋转 + 玩家步 */
@@ -102,12 +133,13 @@ const currentState = (): Uint8Array => {
 };
 
 const doSolve = (): void => {
-  if (!session || solving.value) return;
+  if (!session || solving.value || demoRunning.value) return;
+  cancelDemo();
   solving.value = true;
   solveResult.value = null;
   solveError.value = "";
   status.value = t("solve.solving");
-  // 让状态栏/按钮先刷新，再跑同步求解（首解会建表 ~几百 ms）
+  // 让状态栏/按钮先刷新，再跑同步求解（预热未完成时首解会建表 ~几百 ms）
   void nextTick(() => {
     try {
       const res = solveCube(currentState(), solveMethod.value);
@@ -123,17 +155,32 @@ const doSolve = (): void => {
 };
 
 const closeSolve = (): void => {
+  cancelDemo();
   solveResult.value = null;
   solveError.value = "";
 };
 
-/** 演示：从当前打乱态播放 打乱 + 解法 全程 */
-const demoSolve = (): void => {
-  if (!session || !solveResult.value) return;
-  const cur = session.player.currentAlg;
-  const full = (cur ? cur + " " : "") + solveResult.value.moves.join(" ");
-  session.player.setMoves(full);
-  session.player.play();
+/** 演示：从当前打乱态开始，逐步播放解法（不重放打乱） */
+const demoSolve = async (): Promise<void> => {
+  if (!session || !solveResult.value || demoRunning.value) return;
+  const movesToShow = solveResult.value.moves;
+  if (!movesToShow.length) return;
+  cancelDemo();
+  demoRunning.value = true;
+  const myToken = demoToken;
+  session.player.pause();
+  const delay = Math.max(60, 420 / speed.value);
+  for (const mv of movesToShow) {
+    if (demoToken !== myToken) return;
+    session.player.applyMove(mv);
+    await new Promise<void>((r) => {
+      sleepResolve = r;
+      setTimeout(() => { if (sleepResolve === r) sleepResolve = null; r(); }, delay);
+    });
+  }
+  if (demoToken !== myToken) return;
+  demoRunning.value = false;
+  status.value = t("solve.done");
 };
 </script>
 
@@ -148,6 +195,7 @@ const demoSolve = (): void => {
       <WinTextBox v-model:Text="algText" class="hud-alg" :PlaceholderText="t('hud.algPlaceholder')" />
       <WinButton id="btn-apply" :Content="t('hud.apply')" @Click="applyAlg" />
       <WinButton id="btn-play" :Content="playing ? t('hud.pause') : t('hud.play')" @Click="togglePlay" />
+      <WinButton id="btn-scramble" :Content="t('hud.scramble')" @Click="scrambleCube" />
       <WinButton id="btn-reset" :Content="t('hud.reset')" @Click="reset" />
       <WinButton id="btn-gray" :Content="t('gray.btn')" @Click="toggleGray" />
       <WinButton id="btn-clear-progress" :Content="t('hud.clearProgress')" @Click="clearProgress" />
@@ -192,7 +240,7 @@ const demoSolve = (): void => {
         </li>
       </ul>
       <div class="solve-actions">
-        <WinButton v-if="solveResult.moves.length" :Content="t('solve.demo')" @Click="demoSolve" />
+        <WinButton v-if="solveResult.moves.length" :Content="demoRunning ? t('solve.stop') : t('solve.demo')" @Click="demoSolve" />
         <WinButton :Content="t('solve.close')" @Click="closeSolve" />
       </div>
     </div>

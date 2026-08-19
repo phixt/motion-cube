@@ -78,16 +78,42 @@ console.log(`hot solve fast: ${hotMs}ms`);
 const r2 = await runSolve("#btn-method-roux", 6);
 await page.screenshot({ path: "spike-shots/solve-02-roux.png" });
 
-// 演示：应把魔方驱动到还原（TwistyPlayer alg 结束为空/含逆序）
-await page.click(".solve-actions button"); // 第一个按钮 = 演示
-await sleep(3000);
-const finalAlg = await page.evaluate(async () => {
+// 演示：从当前打乱态逐步施加解法（不重放打乱）。
+// 把速度滑到 ~3x 再点演示：以第 1 步后立刻采样 alg，应为 打乱+前几步，
+// 而非瞬间整段 打乱+解法（后者=旧行为从零重放打乱）。
+const sliderBox = await page.$eval(".game-hud .win-slider-track", (el) => {
+  const r = el.getBoundingClientRect();
+  return { x: r.x, y: r.y, w: r.width, h: r.height };
+});
+await page.mouse.click(sliderBox.x + sliderBox.w - 8, sliderBox.y + sliderBox.h / 2);
+await sleep(300);
+await page.click(".solve-actions button"); // 演示（demoRunning=false 时是第一个按钮）
+await sleep(900); // 3x 下每步 ~140ms，应已执行若干步
+const midAlg = await page.evaluate(async () => {
   const el = document.querySelector("twisty-player");
   try { return (await el?.experimentalModel.alg.get())?.alg?.toString() ?? ""; }
   catch (e) { return `ERR:${e.message}`; }
 });
-if (typeof finalAlg === "string" && finalAlg.startsWith("ERR")) throw new Error(`演示读取失败：${finalAlg}`);
-console.log(`demo finished, player alg len=${finalAlg.split(/\s+/).filter(Boolean).length}`);
+if (typeof midAlg !== "string" || midAlg.startsWith("ERR")) throw new Error(`演示读取失败：${midAlg}`);
+const midTokens = midAlg.split(/\s+/).filter(Boolean);
+// 打乱 26 步 + 解法若干：中途长度应远小于 打乱+解法总和，且不小于 打乱步数
+const totalSoln = r2.moves;
+if (midTokens.length <= 26 || midTokens.length >= 26 + totalSoln) {
+  throw new Error(`演示未从打乱态开始逐步施加：len=${midTokens.length} (期望 ${26} < len < ${26 + totalSoln})`);
+}
+// 应已开始打乱之后的部分（去掉打乱前缀后至少出现解法首步）
+console.log(`demo step-by-step ok: mid len=${midTokens.length} (scramble 26 + solution ${totalSoln})`);
+
+// 等演示走完 → 已还原
+await page.waitForFunction(
+  () => (document.querySelector("#hud-status")?.textContent ?? "").includes("演示完成"),
+  { timeout: 30000 },
+);
+await sleep(400);
+const doneAlg = await page.evaluate(() => globalThis.__motionCube?.player?.currentAlg ?? "");
+const doneTokens = doneAlg.split(/\s+/).filter(Boolean);
+if (doneTokens.length !== 26 + totalSoln) throw new Error(`演示结束步数异常：${doneTokens.length} != ${26 + totalSoln}`);
+console.log(`demo finished: ${doneTokens.length} tokens (= scramble + solution)`);
 
 // 已解状态：求解 → 提示已还原、0 步
 await page.click(".solve-actions button:last-child"); // 关闭
@@ -100,6 +126,16 @@ await page.waitForSelector(".solve-panel");
 const solvedText = await page.$eval("#hud-status", (el) => el.textContent ?? "");
 if (!/已还原|solved/i.test(solvedText)) throw new Error(`已解状态提示异常：${solvedText}`);
 console.log(`solved-state solve ok: ${solvedText}`);
+
+// 打乱按钮：点击后魔方被随机打乱（currentAlg 非空且含合法步）
+await page.click("#btn-scramble");
+await sleep(600);
+const scrAlg = await page.evaluate(() => globalThis.__motionCube?.player?.currentAlg ?? "");
+const scrTokens = scrAlg.split(/\s+/).filter(Boolean);
+if (scrTokens.length !== 20) throw new Error(`打乱按钮应产生 20 步：${scrTokens.length}`);
+const scrStatus = await page.$eval("#hud-status", (el) => el.textContent ?? "");
+if (!/打乱|Scramble/i.test(scrStatus)) throw new Error(`打乱状态提示异常：${scrStatus}`);
+console.log(`scramble button ok: ${scrAlg}`);
 
 await browser.close();
 console.log("solver UI playtest OK");

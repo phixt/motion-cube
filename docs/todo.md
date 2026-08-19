@@ -22,7 +22,9 @@
 - ✅ **入口**（`solve.ts`）：normalizeOrientation → 阶段解 → transformMove 映射回真实
   魔方 → 重放校验 isUniform；`SOLVER_METHODS` cfop/roux
 - ✅ **UI**（GamePage）：解法切换（CFOP/Roux）+「求解」→ 阶段面板（每阶段公式/步数、
-  总步数/耗时）+「演示求解」（播放打乱+解法全程）+ 已还原提示；i18n 中英
+  总步数/耗时）+「演示求解」（从当前打乱态逐步施加解法，不重放打乱；可停止）+
+  「打乱」按钮（20 步随机）+ 已还原提示；挂载时 `prepareSolvers()` 空闲预热
+  （首次求解即时，不再把建表算进耗时）；i18n 中英
 - ✅ 验证：typecheck/build 绿；Node 冒烟（随机 25 步打乱×5，CFOP/Roux 均六面 uniform、
   含 M/E/S 打乱/中心漂移/已解态边界）；puppeteer 实测 UI 求解全流程；版本升至 **0.3.2**
 

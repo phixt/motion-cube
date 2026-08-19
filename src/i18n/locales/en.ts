@@ -85,6 +85,8 @@ export const en: Record<string, string> = {
   "hud.play": "Play",
   "hud.pause": "Pause",
   "hud.reset": "Reset",
+  "hud.scramble": "Scramble",
+  "hud.scrambled": "Scrambled ({n} moves)",
   "hud.clearProgress": "Clear progress",
   "hud.speed": "Speed",
   "hud.keyHelp":
@@ -107,6 +109,8 @@ export const en: Record<string, string> = {
   "solve.total": "{n} moves",
   "solve.empty": "Cube already solved",
   "solve.demo": "Play solve",
+  "solve.stop": "Stop",
+  "solve.done": "Demo finished (solved)",
   "solve.close": "Close",
   "solve.fail": "Solve failed",
 
