@@ -107,6 +107,7 @@ export const zhCN: Record<string, string> = {
   "solve.btn": "求解",
   "solve.solving": "求解中",
   "solve.methodCfop": "CFOP",
+  "solve.methodCfopAdv": "CFOP 高级",
   "solve.methodRoux": "Roux",
   "solve.total": "共 {n} 步",
   "solve.empty": "魔方已还原",

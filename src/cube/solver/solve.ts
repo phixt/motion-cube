@@ -9,8 +9,10 @@ import { applyAlg, isSolved, isUniform, normalizeOrientation, transformMove } fr
 import type { State } from "./engine";
 import { CFOP, prepare as cfopPrepare, type SolveStage } from "./cfop";
 import { ROUX, prepare as rouxPrepare } from "./roux";
+import { prepare as zblPrepare } from "./zbl";
+import { prepare as zblsPrepare } from "./zbls";
 
-export type SolveMethodKey = "cfop" | "roux";
+export type SolveMethodKey = "cfop" | "cfop-adv" | "roux";
 export type Method = {
   key: SolveMethodKey;
   label: string;
@@ -25,6 +27,11 @@ export const SOLVER_METHODS: Record<SolveMethodKey, Method> = {
     key: "cfop", label: "CFOP 解法", short: "CFOP",
     blurb: "十字 → F2L → OLL → PLL",
     prepare: () => cfopPrepare(), run: (s) => CFOP.solve(s),
+  },
+  "cfop-adv": {
+    key: "cfop-adv", label: "CFOP 高级（ZBLL）", short: "CFOP+",
+    blurb: "十字 → F2L×3 → ZBLS（最后一组 + 十字）→ 一步 ZBLL",
+    prepare: () => { cfopPrepare(); zblPrepare(); zblsPrepare(); }, run: (s) => CFOP.solveAdvanced(s),
   },
   roux: {
     key: "roux", label: "桥式解法 Roux", short: "Roux",

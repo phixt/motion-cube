@@ -109,6 +109,7 @@ export const en: Record<string, string> = {
   "solve.btn": "Solve",
   "solve.solving": "Solving",
   "solve.methodCfop": "CFOP",
+  "solve.methodCfopAdv": "Advanced CFOP",
   "solve.methodRoux": "Roux",
   "solve.total": "{n} moves",
   "solve.empty": "Cube already solved",

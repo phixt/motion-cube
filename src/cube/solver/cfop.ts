@@ -6,10 +6,12 @@
  *   PLL  ：置换坐标 BFS，边 = 朝向中性公式。
  */
 import { ALG_LIBRARY, algGraph } from "./algs";
-import { applyAlg, cubieSolved, edgeHomeCode, cornerHomeCode, pos, readCorner, readEdge, rot, rotMatrix, tidyAlg, transformMove, veq, viewState, FACE_MOVES, parseAlg } from "./engine";
+import { applyAlg, cubieSolved, edgeHomeCode, cornerHomeCode, isSolved, pos, readCorner, readEdge, rot, rotMatrix, transformMove, veq, viewState, FACE_MOVES, parseAlg } from "./engine";
+import { solveZbls } from "./zbls";
 import type { State, Vec3 } from "./engine";
 import { ItemSolver, itemEdge } from "./search";
 import { F2L_TABLE } from "./f2lTable";
+import { solveLL } from "./zbl";
 
 export const CROSS_EDGES = ["DF", "DR", "DB", "DL"];
 const EJECT: Record<number, string> = { 4: "R U R'", 5: "L' U' L", 6: "L U L'", 7: "R' U R" };
@@ -90,7 +92,6 @@ export function solve(state0: State): { stages: SolveStage[]; state: State } {
 
   let mv = T.cross.descend(T.cross.read(st));
   if (!mv) mv = T.cross.solve(T.cross.read(st), 10, 4e6) || [];
-  mv = tidyAlg(mv);
   st = applyAlg(st, mv);
   stages.push({ key: "cross", label: "底层十字", short: "Cross", moves: mv });
   if (!CROSS_EDGES.every((n) => cubieSolved(st, n))) throw new Error("cross failed");
@@ -106,14 +107,13 @@ export function solve(state0: State): { stages: SolveStage[]; state: State } {
     if (!best) throw new Error("F2L failed");
     st = best.r.state;
     remaining.splice(remaining.indexOf(best.slot), 1);
-    stages.push({ key: "f2l" + n, label: `F2L 第 ${n} 组`, short: "F2L " + n, moves: tidyAlg(best.r.moves), slot: best.slot.name });
+    stages.push({ key: "f2l" + n, label: `F2L 第 ${n} 组`, short: "F2L " + n, moves: best.r.moves, slot: best.slot.name });
   }
 
   const ollPath = T.oll.solve(st);
   if (!ollPath) throw new Error("OLL state not recognised");
   let ollMoves: string[] = [], ollNames: string[] = [];
   for (const step of ollPath) { ollMoves = ollMoves.concat(step.moves); if (!/^U/.test(step.name)) ollNames.push(step.name); }
-  ollMoves = tidyAlg(ollMoves);
   st = applyAlg(st, ollMoves);
   stages.push({ key: "oll", label: "顶层翻色 OLL", short: "OLL", moves: ollMoves, algs: ollNames });
 
@@ -121,10 +121,80 @@ export function solve(state0: State): { stages: SolveStage[]; state: State } {
   if (!pllPath) throw new Error("PLL state not recognised");
   let pllMoves: string[] = [], pllNames: string[] = [];
   for (const step of pllPath) { pllMoves = pllMoves.concat(step.moves); if (!/^U/.test(step.name)) pllNames.push(step.name); }
-  pllMoves = tidyAlg(pllMoves);
   st = applyAlg(st, pllMoves);
   stages.push({ key: "pll", label: "顶层归位 PLL", short: "PLL", moves: pllMoves, algs: pllNames });
 
+  return { stages, state: st };
+}
+
+export function solveAdvanced(state0: State): { stages: SolveStage[]; state: State } {
+  const T = prepare();
+  const stages: SolveStage[] = [];
+  let st = state0;
+
+  let mv = T.cross.descend(T.cross.read(st));
+  if (!mv) mv = T.cross.solve(T.cross.read(st), 10, 4e6) || [];
+  st = applyAlg(st, mv);
+  stages.push({ key: "cross", label: "底层十字", short: "Cross", moves: mv });
+  if (!CROSS_EDGES.every((n) => cubieSolved(st, n))) throw new Error("cross failed");
+
+  const remaining = SLOTS.slice();
+  for (let n = 1; n <= 3; n++) {
+    let best: { slot: Slot; r: SlotResult } | null = null;
+    for (const slot of remaining) {
+      const r = solveSlot(st, slot);
+      if (r.failed) continue;
+      if (!best || r.moves.length < best.r.moves.length) best = { slot, r };
+    }
+    if (!best) throw new Error("F2L failed");
+    st = best.r.state;
+    remaining.splice(remaining.indexOf(best.slot), 1);
+    stages.push({ key: "f2l" + n, label: `F2L 第 ${n} 组`, short: "F2L " + n, moves: best.r.moves, slot: best.slot.name });
+  }
+
+  // 第 4 组：ZBLS 一步（插入最后一组 F2L + 顶层十字 EO）；库外状态回退传统 F2L + OLL
+  const zbls = solveZbls(st);
+  if (zbls) {
+    st = applyAlg(st, zbls.moves);
+    stages.push({ key: zbls.key, label: zbls.label, short: zbls.short, moves: zbls.moves, algs: zbls.algs });
+  } else {
+    // ZBLS 未覆盖 → 第 4 组 F2L（不做 OLL——solveLL 统一做 EO 预置 + 一步 ZBLL，未覆盖才回退 OLL+PLL）
+    let best: { slot: Slot; r: SlotResult } | null = null;
+    for (const slot of remaining) {
+      const r = solveSlot(st, slot);
+      if (r.failed) continue;
+      if (!best || r.moves.length < best.r.moves.length) best = { slot, r };
+    }
+    if (!best) throw new Error("F2L failed");
+    st = best.r.state;
+    remaining.splice(remaining.indexOf(best.slot), 1);
+    stages.push({ key: "f2l4", label: `F2L 第 4 组`, short: "F2L 4", moves: best.r.moves, slot: best.slot.name });
+  }
+
+  const ll = solveLL(st);
+  for (const s of ll.stages) {
+    stages.push({ key: s.key, label: s.label, short: s.short, moves: s.moves, algs: s.algs });
+  }
+  if (isSolved(ll.state)) {
+    st = ll.state;
+  } else {
+    // 一步 ZBLL 未覆盖 → 回退 OLL+PLL（LL 未全定向（EO/CO）才做 OLL）
+    let s0 = ll.state;
+    if (ollCode(s0) !== 0) {
+      const ollPath = T.oll.solve(s0);
+      if (!ollPath) throw new Error("OLL state not recognised");
+      let ollMoves: string[] = [], ollNames: string[] = [];
+      for (const step of ollPath) { ollMoves = ollMoves.concat(step.moves); if (!/^U/.test(step.name)) ollNames.push(step.name); }
+      s0 = applyAlg(s0, ollMoves);
+      stages.push({ key: "oll", label: "顶层翻色 OLL", short: "OLL", moves: ollMoves, algs: ollNames });
+    }
+    const pllPath = T.pll.solve(s0);
+    if (!pllPath) throw new Error("PLL state not recognised");
+    let pllMoves: string[] = [], pllNames: string[] = [];
+    for (const step of pllPath) { pllMoves = pllMoves.concat(step.moves); if (!/^U/.test(step.name)) pllNames.push(step.name); }
+    st = applyAlg(s0, pllMoves);
+    stages.push({ key: "pll", label: "顶层归位 PLL", short: "PLL", moves: pllMoves, algs: pllNames });
+  }
   return { stages, state: st };
 }
 
@@ -139,4 +209,4 @@ export type SolveStage = {
   end?: number;
 };
 
-export const CFOP = { prepare, solve, SLOTS, solveSlot };
+export const CFOP = { prepare, solve, solveAdvanced, SLOTS, solveSlot };

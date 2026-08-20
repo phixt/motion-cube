@@ -38,6 +38,8 @@ const SETS = [
   ["2-look-pll", "2-Look PLL", "cfop"],
   ["pll", "PLL", "cfop"],
   ["f2l", "F2L", "cfop"],
+  ["zbll", "ZBLL", "cfop"],
+  ["zbls", "ZBLS", "cfop"],
   ["2-look-cmll", "2-Look CMLL", "roux"],
   ["cmll", "CMLL", "roux"],
   ["eo4a", "LSE 棱朝向 (4a)", "roux"],
@@ -137,9 +139,82 @@ function buildMove(base, turns) {
 for (const base of Object.keys(BASE)) for (const t of [1, 2, 3]) buildMove(base, t);
 
 const DECOR = /[·↑↓]/g;
-const moveRe = /([UDLRFBMESudlrfbxyzXYZ]w?|Uw|Dw|Rw|Lw|Fw|Bw)(2|'|’)?/g;
+// 后缀支持 [2345](')：L3 = 270° 顺 = L'、L3' = L、L4/L4' = 恒等、X5 = X（cubing 记法）
+const moveRe = /([UDLRFBMESudlrfbxyzXYZ]w?|Uw|Dw|Rw|Lw|Fw|Bw)([2345])?('|’)?/g;
 function cleanAlg(s) {
-  return String(s ?? "").replace(DECOR, "").replace(/[()]/g, " ");
+  return String(s ?? "")
+    .replace(DECOR, "")
+    .replace(/\[[^\]]*\]/g, "") // 剥 [U2] 等 AUF 标注
+    .replace(/=/g, " ") // 剥 "=y' ..." 等价变体标记
+    .replace(/[()]/g, " ");
+}
+/** 展开 cubing 重复记法 (A)N → A A ...；无数字后缀的 (A) → A。支持嵌套。 */
+function expandRepeats(s) {
+  let prev;
+  do {
+    prev = s;
+    s = s.replace(/\(([^()]*)\)(\d+)?/g, (_, inner, n) => {
+      const body = inner.trim();
+      if (n) return Array(parseInt(n, 10)).fill(body).join(" ");
+      return body;
+    });
+  } while (s !== prev);
+  return s;
+}
+/** ZBLS 候选归一化：展开重复、剥标注/装饰/等价标记、压空格。保留 U2' 与 M'R' 等连写记法。 */
+function normalizeZblsAlg(s) {
+  return cleanAlg(expandRepeats(String(s ?? ""))).replace(/\s+/g, " ").trim();
+}
+
+// ---- ZBLL 变体生成（M2 左右镜像 + 逆；文献口径：R↔L'、L↔R'、F↔F'、B↔B'、U↔U'、D↔D'）----
+const MIRROR = {
+  R: "L'", "R'": "L", R2: "L2", "R2'": "L2'",
+  L: "R'", "L'": "R", L2: "R2", "L2'": "R2'",
+  F: "F'", "F'": "F", F2: "F2", "F2'": "F2'",
+  B: "B'", "B'": "B", B2: "B2", "B2'": "B2'",
+  U: "U'", "U'": "U", U2: "U2", "U2'": "U2'",
+  D: "D'", "D'": "D", D2: "D2", "D2'": "D2'",
+  r: "l'", "r'": "l", r2: "l2", "r2'": "l2'",
+  l: "r'", "l'": "r", l2: "r2", "l2'": "r2'",
+  M: "M'", "M'": "M", M2: "M2", "M2'": "M2'",
+  E: "E'", "E'": "E", E2: "E2",
+  S: "S'", "S'": "S", S2: "S2",
+  u: "d'", "d'": "u", u2: "d2", "u2'": "d2'",
+  d: "u'", "u'": "d", d2: "u2", "d2'": "u2'",
+  f: "f'", "f'": "f", f2: "f2",
+  b: "b'", "b'": "b", b2: "b2",
+  x: "x'", "x'": "x", x2: "x2",
+  y: "y'", "y'": "y", y2: "y2",
+  z: "z'", "z'": "z", z2: "z2",
+};
+function mirrorAlg(moves) {
+  return moves.map((m) => MIRROR[m] ?? m);
+}
+function invertAlg(moves) {
+  return moves.slice().reverse().map((m) => MOVES[m].inverse);
+}
+/** ZBLL 变体（mirror/inverse/mir-inv）生成 + 校验（pureLL：施加到已解后非 LL 块全 home） */
+function zblVariants(primary) {
+  const moves = parseAlg(primary);
+  const out = [];
+  const seen = new Set();
+  for (const [label, mv] of [
+    ["mirror", mirrorAlg(moves)],
+    ["inverse", invertAlg(moves)],
+    ["mir-inv", mirrorAlg(invertAlg(moves))],
+  ]) {
+    const key = mv.join(" ");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    let ok = false;
+    try {
+      new Alg(key);
+      const st = applyAlg(solvedState(), key);
+      ok = nonLLSolved(st);
+    } catch { /* ignore */ }
+    if (ok) out.push(key);
+  }
+  return out;
 }
 function parseAlg(s) {
   const out = [];
@@ -150,9 +225,11 @@ function parseAlg(s) {
     if (ALIAS[base]) base = ALIAS[base];
     if (base.length === 2 && base[1] === "w") base = ALIAS[base] || base[0].toLowerCase();
     if (!BASE[base]) throw new Error("unknown move: " + m[0]);
-    const suf = m[2] === "2" ? "2" : m[2] ? "'" : "";
-    // "2'" 视为 "2"（180° 逆/顺时针等价），尾随 ' 自然被丢弃
-    out.push(base + suf);
+    const t = m[2] ? parseInt(m[2], 10) : 1; // 1..5 quarter turns
+    const prime = !!m[3];
+    const n = (((prime ? 4 - t : t) % 4) + 4) % 4; // 净 quarter turns（mod 4）
+    if (n === 0) continue; // X4/X4' → 恒等，丢弃
+    out.push(n === 1 ? base : n === 2 ? base + "2" : base + "'");
   }
   if (!out.length) throw new Error("empty alg: " + s);
   return out;
@@ -217,6 +294,11 @@ const LL = {
   corners: ["UFR", "URB", "UBL", "ULF"],
   edges: ["UF", "UR", "UB", "UL"],
 };
+/** LL 棱是否已定向（U 面贴纸为 U/D 色） */
+function llEdgeOriented(s, name) {
+  const idx = stickerIndex(pos(name), FACE_NORMAL[0]);
+  return s[idx] === 0 || s[idx] === 3;
+}
 function isTopUniform(s) {
   const c = s[4];
   for (let k = 0; k < 9; k++) if (s[k] !== c) return false;
@@ -243,6 +325,8 @@ const INVARIANTS = {
   oll: (s) => isTopUniform(s),
   "2-look-pll": (s) => isUniform(s),
   pll: (s) => isUniform(s),
+  zbll: (s) => nonLLSolved(s) && LL.edges.every((n) => llEdgeOriented(s, n)),
+  zbls: (s) => nonLLSolved(s) && LL.edges.every((n) => llEdgeOriented(s, n)),
   "2-look-cmll": (s) => cornersSolved(s),
   cmll: (s) => cornersSolved(s),
   f2l: (s) => nonLLSolved(s),
@@ -320,12 +404,51 @@ async function main() {
     const cases = [];
     for (const c of data.cases) {
       stats.total++;
+      // ZBLS：保留 4 组（槽位方向）候选的全部有效公式；不能只取每组第一条（29 条需选 alts）
+      if (slug === "zbls") {
+        const groups = [];
+        let anyValid = false;
+        const setupKey = normalizeZblsAlg(c.setup);
+        // 4 组候选 = 同一 case 的 4 个槽位方向变体（cuberoot 手动 R→F→L→B 旋转）。
+        // invariant 只对「setup 匹配的槽位」（组 0 形态）闭环；其余组在求解时按槽位实时验证。
+        // 因此：全部组全部候选（cubing 可播放 + 可解析）落库；anyValid 用组 0 闭环判定 case 合法。
+        for (const group of c.algs || []) {
+          const seen = new Set();
+          const valid = [];
+          for (const a of group) {
+            const key = normalizeZblsAlg(a.alg);
+            if (!key || seen.has(key)) continue;
+            seen.add(key);
+            let cubingOk = false;
+            try { new Alg(parseAlg(key).join(" ")); cubingOk = true; } catch { /* ignore */ }
+            if (!cubingOk) continue;
+            valid.push(key);
+            try { if (checkInvariant(slug, setupKey, key)) anyValid = true; } catch { /* ignore */ }
+          }
+          if (valid.length) groups.push(valid);
+        }
+        if (!anyValid) {
+          stats.dropped++;
+          console.warn(`[drop] ${slug}/${c.name}: no valid alg (${setupKey || "(no setup)"})`);
+          continue;
+        }
+        stats.ok++;
+        cases.push({
+          id: c.id,
+          name: c.name,
+          subgroup: c.subgroup || null,
+          setup: setupKey || null,
+          mirrorCaseId: c.mirrorCaseId || null,
+          algs: groups,
+        });
+        continue;
+      }
       const cands = candidateAlgs(c);
-      // 解析校验（cubing/alg）——保证 TwistyPlayer 可播放
+      // 解析校验（cubing/alg）——保证 TwistyPlayer 可播放；用 parseAlg 规范化（L3/L4/U2' 记法）
       const validSet = new Set();
       for (const cand of cands) {
         let cubingOk = false;
-        try { new Alg(cand.key); cubingOk = true; } catch { /* ignore */ }
+        try { new Alg(parseAlg(cand.key).join(" ")); cubingOk = true; } catch { /* ignore */ }
         let engineOk = false;
         try { engineOk = checkInvariant(slug, c.setup, cand.key); } catch { /* ignore */ }
         if (cubingOk && engineOk) validSet.add(cand.key);
@@ -344,6 +467,7 @@ async function main() {
         setup: cleanAlg(c.setup).replace(/\s+/g, " ").trim() || null,
         alg: picked.primary,
         alts: picked.alts,
+        variants: zblVariants(picked.primary),
       });
     }
     setsOut[slug] = { label, group, cases };

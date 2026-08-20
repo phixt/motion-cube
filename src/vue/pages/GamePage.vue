@@ -25,7 +25,7 @@ const status = ref("");
 const speed = ref(1);
 const moves = ref<string[]>([]);
 
-const solveMethod = ref<"cfop" | "roux">("cfop");
+const solveMethod = ref<"cfop" | "cfop-adv" | "roux">("cfop");
 const solving = ref(false);
 const solveResult = ref<SolveResult | null>(null);
 const solveError = ref("");
@@ -241,6 +241,7 @@ const demoSolve = async (): Promise<void> => {
       <WinSlider id="speed" class="hud-speed" v-model:Value="speed" :Minimum="0.1" :Maximum="3" StepFrequency="0.1" />
       <span id="solve-method" class="solve-method">
         <WinButton id="btn-method-cfop" :class="['method-btn', { active: solveMethod === 'cfop' }]" :Content="t('solve.methodCfop')" @Click="solveMethod = 'cfop'" />
+        <WinButton id="btn-method-cfop-adv" :class="['method-btn', { active: solveMethod === 'cfop-adv' }]" :Content="t('solve.methodCfopAdv')" @Click="solveMethod = 'cfop-adv'" />
         <WinButton id="btn-method-roux" :class="['method-btn', { active: solveMethod === 'roux' }]" :Content="t('solve.methodRoux')" @Click="solveMethod = 'roux'" />
         <WinButton id="btn-solve" :Content="t('solve.btn')" @Click="doSolve" />
       </span>
@@ -279,6 +280,7 @@ const demoSolve = async (): Promise<void> => {
       <ul class="solve-stages">
         <li v-for="(s, i) in solveResult.stages" :key="i" class="solve-stage">
           <span class="stage-short">{{ s.short }}</span>
+          <span class="stage-algs" v-if="s.algs && s.algs.length">{{ s.algs.join(" · ") }}</span>
           <span class="stage-moves">{{ s.moves.join(" ") || "–" }}</span>
           <span class="stage-count">{{ s.moves.length }}</span>
         </li>
@@ -443,6 +445,15 @@ const demoSolve = async (): Promise<void> => {
   flex: 0 0 64px;
   color: var(--text-secondary);
   font-weight: 600;
+}
+
+.stage-algs {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  background: rgba(128, 128, 128, 0.12);
+  border-radius: 4px;
+  padding: 1px 6px;
 }
 
 .stage-moves {

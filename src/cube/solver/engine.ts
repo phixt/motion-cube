@@ -144,22 +144,71 @@ function buildMove(base: string, turns: number): Move {
 }
 for (const base of Object.keys(BASE)) for (const t of [1, 2, 3]) buildMove(base, t);
 
+// 180° 逆/顺时针记法别名：U2' 与 U2 执行等价，但保留记法供展示（手感/手法不同）。
+// 别名不进 MOVE_NAMES（保持 MOVE_BY_KEY 归一到规范名），仅供 parseAlg/applyAlg 直接查找。
+for (const base of Object.keys(BASE)) {
+  const twin = MOVES[base + "2"];
+  if (twin) MOVES[base + "2'"] = { ...twin, name: base + "2'", inverse: base + "2'" };
+}
+
 export const FACE_MOVES: string[] = [];
 for (const base of ["U", "R", "F", "D", "L", "B"]) for (const t of [1, 2, 3]) FACE_MOVES.push(base + (t === 1 ? "" : t === 2 ? "2" : "'"));
 
+const MOVE_RE = /([UDLRFBMESudlrfbxyzXYZ]w?|Uw|Dw|Rw|Lw|Fw|Bw)([2345])?('|’)?/g;
+const moveBase = (raw: string): string => {
+  let base = raw;
+  if (ALIAS[base]) base = ALIAS[base];
+  if (base.length === 2 && base[1] === "w") base = ALIAS[base] || base[0].toLowerCase();
+  if (!BASE[base]) throw new Error("unknown move: " + raw);
+  return base;
+};
+
+/** 展开 cubing 重复记法 (A)N → A A ...（N 次）；无数字后缀的 (A) → A。支持嵌套。 */
+function expandRepeats(s: string): string {
+  let prev: string;
+  do {
+    prev = s;
+    s = s.replace(/\(([^()]*)\)(\d+)?/g, (_, inner: string, n?: string) => {
+      const body = inner.trim();
+      if (n) return Array(parseInt(n, 10)).fill(body).join(" ");
+      return body;
+    });
+  } while (s !== prev);
+  return s;
+}
+
+/**
+ * 解析算法串 → 可执行 move 名数组（执行语义）。
+ * 支持 cubing 记法后缀 [2345](')（L3 = 270° 顺 = L'、L3' = L、L4/L4' = 恒等丢弃、X5 = X）
+ * 与重复记法 (A)N（(R U R')2 → R U R' R U R'）。
+ * U2' 保留为 "U2'"（180° 方向记法，经 MOVES 别名执行），不规范化成 U2——丢手感信息。
+ */
 export function parseAlg(s: string | string[]): string[] {
   if (Array.isArray(s)) return s.slice();
   const out: string[] = [];
-  const re = /([UDLRFBMESudlrfbxyzXYZ]w?|Uw|Dw|Rw|Lw|Fw|Bw)(2|'|’)?/g;
   let m: RegExpExecArray | null;
-  const str = String(s).replace(/[()]/g, " ");
-  while ((m = re.exec(str))) {
-    let base = m[1];
-    if (ALIAS[base]) base = ALIAS[base];
-    if (base.length === 2 && base[1] === "w") base = ALIAS[base] || base[0].toLowerCase();
-    if (!BASE[base]) throw new Error("unknown move: " + m[0]);
-    const suf = m[2] === "2" ? "2" : m[2] ? "'" : "";
-    out.push(base + suf);
+  const str = expandRepeats(String(s)).replace(/[()]/g, " ");
+  while ((m = MOVE_RE.exec(str))) {
+    const base = moveBase(m[1]);
+    const t = m[2] ? parseInt(m[2], 10) : 1; // 1..5 quarter turns
+    const prime = !!m[3];
+    const n = (((prime ? 4 - t : t) % 4) + 4) % 4; // 净 quarter turns（mod 4）
+    if (n === 0) continue; // X4/X4' → 恒等，丢弃
+    const name = n === 1 ? base : n === 2 ? (prime ? base + "2'" : base + "2") : base + "'";
+    out.push(name);
+  }
+  return out;
+}
+
+/** 解析算法串 → 原始记法数组（展示语义）：U2'、L3、R' R2 等原样保留，不做任何规范化/消步。 */
+export function parseAlgFull(s: string | string[]): string[] {
+  if (Array.isArray(s)) return s.slice();
+  const out: string[] = [];
+  let m: RegExpExecArray | null;
+  const str = expandRepeats(String(s)).replace(/[()]/g, " ");
+  while ((m = MOVE_RE.exec(str))) {
+    const base = moveBase(m[1]);
+    out.push(base + (m[2] || "") + (m[3] ? "'" : ""));
   }
   return out;
 }

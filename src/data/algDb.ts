@@ -9,7 +9,12 @@ import type { Category } from "./category";
 import type { Formula } from "./formula";
 import type { LibraryData } from "./libraryStore";
 
-type CuberootCase = { id: number; name: string; subgroup: string | null; setup: string | null; alg: string; alts: string[] };
+type CuberootCase = {
+  id: number; name: string; subgroup: string | null; setup: string | null;
+  alg?: string; alts?: string[]; mirrorCaseId?: number;
+  /** ZBLS 专用：4 组槽位方向候选（求解器消费，不进用户公式库） */
+  algs?: string[][];
+};
 type CuberootSet = { label: string; group: "cfop" | "roux"; cases: CuberootCase[] };
 type CuberootLibrary = { version: 1; source: string; fetchedAt: string; sets: Record<string, CuberootSet> };
 
@@ -46,6 +51,7 @@ function buildFormulas(): Formula[] {
     const cat = CAT_MAP[slug];
     const tag = GROUP_TAG[set.group];
     for (const c of set.cases) {
+      if (!c.alg) continue; // zbls 等求解器专用 set 不进用户公式库
       if (validateFormulaMoves(c.alg)) continue; // 生成脚本已校验，这里仅防御
       formulas.push({
         id: `cr-${c.id}`,
