@@ -1,56 +1,98 @@
 # 手法动画编辑器 · 参数模型
 
-> 目的：动画编辑器需能承载 [example.md](./example.md) 描述的全部要素与复杂度，
-> 不做文本→画面的逐句还原。本表为编辑器数据模型的骨架。
+> 更新：2026-08-20（对齐当前代码模型；删除未实现的参数描述）
+> 本文件为编辑器/游戏共用数据模型的骨架；类型定义以源码为准，下表为便于理解的摘要。
 
 ## 约定
 
 - **坐标系**：魔方单位（1 = 一个块边长）；世界右手系；WCA 标准朝向（白顶/绿前/红右）；手与魔方在同一世界空间。
-- **关节角 `bend`**：指腹侧夹角——伸直 180°、自然 ≈135°、极限 ≈90°；范围 90–180，可配每指极限。
-- **段内位置 `t`**：0 = 段根部（关节侧），1 = 指尖；"近指尖 1/3" 默认 ≈ t 0.67，计量起点可配。
-- **帧率**：关键帧细分到 1/60 秒（60fps）。
+- **关节角 `bend`**：指腹侧夹角——伸直 180°、自然 ≈135°、极限 ≈90°；默认范围 90–180（拇指 CMC 放宽到 60–180）。
+- **段内位置 `t`**：0 = 段根部（关节侧），1 = 指尖；"近指尖 1/3" ≈ t 0.67。
+- **帧率**：数据层基准 60fps（`DEFAULT_FRAME_RATE`），但 `frameRate` 为手法级可调字段
+  （编辑器预设 23.97/24/29.97/30/59.94/60/120/240/1000）；帧号上限 `MAX_KEYFRAME_FRAME = 36_000`。
 
-## 参数表
+## 手骨架（`src/hand/HandRig.ts`）
 
-| 分类 | 参数 | 具体含义 | 来源 |
-|---|---|---|---|
-| 场景 | `cube.size` | 3×3×3，26 可见块，6 面标准色 | base.md |
-| 场景 | `orientation` | 魔方整体朝向（基准 WCA，可任意旋转） | base.md |
-| 场景 | `timeline` | 时间轴与公式步骤同步，手法进度按某一步 0–100% | start.md |
-| 场景 | `frameRate` | 60fps；时间基准为帧号（或秒 + 帧率） | 约定 |
-| 手 | `handType` | 左手/右手——决定"靠拇指侧/靠中指侧"方向定义（镜像） | docs_old.md §1 |
-| 手 | `palm.transform` | 手掌位置 + 朝向（支持"手掌旋转"这类姿态） | docs_old.md §1 |
-| 手 | `thumb.baseDOF` | 拇指手掌基底自由度（CMC 鞍状关节）：屈伸 + 展收 + 对掌旋转；拇指根在手掌内有独立位姿参数 | 约定（拇指特例） |
-| 手 | `finger[i].segments` | 每指独立定义段数：通用指 3 段（近/中/远节），**拇指 2 段**（近/远节）；各段长度、粗细可配 | docs_old.md §1 |
-| 手 | `finger[i].joints` | 每指独立定义关节表：通用指 MCP/PIP/DIP，**拇指 CMC/MCP/IP** | 约定（拇指特例） |
-| 手 | `joint.bend` | 指腹侧夹角，范围 90–180°，可配各指极限 | docs_old.md §1 |
-| 手 | `segment.axes` | 每段局部轴：腹 / 背 / 靠拇指侧 / 靠中指侧 | docs_old.md §1 |
-| 手 | `finger.arc` | "略成圆弧"类姿态：多关节联动曲线（函数/模板生成） | 双指连拨 |
-| 接触 | `contact.fingerSide` | 接触侧 ∈ {腹, 背, 近中指侧, 近拇指侧, 指尖} | docs_old.md §1 |
-| 接触 | `contact.t` | 接触点在指节段内位置（0–1） | docs_old.md §1 |
-| 接触 | `contact.target` | 魔方元素：面 / 棱 / 角 + 名称（UL 边、ULB 的 LB 边、B 面、L 面…） | docs_old.md §1 |
-| 接触 | `contact.targetUpdate` | 目标元素随魔方转动自动改名（原 ULB → 现 ULF） | docs_old.md §1 |
-| 接触 | `contact.lifetime` | 起始 / 结束时刻——接触可中途解除 | docs_old.md §1 |
-| 接触 | `contact.snap` | 吸附开关：sticker 网格 / 棱 / 面 | start.md |
-| 动作 | `pose` | 完整快照：手掌位姿 + 各指 bend + 接触列表 | 约定 |
-| 动作 | `keyframe` | { 帧号, pose, easing } 稀疏控制点；系统按 1/60s 自动补帧 | docs_old.md §1 + 约定 |
-| 动作 | `frameStream` | 预烘焙的 60fps 逐帧采样（播放/导出态）；长手法可达数百帧，需轻量存储（优先只存关键帧 + 插值/函数路径，而非每帧全量） | 约定 |
-| 动作 | `path.auto` | 起终位姿自动插值（朝向 slerp + 关节角插值） | start.md |
-| 动作 | `path.function` | 位置/角度随时间函数（圆弧、正弦等） | start.md |
-| 动作 | `technique.type` | 手法类型模板：单拨 / 连拨 / 双指连拨 / eido（推、拨等施力特性） | docs_old.md §1 |
-| 动作 | `flick.repeat` | 连拨次数 + 拨间复位（"两拨即复位后重复"） | docs_old.md §1 |
-| 动作 | `finger.timing` | 多指相对延迟（"两指近似先后平行拨动"） | 双指连拨 |
-| 动作 | `rel.angle` | 手与魔方的相对角约束：垂直、平行、45° 等轴间夹角 | docs_old.md §1 |
-| 存储 | `formula` | { name, moves（标准 R L 记法）, tags }，不存速度/手法 | formula.md |
-| 存储 | `technique` | { id, name, formulaId?, 关键帧序列, 与 alg 步骤的映射 } | start.md |
-| 存储 | `stepMapping` | 手法段 ↔ alg 某一步；对齐精度到帧级 | start.md + 约定 |
-| 编辑 | `coordMode` | 坐标层级：世界坐标 / 相对魔方的坐标（"坐标高度定义"） | start.md |
-| 编辑 | `playback` | 播放速度、循环、单步、暂停；逐帧插值可预烘焙或实时 | start.md |
+骨架 `HandRig` 是几何与关节约束定义，所有 pose 共用：
 
-## 特例与注意
+| 参数 | 含义 |
+|---|---|
+| `handType` | `"left" | "right"`——决定靠拇指侧方向定义（渲染镜像） |
+| `fingers[].segments[]` | 每指段定义：`{ length, width }`（魔方单位）；拇指 2 段，其余 3 段 |
+| `fingers[].joints[]` | 每指关节定义：`{ name, bend, range?, abduction?, rotation? }`；通用指 MCP/PIP/DIP，拇指 CMC/MCP/IP |
+| `joint.range` | 屈伸范围（默认 90–180）；仅拇指 CMC 覆盖为 60–180 |
+| `joint.abduction / rotation` | 展收 / 对掌旋转（度）；**仅拇指 CMC 使用** |
 
-1. **拇指**：节数与关节表与通用指不同——2 段、CMC/MCP/IP；CMC 位于手掌基底，含屈伸 + 展收 + 对掌旋转三个自由度，拇指根相对手掌有独立位姿。骨架定义须按指独立，不能假设"5 指 × 3 段 × 3 关节"。
-2. **帧精度**：作者摆放稀疏关键帧（控制点），系统按 1/60s 补帧成帧流；长手法的帧数多，存储倾向"关键帧 + 插值/函数路径"压缩，播放端可预烘焙或实时插值；与魔方步骤的映射对齐到帧级。
+默认骨架按人体测量数据折算（见下方「手部比例」）。
+
+## 姿态（`Pose`）
+
+| 参数 | 含义 |
+|---|---|
+| `palm.transform` | 手掌位置 + 四元数朝向 |
+| `palm.thumbBase` | 拇指根相对手掌的位姿（拇指基底自由度所在） |
+| `bends[finger]` | 各指关节 bend 值数组（顺序与骨架 joints 一致） |
+| `thumbCMC` | 拇指 CMC 额外自由度：`{ abduction, rotation }`（度） |
+| `contacts[]` | 接触列表（见下） |
+
+## 接触（`Contact`）
+
+| 参数 | 含义 |
+|---|---|
+| `finger` | 手指名 |
+| `segmentIndex` | 所在段序号（拇指 0–1，其余 0–2） |
+| `side` | 接触侧 ∈ `pad`(腹) / `back`(背) / `thumbSide`(靠拇指侧) / `pinkySide`(靠小指侧) |
+| `t` | 段内位置 0–1（0=段根，1=指尖） |
+| `target` | 魔方元素名（字符串，如 "UL 边"、"ULB"、"B 面"） |
+
+> 接触的起止时刻不存 pose 内——由手法级 `contactTracks`（精确起止帧）承载。
+
+## 手法（`src/data/technique.ts`）
+
+| 参数 | 含义 |
+|---|---|
+| `id / name` | 标识 / 显示名 |
+| `formulaId` | 关联公式（必填；一个公式可绑定多个手法） |
+| `frameRate` | 帧率（默认 60，可调） |
+| `keyframes[]` | 稀疏控制点：`{ frame, pose, easing? }`（linear/easeIn/easeOut/easeInOut），按帧升序 |
+| `stepMapping[]` | 手法段 ↔ 公式某一步：`{ stepIndex, startFrame, endFrame, kind? }`；`kind` = move / pause（空拍） |
+| `contactTracks[]` | 接触轨道：`{ startFrame, endFrame, contact }`（精确起止，中途可接触/释放） |
+| `startState?` | 自定义正放起始态（alg；缺省 = 公式逆序状态） |
+| `reverseStart?` | 自定义倒放起始态（alg；缺省 = 还原态） |
+
+## 公式（`src/data/formula.ts`）
+
+| 参数 | 含义 |
+|---|---|
+| `id / name` | 标识 / 显示名 |
+| `moves` | 标准 WCA/SiGN 记法（规范化后） |
+| `tags` | 标签数组（流派等主观归类，如 CFOP/Roux） |
+| `categoryId` | 所属分类 id（单选；null = 未分类） |
+
+只存公式本身，不存速度/手法；与手法库通过 `formulaId` 弱关联。
+
+## 手部标定配置（`src/hand/handRigStore.ts`，localStorage `motion-cube.handRig`）
+
+| 参数 | 含义 |
+|---|---|
+| `handScale` | 整体放大系数：数据单位 → 渲染倍数（默认 2.1/1.33） |
+| `fingerSpacing` | 四指根 X 乘数（默认 1） |
+| `palm` | 手掌盒体 `{ width, height, length, mcpZ }`；前表面落在 mcpZ |
+| `bases[]` | 四指根相对手掌中心 `{ x, y }`（右手 +X 为拇指侧，左手渲染 X 取反） |
+| `thumbCorner` | 拇指根锚点（掌根/腕侧，`{ x, y, z }`，x 按手型取反） |
+| `thenar` | 大鱼际凸块椭球 `{ width, height, length, x, y, z }` |
+| `rulerAngle` | 标尺角度（度，0=水平，90=竖直） |
+| `fingers[]` | 各指段长/粗细（可标定覆写默认骨架） |
+
+「固化」保存到 localStorage，编辑器/游戏构造 HandRigView 时读取同一配置。
+
+## 编辑器功能（非数据字段，UI 层）
+
+- **吸附**：`snapOn` 开关，按 1/3 块边长（sticker 网格）取整坐标。
+- **自动建帧**：`autoKf` 开启后，编辑目标 = 播放头帧，空白帧改数值自动建帧（以插值姿态为基底）。
+- **自动路径**：首末关键帧间按 15 帧间隔 slerp 生成中间关键帧。
+- **插入中间帧 / 正弦路径**：选中关键帧区间插入中间帧 / 正弦函数路径。
+- **播放**：整体倍速（0.25–4x）、循环、倒放；时间线总长下限 = 最短单步 0.01s × frameRate（至少 1 帧）。
 
 ## 手部比例（人体测量数据源，2026-08-06）
 

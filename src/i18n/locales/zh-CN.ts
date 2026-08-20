@@ -225,7 +225,7 @@ export const zhCN: Record<string, string> = {
   "help.title": "说明",
   "help.project": "项目",
   "help.projectDesc":
-    "Motion Cube：魔方动作播放 / 编辑 / 查看游戏。基底为 cubing.js 3D 魔方，核心是手法动画编辑器（手/手指参数模型见 docs/todo.md）。",
+    "Motion Cube：魔方动作播放 / 编辑 / 查看游戏。基底为 cubing.js 3D 魔方，核心是手法动画编辑器（手/手指参数模型见 docs/params.md）。",
   "help.gameOps": "游戏页操作",
   "help.opDrag": "拖拽魔方区域：旋转视角",
   "help.opKeys": "按键：按当前按键配置执行魔方动作（可在「设置」中修改）",

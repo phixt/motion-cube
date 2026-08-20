@@ -1,5 +1,5 @@
 /**
- * 层 D' 时间线工具：帧率 60fps、帧↔秒换算、
+ * 层 D' 时间线工具（docs/params.md）：帧率 60fps、帧↔秒换算、
  * 关键帧校验/排序/插值区间、姿态插值（补帧）。
  */
 import type { Pose } from "../hand/HandRig";

@@ -2,7 +2,7 @@
 
 > 更新：2026-08-20　✅ 已完成 ｜ 🚧 进行中 ｜ ⬜ 待办
 > 唯一进度/待办文档（合并自 progress.md、rubik-anime-lab-migration.md；旧文档
-> base/start/formula/params/docs_old/migration-vue-winui-plan 已归档删除）。
+> base/start/formula/docs_old/migration-vue-winui-plan 已归档删除；params.md 保留）。
 
 ## 当前状态
 

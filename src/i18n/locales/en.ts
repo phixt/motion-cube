@@ -227,7 +227,7 @@ export const en: Record<string, string> = {
   "help.title": "Help",
   "help.project": "Project",
   "help.projectDesc":
-    "Motion Cube: a cube algorithm playback / editing / viewing tool. Built on the cubing.js 3D cube; the core is a finger animation editor (hand/finger parameter model: docs/todo.md).",
+    "Motion Cube: a cube algorithm playback / editing / viewing tool. Built on the cubing.js 3D cube; the core is a finger animation editor (hand/finger parameter model: docs/params.md).",
   "help.gameOps": "Game page",
   "help.opDrag": "Drag the cube area: orbit the view",
   "help.opKeys":
