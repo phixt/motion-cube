@@ -1,7 +1,7 @@
 import { Alg } from "cubing/alg";
 
 /**
- * 层 B 封装：基于 cubing/alg 的公式解析与序列化（docs/formula.md）。
+ * 层 B 封装：基于 cubing/alg 的公式解析与序列化。
  * 覆盖 WCA/SiGN：六面、M/E/S 中层、r/l/u/b/d/f 双层、x/y/z 翻面、
  * 交换子 [..]、共轭 [..:]、括号分组、多行注释。
  */

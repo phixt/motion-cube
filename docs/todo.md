@@ -1,624 +1,107 @@
-# 项目 TODO 与进度
+# 项目 TODO 与进度（motion-cube）
 
-> 更新：2026-08-19　✅ 已完成 ｜ 🚧 进行中 ｜ ⬜ 待办
+> 更新：2026-08-20　✅ 已完成 ｜ 🚧 进行中 ｜ ⬜ 待办
+> 唯一进度/待办文档（合并自 progress.md、rubik-anime-lab-migration.md；旧文档
+> base/start/formula/params/docs_old/migration-vue-winui-plan 已归档删除）。
 
-## 求解器移植（2026-08-19 ✅）
+## 当前状态
 
-- ✅ **引擎**（`src/cube/solver/engine.ts`）：54 贴纸引擎，54 值状态 Uint8Array；
-  坐标右手系（+x→R +y→U +z→F），贴纸/块读取（棱/角 24-值 code、中心 6 槽）、
-  EDGE/CORNER/CENTER 置换表、整块旋转（rotMatrix/transformMove/viewState/
-  normalizeOrientation，中心漂移自动归位并把解法步映射回真实魔方）、tidyAlg、
-  randomScramble、isUniform/isSolved
-- ✅ **搜索**（`search.ts`）：ItemSolver——子集模式数据库（subsetSize 3/4）+ IDA* +
-  exact PDB 最优下坡；buildAllowed 杀掉同面合并/同轴交换重复；combinations
-- ✅ **顶层图库**（`algs.ts` + `algsRaw.ts`）：OLL/PLL/CMLL 坐标；内置公式库
-  （Sune/Anti/OLL*/PLL* 全部/CMLL-a..g）逐条 applyAlg 核验分类（pureLL/rouxSafe/
-  orientationNeutral），不符即弃；algGraph = 整条公式为边的 Dijkstra（权=四分之一转）
-- ✅ **F2L 表**（`f2lTable.ts`）：150 case 最短 <R,U,F> 插入（从 HTML 程序化提取，
-  防手抄错误）+ EJECT 标准弹出，贪心选最短槽位
-- ✅ **CFOP**（`cfop.ts`）：Cross=精确 4 棱 PDB 下坡、F2L=查表、OLL/PLL=图库 BFS
-- ✅ **Roux**（`roux.ts`）：左块=全面转 IDA*、右块=<R,U,M> IDA*、CMLL=块安全图库、
-  LSE=<M,U> 三段（4a 棱定向/4b UL-UR/4c L4E）
-- ✅ **入口**（`solve.ts`）：normalizeOrientation → 阶段解 → transformMove 映射回真实
-  魔方 → 重放校验 isUniform；`SOLVER_METHODS` cfop/roux
-- ✅ **UI**（GamePage）：解法切换（CFOP/Roux）+「求解」→ 阶段面板（每阶段公式/步数、
-  总步数/耗时）+「演示求解」（从当前打乱态逐步施加解法，不重放打乱；可停止）+
-  「打乱」按钮（20 步随机）+ 已还原提示；挂载时 `prepareSolvers()` 空闲预热
-  （首次求解即时，不再把建表算进耗时）；i18n 中英
-- ✅ 验证：typecheck/build 绿；Node 冒烟（随机 25 步打乱×5，CFOP/Roux 均六面 uniform、
-  含 M/E/S 打乱/中心漂移/已解态边界）；puppeteer 实测 UI 求解全流程；版本升至 **0.3.2**
+- 版本 **0.3.5**（package.json 与 src-tauri/tauri.conf.json 同步）
+- 求解器：CFOP / CFOP+（一步 ZBLL + 回退）/ Roux（LSE 4a+6E2C）三方法全绿
+  （typecheck + smoke-solver + smoke-solver-edge + verify-data）
+- 一步 ZBLL 覆盖 52.5%（M2 变体闭包，1944 轨道，prepare 0.5s）；未覆盖回退 OLL+PLL
+- ZBLS 305 条落库接入 solve 链（F2L×3→ZBLS→一步 ZBLL，显示排除 F2L）
+- 技术栈：Vite 8 + Vue 3.5 + cubing.js（TwistyPlayer + cubing/alg）+ three.js（手模型）
 
-## 求解器公式库扩展（2026-08-19 用户待办 ⬜）
+## 活跃待办
 
-- ⬜ **CFOP 进阶集**：更快的 C/F——快速十字（预判）+ 高级 F2L（双向/多槽
-  multislot）；OLL/PLL 已内置基础版；顶层一步 **ZBLL**（含 ZBLS 视需要）
-- ⬜ **Roux 进阶集**：一步跳——LSE 4b+4c 合并一步、EOLR 之上更优解法；
-  CMLL 已内置
-- ⬜ 待求解器/练习功能推进时按需爬取：复用 `gen-cuberoot-algs.mjs` 管线，
-  新集合加进 SETS 列表即自动走清洗/解析/语义校验/选主公式
+### 求解器 / 公式库
+- ⬜ **EOLR 一步表命中率 ~0**：lse-eolr 46 case 建表仅收全 EO 22 条；精确指纹匹配
+  命中率 ~0，需改 EO 分类匹配（见「Roux LSE 改造」进度）
+- ⬜ **cfop-adv 微优化**：一步 ZBLL 命中 12/24（50%），命中均步 59.4 ≈ CFOP，
+  miss 均步 68.4（多 ~9）；ZBLS miss 时先探测 4 种 AUF 的 zblCode 再决定是否付
+  zbl-eo（EO 预置是额外开支）
+- ⬜ **CFOP 进阶集**：快速十字（预判）+ 高级 F2L（双向/多槽 multislot）
+- ⬜ **Roux 进阶集**：LSE 4b+4c 合并一步、EOLR 之上更优解法
+- ⬜ **高级方法**：降群（Thistlethwaite/Kociemba）、ZZ（EO-Line → 桥 → 顶层）；
+  ZBLL 需改前置公式与棱定向预置配合；Roux EOLR 爬取 cuberoot + 4b 伪 UL/UR 带入
+  6E2C（L10P/4E2C 子状态）
+- ⬜ 新集合爬取：复用 `scripts/gen-cuberoot-algs.mjs` 管线，加进 SETS 即自动清洗/校验
 
-## 内置公式库（2026-08-19 ✅）
-
-- ✅ **cuberoot.me 公式库爬取内置**：`scripts/gen-cuberoot-algs.mjs` 拉取公开 API
-  （api.cuberoot.me/v1/alg/sets/3x3），内置 CFOP（2-look-oll/oll/2-look-pll/pll/f2l）
-  与 Roux（2-look-cmll/cmll/eo4a/lse-eolr）共 **9 个集合 241 个 case**
-- ✅ **校验管线**：清洗装饰字符（`·`/`↑`/`↓`、去括号分组、`2'` 等价 `2`）；
-  cubing/alg 解析校验（保证 TwistyPlayer 可播放）+ 内置最小 54 贴纸引擎语义校验
-  （对已解魔方施加 setup+alg，整块旋转无关地检查集合不变量：OLL/2-look-oll=顶面同色、
-  PLL/2-look-pll=六面同色、CMLL/2-look-cmll=顶层四角归位、F2L=非顶层全归位；
-  EO/LSE 仅解析校验）；主公式优先 cuberoot 源、无单手(oh)标签
-- ✅ **数据**：`data/samples/cuberoot-algs.json`（version 1，含 fetchedAt/source、
-  每 case 的 setup/主公式/备选公式），241/242 通过，仅 `cmll/H Column` 为刮取数据
-  不一致（其 4 条公式与 setup 在所有 AUF 下均不符）被丢弃
-- ✅ **接入**：`src/data/algDb.ts`——`BUILTIN_LIBRARY`（LibraryData）+ 统计导出；
-  复用示例分类 cat-oll/cat-pll/cat-cmll，新增 cat-2look-oll/cat-2look-pll/cat-f2l/
-  cat-2look-cmll/cat-lse；公式 id `cr-<caseId>`，tags=CFOP/Roux
-- ✅ **UI**：公式库页「加载内置公式库」按钮（btn-builtin，与加载示例并列），
-  mergeLibrary 合并 + localStorage 持久化 + 状态提示；重复点击幂等
-- ✅ 验证：typecheck/build 绿；puppeteer 实测——点击后 241 条公式 + 8 分类落库、
-  分组折叠可见、页信息总数 241、重复加载仍 241；版本保持 0.3.0 不 bump
-
-## 首页视差界面（2026-08-19 ✅）
-
-- ✅ **伪 3D 魔方**（`PseudoCube3D.vue`）：CSS 3D 6 face × 3×3 纯色格 + 1px 极细格线
-  （stickerless，无边框黑格）；transform 三层分离——tilt（rotateX -18° 静态倾斜）/
-  parallax（消费 `--par-u/--par-v` 微旋转）/ spin（40s 自转），`preserve-3d` 链上
-  不用 overflow/filter；魔方尺寸 `clamp(100px,15vmin,190px)`（zoom 会放大 vmin，
-  实测 150% 缩放 + 1440 窗口下投影不再溢出右缘，1920 亦通过像素目检）
-- ✅ **鼠标视差单一输入源**（`useParallax.ts` composable）：Pointer Events（仅
-  `(pointer: fine)`）、帧率无关 lerp（1-e^(-λΔt)，λ=5）、强度缩放、`--par-u/--par-v`
-  无单位 CSS 变量写到 StartPage 根节点（不污染 documentElement）；离窗/失焦/页面
-  隐藏暂停或归零；`parallaxIntensity=0` 停 rAF；强度只由显式设置控制，不受系统
-  reduced-motion 影响（产品决策：强制视差，可用"视差: 关"显式停用）；onScopeDispose 全量清理（HMR 不泄漏）
-- ✅ **首页布局**（StartPage.vue）：左右两列 grid（`minmax(0,1fr) auto`），左标题/
-  副标题/进入游戏、右魔方（装饰列）；远景层 = 圆环/菱形/三角抽象几何淡出，慢漂移
-  动画与视差分层（外层 JS transform、内层 CSS drift），`pointer-events:none` +
-  `aria-hidden`；窄窗口（<900px）用 v-if 卸载魔方（非仅 CSS 隐藏，动画/视差真正
-  停掉）+ 标题居中 + 背景视差系数减半
-- ✅ **强度设置**（App.vue 标题栏第 4 个循环按钮）：关/弱/中/强 → 乘数
-  `[0, 0.35, 0.7, 1]`（0/1/2/3 直接跳变过大）；`settings.ts` 新增
-  `ParallaxIntensity` 类型 + `parallaxIntensityRef`（模块级 ref 单一来源，App 与
-  useParallax 共用）+ 读取 normalize（旧数据/非法值回退 2）+ localStorage
-  `motion-cube.parallax` 持久化
-- ✅ **配色**：明暗主题各一套低饱和色板（`--cube-face-*` / `--cube-gap` /
-  `--geo-color`，global.css，:root 兜底 + html.theme-dark 覆盖）
-- ✅ **i18n**：`parallax.label/off/low/medium/high` 中英补齐；shot-shell 开始页
-  选择器更新为 `.start-page`
-- ✅ 验证：typecheck/build 绿；puppeteer + 像素扫描确认——1440/1920 宽、100%/150%
-  缩放、明暗主题魔方不裁切（投影溢出已修）、窄屏魔方卸载、视差变量随强度缩放
-  （中 0.7 时 u=0.60 对应鼠标 0.86）、按钮循环 + 持久化；console 无错误
-- ✅ **版本**：不更新（保持 0.3.0，package.json + tauri.conf.json 同步）
-
-## 标灰面板交互重构（2026-08-12）
-
-- ✅ **换面与涂灰彻底分离**：换面不再走魔方本体拖拽（与涂灰重叠冲突），改为魔方外
-  椭圆滑环——环上拖拽换面（水平↔绕 Y、垂直↔绕 X，44px 一步），四方向点（N/E/S/W）
-  点按一步翻转；小面上按下即涂灰（拖动连续涂、快速松开=切换），键盘 X/Y/Z 保留；
-  30px 透明命中带保证环上易抓取，方向点置于最上层可命中
-- ✅ **去掉黑色描边**：不可变格不再用 #222 描边区分，改为深灰填充 #565c66
-  （与 3D 覆盖层 immutable 同色，面板/3D 观感一致）
-- ✅ **右上角语言下拉框**（2026-08-12）：标题栏新增 WinComboBox（中文/English）；
-  Vue 层 i18n 改响应式（localeRef 驱动，切语言即时重渲染），同时同步 src/i18n
-  模块级目录（非 Vue 代码 t() 生效），locale 持久化到 settings（刷新保持）
-- ✅ **语言下拉框修复**（2026-08-12）：WinComboBox 定位不在右上角且有弹出层覆盖问题，
-  改用原生 select（无弹出层 bug）+ 标题栏内容区 justify-content:flex-end 右对齐，
-  中英双向切换验证通过
-- ✅ **滑环 6 方向点**（2026-08-12）：换面滑环为圆环（按全部小面含外投影外扩 30 单位，
-  不遮挡投影面），6 个方向点固定于环上（默认视图六边形 6 角方位）：
-  右下/左上=X、上/下=Y、右上/左下=Z，点按一步翻转；环拖拽/键盘 X/Y/Z 保留。
-  先试过随视图更新的六边形环：会遮挡外投影面涂灰、且视图翻转后部分方向点丢失，
-  已回退为固定圆环 + 固定方位点
-- ✅ **编辑器视口渲染兜底**：cubing TwistyPlayer 用 IntersectionObserver 懒初始化，
-  视口在折叠线外时可能长时间空白；编辑器挂载后监听视口可见性 + 定时踢帧
-  （1.2s/3.5s/8s 重试），保证进入编辑器即可见魔方+手
-- ✅ 回归：typecheck/build 绿；聚焦探针验证 点击切换/拖动涂灰/环拖换面/方向点/
-  键盘 X 全部通过（playtest 断言同步更新，networkidle0 卡点暂缓处理）
-
-## 技术栈迁移（2026-08-12 完成 ✅）
-
-- vanilla TS 命令式 DOM → Vue 3.5 + WinUIonWeb（7 页全部迁移，功能等价，playtest 全量通过）
-- 详见 [migration-vue-winui-plan.md](./migration-vue-winui-plan.md)
-- 高 DPI 适配：标题栏「缩放」按钮 100%–200%（默认 150%），全局 zoom 缩放
-
-## 审查与安全加固（2026-08-12）
-
-- ✅ **首次全面审查（安全/性能）**：S1 导入 JSON 深度校验（`deserializeTechnique` 对 pose/stepMapping 逐字段校验，非法结构导入即抛错；公式名/标签/分类名长度上限）；S2 关键帧帧号上限 36_000（防超大帧号卡死时间线渲染）；补全英文包 `en.ts`（194 key 与 zh-CN 全量对齐）；`verify-data` 失效断言修复（handRigStore 合法版本已迁移到 2，改测 version 3）
-- ✅ **二次审查（标尺领地补审，2026-08-12）**：`HandCalibView.dispose` 清理 window 级拖拽监听（拖拽中切页不再泄漏/空转）；标定页 `thumb-x/y/z` 负值坐标可正常输入（此前被 `v >= 0` 静默拦截，标定功能不完整）；Shift 切换标尺角度过滤 INPUT/TEXTAREA 焦点（输入框内按 Shift 不再误改写角度值）
-- 低危遗留（暂不处理）：`window.__motionCube` 等调试后门未加 DEV 守卫；无 CSP；`crypto.randomUUID` 依赖安全上下文（file:// 打开会崩）；标定页每次输入全量重建 3D 几何（P1 性能，可用防抖+rAF）；`drawRuler` 全量重建 SVG（P2）
-
-## 优先级与路线（2026-08-12 评估）
-
-### P0（已完成 ✅）
-
-- ✅ **拇指根独立建模 + 大鱼际凸块**（2026-08-12 完成：thumbCorner 改掌根锚点 v2 + thenar 椭球凸块 + v1 迁移；标定/编辑器视图验证 + 像素测试通过）
-- ✅ **播放器整合：公式播放 + 手法 stepMapping 帧级同步**（2026-08-12 完成：编辑器播放时按 stepMapping 对魔方逐步骤 applyMove，tempoScale 校准步进时长；playtest 断言"播放后魔方执行公式步"通过）
-
-### P1（紧随 P0）
-
-- ✅ 四元数插值 nlerp → slerp（2026-08-12：Timeline.ts slerpQuat，近平行回退 nlerp；90° 插值中点恰 45°）
-- ✅ contact.lifetime 精确起止帧建模（2026-08-12：接触移到手法级 contactTracks（startFrame/endFrame），插值不再离散切换；编辑器按帧显示活跃接触；示例数据迁移）
-- ✅ 编辑器：坐标高度 / 吸附（2026-08-12：选中关键帧可编辑手掌坐标 X/Y/Z，吸附开关按 1/3 块边长（sticker 网格）取整；playtest 断言）
-- ✅ 编辑器：起终自动路径（2026-08-12：首末关键帧间 slerp 插值生成中间关键帧，15 帧间隔，playtest 断言）
-
-### P2（打磨期）
-
-- ✅ cubing 大 chunk 分包（2026-08-12：路由级懒加载，main 804KB → 35.7KB；页面各自分包，首屏只载壳）
-- ✅ 编辑器不可变选项（2026-08-12：编辑器 3D 视口加标灰覆盖层 + 面板（预设/点选），面板带可/不可变切换；顺带恢复迁移时丢失的 .gray-net/.gray-cell 面板样式（游戏页同样修复））
-- 编辑器快捷键独立配置
-- ✅ 编辑器起始底色（2026-08-12：编辑器视口与游戏一致，读取设置六色底）
-- ✅ 键位预设（2026-08-12：新手直觉（方向键 U/D/L/R = ↑↓←→）与默认（公式符号）一键切换）
-- ✅ 编辑器快捷键独立配置（2026-08-12：编辑器/游戏两作用域分开存储
-  （motion-cube.editorKeymap），默认与游戏一致（公式键两侧同动作，如 U）；
-  编辑器挂 KeymapController——公式键拧视口魔方、撤销/重置/播放走编辑器动作；
-  设置页作用域切换（游戏/编辑器）+「同步到另一侧」一键连带；playtest 断言）
-- ✅ 关键帧细化（2026-08-12：选中帧 easing 切换 + 插入中间帧 + 正弦函数路径）
-
-### P3（长期/可选）
-
-- 函数路径（正弦/圆弧等）；高速动画性能/真实卡顿感（动画抽搐长期项）
-- playtest 脚本化/CI（QA 循环）
-
-依赖链：slerp → 自动路径；contact.lifetime → 吸附；插值正确性 → 播放器整合体验。
-
-## P0 推进准备（2026-08-12 摸底）
-
-### P0-A 拇指根独立建模 + 大鱼际
-
-> ✅ 已完成（2026-08-12）：锚点改掌根（0.55,-0.05,-0.45）、thenar 参数与凸块、v1 配置迁移；发现并修复双渲染器色彩空间差异（cubing 线性输出 vs HandCalibView sRGB 输出）；verify-hand-calib 像素测试与 playtest 全绿。
-> ✅ 迭代（2026-08-12）：标定页新增左视图（HandCalibView view="left"，左手拇指侧 YZ 剖面 + 高/长标尺）；拇指自然外翻（CMC 默认 rotation 30° 向外展开 + abduction 42° 抬离掌面，侧视约 21°），俯视不再被手掌遮挡、与食指不重叠；左视图网格描边（EdgesGeometry）；统一正交相机缩放比例（修复窄窗口下左视图垂直拉伸）；肤色调亮（SKIN #CFC0A8 → #E4D4BD）；示例数据重新生成（thumbCMC 42/30）；编辑器默认手位同步。
-> ✅ 迭代（2026-08-12）：标尺功能化——标定页「标尺」开关控制显示、Shift 切换水平/竖直（不持久化，回到设置默认值）；标尺半透明 + 大格数字（整数大格加粗数字，修复 0.5 步进浮点漂移漏标）；设置页新增「标尺默认显示 / 默认方向」；左右手命名对调（模型 +X 拇指侧的手实际渲染为右手 → handType 语义交换为 right=+X，标签随之正确，渲染不变）。
-> ✅ 迭代（2026-08-12）：标尺重做——独立于网格的可拖拽标尺条（透明 16px 命中条，拖拽移动 offset），大格 1 块边长 + 十等分小格（0.1），整数格加粗数字（k/10 整数遍历避免浮点漂移）；Shift 切换水平/竖直；网格常显作为独立背景。大鱼际整体化——手掌改 RoundedBoxGeometry 圆角 + thenar 椭球加大融入掌根（不再像外挂球）。左右手拇指对称——CMC rotation 也按 sideSign 镜像（此前仅 abduction 镜像，左手拇指朝向与右手不一致）。
-> ✅ 迭代（2026-08-12）：标尺 bug 修复——拖拽映射统一用画布 rect 归一（兼容全局 zoom，1:1 不跳变）+ 抓取偏移量（无极不吸附，可精确回位）；Shift 切换改为绕标尺线中点原地旋转（不再重置位置）；刻度范围改整数起点（俯视 宽 -2..2 / 长 -1..4，左视 长 -1..3 / 高 -1..1），数字含 0 且起点有标注。
-> ✅ 迭代（2026-08-12）：标尺重构为真实尺子——带宽度（0.35 块边长）的尺身、任意角度旋转（Ctrl 悬停显示虚线圆 + 双向箭头弧线指示，Ctrl 拖拽连续旋转）、二维自由拖拽（水平/竖直均可）、刻度 0..L 从起点标注（0,1,2,3,4,5）；角度入标定页数值栏（ruler-angle，与其他数值一样调整，随固化保存 HandRigConfig.rulerAngle）；Shift 快速切换 0°/90°；设置页去掉方向开关（角度由数值栏管理）；修复 overlay SVG 未填满容器（300×150 默认尺寸导致标尺错位/不可命中）。
-
-现状摸底：
-- `thumbCorner`（config 级，默认 0.68,-0.14,0.5）决定拇指根相对手掌中心位置；渲染时 X 按手型取反
-- 拇指链：thumbRoot → thumbDof（CMC 展收/对掌）→ 2 段 3 关节（CMC/MCP/IP）
-- 姿态级 `thumbBase` 独立于几何（示例"单拨 U"三关键帧均为 identity、thumbCMC 0/0）
-- 标定页已有 thumb X/Y/Z 输入；verify-hand-calib.mjs 像素断言（肤色像素居中/数量）
-- 缺陷：拇指根锚在掌前缘角落，无掌根/腕侧语义，无大鱼际几何，与食指易冲突
-
-推进步骤：
-1. handRigStore：`thumbCorner` 语义改为掌根/腕侧锚点（含默认值重标定），新增大鱼际参数（宽/高/位置）；version 1→2 + normalize 迁移
-2. handGeometry：拇指挂载点改掌根 + thenar 凸块几何（椭球/自定义）
-3. 标定页：更新 thumb 参数区默认值与说明（WinUI 表单已就绪）
-4. 示例/默认姿态重校准（defaultHandPose、"单拨 U"关键帧），避免与食指冲突
-5. 回归：verify-hand-calib（像素居中）、playtest（标定/编辑器全量）
-
-### P0-B 播放器整合（公式播放 + stepMapping 帧级同步）
-
-> ✅ 已完成（2026-08-12）：编辑器播放循环按 stepMapping 边界对魔方 applyMove（公式 moves 与 stepIndex 对齐），tempoScale = 基准 0.3s/步进时长 校准；playtest 新增断言全量通过。
-
-现状摸底：
-- 编辑器已有 60fps 预览循环（pv-play：previewFrame++ → renderPreview → handView.setPose）
-- stepMapping[{stepIndex,startFrame,endFrame}] 数据已就绪（示例 1 步）；公式 moves 可 parseMoves 解析
-- CubePlayer.applyMove(move)（cancel:true）可逐层驱动魔方动画
-
-推进步骤：
-1. 编辑器预览循环扩展：previewFrame 进入 stepMapping[i] 区间时对该步公式 move 执行 applyMove
-2. 公式 moves 与 stepMapping 按 stepIndex 对齐（parseMoves 规范化）
-3. 步进时长 = (endFrame-startFrame)/frameRate，与 cubing 动画时长校准（调速沿用 setSpeed）
-4. 播放/暂停/重置语义在游戏与编辑器间统一（session 与 editor 的 hooks 对齐）
-5. 回归：playtest 编辑器用例 + 新增"播放时魔方转动与手法同步"断言
-
-## 待办
-
-### 动画编辑器体验（2026-08-12 用户拍板）
-
-**UI 休整（2026-08-12）**
-
-- ✅ **公式库分页 + 基础搜索**：每页可设 5/10/20/50（默认 10），搜索框按
-  名称/公式串包含匹配；模糊搜索（子串/拼音）、标签、分类搜索列为待优化
-- ✅ **手法库分页 + 搜索**（2026-08-13）：与公式库同款（每页可调、按名称/关联
-  公式搜索），分页控件独立
-- ✅ **编辑器布局重构**：3D 视图为中心（56vh 大视口），左侧 PS 风格侧边栏
-  （手法选择/新建、手选择、标灰面板、时间线展开按钮）；去掉页面与各 section
-  标题（含 3D 视图标题）；时间线点击后显示在 3D 视图下方（含循环/倒放开关、
-  标尺/动作刻度/动作时长）；选中关键帧/添加/补帧预览/保存移至视口下方精简区
-- ✅ **编辑器页面不滚动**（2026-08-13）：editor-page overflow hidden，3D 视图
-  flex 弹性、时间线固定高度、详情区内部滚动；Space 播放快捷键不再被滚动捕获
-- ✅ **编辑器快捷键**（2026-08-13）：Space=播放/暂停（keyup 且未组合其他键）、
-  C=魔方显隐、H=手显隐；侧边栏对应按钮（CubePlayer.showCube / HandRigView.setVisible，
-  场景重建时重放显隐状态）
-- ✅ **播放头合并时间线**（2026-08-13）：移除预览区滑杆，时间线轨道叠加可
-  点击/拖动的播放头（previewFrame 同步，播放时随帧推进）
-- ✅ **动作时长选中设定**（2026-08-13）：点动作块（S1…）高亮后在下侧单独
-  设定时长（替代一排输入），可取消
-- ✅ **关键帧集成到时间线**（2026-08-13，折叠展开）：点关键帧箭头 → 时间线
-  面板内展开"关键帧编辑"折叠区（帧号/缓动/删除/坐标/旋转/姿态摘要），可收起；
-  详情区不再重复
-- ✅ **播放头末端白色杠 + 逐帧步进**（2026-08-13）：播放头底部白色末端标志；
-  ←/→ 逐帧、Shift+←/→ 跳相邻关键帧
-- ✅ **等比例缩放检查（2026-08-13）**：改动作时长后关键帧与**接触轨道
-  contactTracks** 统一按所属步骤内比例重映射（remapFrame 共用；修复 contactTracks
-  原不跟随会错位的问题）；边界帧归前一步、映射后落在连续区间边界；
-  首尾帧不动、同步内相对间距保持、跨步区间不倒置；姿态插值随新时长拉伸
-  （语义正确）；动作姿态一类后续统一走同一套 remapFrame
+### 动画编辑器
 - ⬜ **搜索优化**：模糊搜索（子串/编辑距离/拼音）、标签过滤、分类过滤
-
-## 桌面版（tauri）评估（2026-08-13）
-
-- 参考项目 gomoku-613B-E2D 已有完整 tauri 2 桌面包装：
-  src-tauri（Rust main/lib.rs、capabilities、icons、NSIS 打包产物 gomokue2d.exe）
-- **存储经验可复用（价值高）**：`IStorageAdapter` 接口 + `LocalStorageAdapter` /
-  `TauriStoreAdapter`（@tauri-apps/plugin-store）双实现运行时切换——motion-cube 的
-  settings/keymap/library/handRig 全在 localStorage，可抽同一抽象层
-- **脚手架可复制**：src-tauri 目录结构、tauri.conf（identifier/productName/icons
-  替换）、beforeDevCommand 接线
-- **附加收益**：tauri 自定义协议是安全上下文，可解决 crypto.randomUUID 在
-  file:// 打开崩溃的问题（既有技术债）
-- **难度：中；建议：做**（优先级中等，左右手大改之后或并行）
-
-## 桌面版（tauri）适配（2026-08-13 ✅）
-
-- ✅ **src-tauri 脚手架**：tauri 2.11 + NSIS，dev 端口 5174（避开用户预览 5173）；
-  beforeDevCommand `npm run dev -- --port 5174 --strictPort`，beforeBuildCommand build
-- ✅ **打包验证**：`npx tauri build` 产出
-  `src-tauri/target/release/motion-cube.exe` + `bundle/nsis/MotionCube_0.1.0_x64-setup.exe`；
-  启动验证不崩溃、界面正常渲染（截图确认）
-- ✅ **存储**：tauri WebView2 的 localStorage 持久化（应用数据目录），settings/
-  keymap/library/handRig 无需改造即可持久；暂不需要 plugin-store 抽象层
-- ✅ **附加收益**：tauri 自定义协议为安全上下文，crypto.randomUUID 在桌面版可用
-  （web 版 file:// 打开仍会崩，旧债保留）
-- ✅ **隐藏魔方修复**（2026-08-13）：showCube 只设 obj.visible 未触发 cubing
-  惰性重绘；补 scheduleRender 后真正隐藏（截图确认视口只剩手）
-- ✅ **自定义开始状态**（2026-08-13）：Technique 新增可选 startState（正放起始）/
-  reverseStart（倒放起始，均 alg，含记法校验与导入解析）；编辑器侧边栏
-  「捕获正放/倒放起始态 + 清除」；缺省回退 正放=公式逆序状态、倒放=还原态
-- ✅ **游戏进度快照**（2026-08-13）：src/data/snapshot.ts——只存达成步骤/最终
-  状态（alg 同时表达）+ cubeType 预留魔方种类；GamePage 每步自动保存、进入
-  恢复、清除进度按钮；结构可复用于动画编辑器
-- ⬜ **后续优化**：双标题栏（tauri 系统栏 + Web 标题栏）——可改无边框
-  decorations:false + 自绘标题栏（data-tauri-drag-region + 窗口控制按钮）；
-  icons 为占位（复制自 gomoku），正式发布前替换
-- ⬜ **严格隐藏逻辑（延后设计）**：对象级显隐（魔方/左右手分别）之后，点击
-  选中对象时不能有遮挡、也不重建隐藏对象——需统一点选/命中与显隐的交互规则
-- ⬜ **版本号跟进**：package.json 与 src-tauri/tauri.conf.json 的 version 保持
-  同步，功能/修复提交时评估 bump；自动化（GitHub Actions CI + tauri 打包发布）
-  待配置（用户需先了解工作流）
-
-## CI 与待修（2026-08-13）
-
-- ✅ **GitHub Actions CI**：.github/workflows/ci.yml——push/PR 到 main 自动跑
-  npm ci + typecheck + build + verify-data（ubuntu runner）；playtest 待
-  networkidle0 卡点解决后再并入
-- ✅ **播放/定位修复轮（2026-08-13）**：
-  - Space 从停止位置继续播放（仅 0/末尾才设起始态）；播放中步进/seek 先暂停
-  - seek 同步魔方状态到目标帧（起始态 + 已执行步骤 + scheduleRender），
-    拖动播放头后状态与帧一致、继续播放不跳变
-  - 逐帧步进 ←/→（含 Shift 跳关键帧）与拖拽/点击 seek 实测工作
-  - 游戏快照恢复补 scheduleRender（魔方状态真正显示）
-  - 迭代（2026-08-13 用户复测）：进度条可拖拽（单步手法动作块占满轨道时
-    被 band 拦截——统一 pointerdown seek，选中仍走 click）；播放完自动停后
-    Space 从头重播（从头分支补 previewFrame 重置）；暂停/定位可停在任意帧
-    （步内插值态，配合 ←/→ 微调编辑动作）
-
-## 批量编辑与 RPE 参考（2026-08-13）
-
-- ✅ **动作刻度多选批量改时间**：Ctrl+点击切换多选、Shift+点击区间多选、
-  点空白取消；多选后下侧"批量 N 个动作"统一设时长（重建 stepMapping +
-  等比例重映射关键帧/接触轨道）
-- ⬜ **复杂批量编辑（跳过，手指关节编辑等之后实现）**：动作/姿态批量——
-  已参考多选方式（Ctrl+点击、Shift 区间）与批量时长输入；RPE 粉/蓝批量控制点
-  不适合本项目，已删除参考
-- ⬜ **RPE（phiedit）仅作提醒——最低优先级**：本地仅 1.6.0 可逆向（1.7.0
-  未持有）；未开源、逆向很麻烦，暂缓，不深入
-
-## 刻度与浮层（2026-08-13）
-
-- ✅ **秒刻度 5 等分**（每 12 帧，原 4 等分 15 帧）
-- ✅ **编辑面板迁入左侧边栏**（2026-08-13 迭代）：姿态数值（坐标/旋转/手指
-  关节/吸附开关）+ 帧号/拍/缓动/删除 + 姿态摘要统一收进侧边栏顶部「选中编辑」
-  面板；3D 视图内浮层移除（极高缩放不再遮挡魔方）；时间线不再编辑关键帧；
-  点面板以外（时间线/3D 视图）自动取消选中并隐藏；autoKf 开关移至时间线控制行
-  （开启即展开面板、编辑目标跟随播放头，面板摘要/数值实时回显插值姿态——
-  顺带修复 autoKf 改旋转时读旧帧输入的隐患）
-- ✅ **frameRate 预设挡位**（23.97/24/29.97/30/59.94/60/120/240/1000，最高
-  1000；预设防罕见帧数 bug）；拍（beatFrames）随 frameRate 动态换算；
-  播放按真实时间推进（dt×frameRate）帧号正确
-- ✅ **拍/动作联动（帧率切换按秒重映射，2026-08-13）**：切换 frameRate 时
-  stepMapping/关键帧/接触轨道全部按秒等比换算（0.3s 的动作 60fps=18 帧、
-  1000fps=300 帧，真实时长不变）——修复"极高帧率光速完成"（实测 60fps 总长
-  60 帧 1.00s ↔ 1000fps 1000 帧 1.00s）；选中关键帧与播放头保持同一时间位置
-  （帧号同步换算，30→500→30）；标尺刻度改时间制（主刻度 1s、次刻度 1/5s，
-  随 frameRate 换算，标签按实际帧率显示秒）；totalFrames 下限至少 1 秒
-  （随 frameRate）；播放头改帧累加器（消除逐帧取整漂移，低帧率 23.97 不再
-  偏快；实测播放墙钟 60fps≈1097ms / 1000fps≈1101ms 一致）
-- ✅ **总长下限 = 最短单步 0.01s（2026-08-13 迭代）**：MIN_STEP_SEC=0.01 常量
-  （非定值，步长下探时同步调小），totalFrames 下限 = 0.01s × frameRate（至少
-  1 帧），seek/时间线宽度同源
-- ✅ **编辑面板常驻（2026-08-13 迭代）**：点时间线（标尺/动作轨道）即展开编辑
-  面板并常驻；播放/暂停、保存、右侧详情区操作都不再关闭面板；仅左侧切换手法
-  或手动「完成」按钮收起。姿态信息并入帧编辑器——面板摘要/数值实时跟随播放头
-  （帧号/缓动/删除/摘要/坐标/旋转/手指全同步），详情区 #pv-pose 移除（不再重复）；
-  编辑目标 = 播放头帧（所见即所得：播放头处有关键帧直接编辑，空白帧 + autoKf
-  开自动建帧、关则提示）；顺带修复 seek/步进后面板字段不刷新的问题
-- ✅ **整体倍速（2026-08-13）**：时间线控制行新增「倍速」下拉（0.25/0.5/0.75/1/
-  1.5/2/4x，默认 1x）；播放头帧推进 × 倍速，cubing 动画 tempo 同步 × 倍速
-  （慢放/快放时魔方与播放头一致不跳变）；播放中切换立即校准、倒放同样生效；
-  实测墙钟：1x=1133ms → 0.5x=2107ms、2x=570ms、4x=349ms（成反比）
-- ✅ **帧编辑器数值常驻 + details 移除（2026-08-13 迭代）**：帧编辑器数值默认
-  显示并随播放动态变化（无关键帧回退默认手位姿态；正在输入的数值框不覆盖）；
-  details 区整个删除——添加关键帧/自动路径/插入中间帧/正弦路径按钮并入帧编辑器
-  面板（分隔线分组），pv-readout 帧读数移除（帧号/总长已在时间线 meta）；帧号
-  文案去掉过时的「（1/60 s）」（帧率已可调）；补 en 缺失 key（autoPath/
-  insertMid/sinePath 及 Need/Done 提示）
-- ✅ **手法/公式选择接入搜索（2026-08-13 迭代）**：编辑器侧边栏手法选择从下拉框
-  改为「搜索 + 列表」——按名称/关联公式名过滤、点击选中高亮、无结果显示空态；
-  新建手法的关联公式同样改为搜索列表（名称/公式串过滤、选中高亮）；
-  添加关键帧目标帧号输入删除（直接用当前播放头帧，与 kf-frame 不重复）；
-  姿态摘要 #kf-pose 删除（与数值输入重复）；新 i18n key（tecSearch/
-  formulaSearch/searchEmpty）中英补齐
-- ✅ **新建手法公式按分类分组（2026-08-13 迭代）**：公式列表按分类路径分组
-  （组标题如 1LLL / ZBLL、OLL、PLL），未分类收尾；搜索时分组保持；
-  组内点击选中高亮不变；i18n（formulaNone）中英补齐；未 bump 版本
-- ✅ **侧边栏分组折叠（2026-08-13 迭代）**：6 个分组（手法/新建手法/手/视口显隐/
-  开始状态/标灰）各带折叠标题，默认全折叠，点标题展开/收起（▸/▾ 指示）；
-  标灰组展开时懒初始化面板并联动显隐；时间线控制行加 flex-wrap（修复缩放
-  150% 下 循环/倒放/自动建帧/帧率/倍速 控件溢出叠字）；i18n（viewToggle）
-  中英补齐；未 bump 版本
-- ✅ **公式分类组折叠（2026-08-13 迭代）**：新建手法的公式分类组（大分类/小分类
-  路径标题）改为可折叠——默认折叠只显示组标题（解决层级字重叠/拥挤），点开
-  显示组内公式；公式库公式列表同步按分类分组折叠（当前页内分组、分页/搜索
-  保留）；未分类组收尾；i18n（library.formulaNone）中英补齐；未 bump 版本
-- ✅ **公式分类树嵌套（2026-08-13 迭代）**：分类分组改层级嵌套——父分类组展开后
-  显示直属公式 + 子分类折叠组（如 1LLL 展开 → 直属 1LLL 1 1 + ZBLL 组，ZBLL
-  再展开见其公式），缩进体现层级，不再平铺路径文字；data/category.ts 抽出
-  buildCategoryTree/flattenCategoryTree 供编辑器与公式库共用；行高修复——列表项
-  min-height 34px + flex 垂直居中（button UA/flex 行盒塌缩导致字重叠）；未 bump
-- ✅ **编辑器解绑游戏键 + 功能键入设置页（2026-08-13）**：编辑器不再挂载游戏
-  公式键 KeymapController（U/D/L/R/F/B 等在编辑器内无实际含义）；编辑器专属
-  快捷键（播放/魔方显隐/手显隐/逐帧←→/跳关键帧 Shift+←→）改为可配置的
-  EditorKeymapConfig（keymap.ts DEFAULT_EDITOR_ACTIONS + settings 持久化），
-  设置页编辑器作用域显示 7 个功能键（游戏作用域保留公式键/特殊键/冷却/预设）；
-  播放为 keyup 触发防误触；顺带修复「捕获起始态」崩溃——cubing
-  TwistyPlayer.alg getter 会抛错，CubePlayer 改自身维护 currentAlg 并经
-  setMoves 统一写入（syncCubeToFrame/起始态/撤销同步）
-- ✅ **删除「同步到另一侧」+ 大版本 0.3.0（2026-08-13）**：游戏与编辑器键位
-  不同构（公式键 vs 功能键），同步无意义——移除设置页 sync 按钮/函数/i18n；
-  版本 0.2.5 → 0.3.0（package.json + tauri.conf.json 同步）
-
-## 拍概念与动画时序（2026-08-13）
-
-- ✅ **0.3s 跳变根因修复**：cubing 默认单步动画 1000ms（AlgDuration.
-  defaultDurationForAmount(1)），此前 CUBING_MOVE_SECONDS 误设 0.3 导致
-  tempoScale 校准错误（0.3s 步时配 tempoScale=1 动画 1s 只播 0.3s 被 cancel →
-  "没到位跳变"）；已改为 1.0，tempoScale = 1.0/步时 精确匹配
-- ✅ **时长输入刻度细分 0.01s**（step 0.01、显示两位小数；内部按 60fps
-  帧量化 ≈0.017s）
-- ⬜ **拍（beat）概念——评估可行，建议做**：数据层保持帧（60fps 底层精确
-  单位），UI 层引入"拍"作编辑单位（1 拍 = 0.3s 默认步时，动作默认 1 拍）；
-  事件（关键帧/接触）以"拍+拍内分数"编辑并吸附拍网格；卡手步 >1 拍、快速步
-  <1 拍；时间线叠加拍刻度；实现中等成本（拍网格 + 拍单位输入 + 量化吸附）
-- ⬜ **全局默认步时一致性**：cubing 基准 1s 已修正；编辑器默认步时当前 0.3s
-  （"正常动作"），若希望默认 = cubing 1x（1s/步）可调 STEP_DEFAULT_SEC
-
-## 空拍与精度解耦（2026-08-13）
-
-- ✅ **空拍（pause）**：StepMapping 新增 kind（move/pause）；「在此步后插入
-  空拍」按钮（默认 1 拍时长），空拍块条纹样式 + P 标记；播放/倒放跳过魔方
-  动作（手部动画继续）；stepIndex 语义改为序列位置、公式动作由 moveCursor
-  按顺序对应；导入/保存保留 kind；空拍期间 alg 不变（实测）
-- ✅ **精度解耦**：播放循环按真实时间推进（dt × frameRate），frameRate 不再
-  锁 60（数据层可提高——如 1000fps 达 0.001s 基准精度）；时长内部按秒计算
-  再量化到帧；显示精度 0.01s
-- ⬜ **拍概念实现**（评估已做）：时间线拍网格 + 拍单位编辑（关键帧/接触按
-  "拍+拍内分数"吸附）——待播放/定位逻辑修复轮后
-
-## 半转状态检查 + 拍实现（2026-08-13）
-
-- ✅ **cubing 半转状态结论**：cubing.js 无 timeline.seek 公开 API（仅
-  jumpToStart/End、play/pause，detailedTimelineInfo 只读）——无法直接显示
-  "动作一半"的中间态；播放中动画自然显示半转，拖动定位到步内帧时魔方只能
-  整步。替代方案（three 手动插值/替换渲染层）复杂度高——按用户指示优先做拍
-- ✅ **拍实现（核心）**：1 拍 = 0.3s（18 帧 = 默认步时）；时间线标尺叠加拍
-  网格（每拍竖线 + 整数拍号）；关键帧编辑面板新增「拍」输入（拍+小数 → 帧），
-  选中关键帧显示拍数、改拍即移动关键帧（实测帧 30 = 1.67 拍、改 1.5 → 帧 27）
+- ⬜ **左右手同时显示**：数据层大改（Pose 手型维度/双实例 + HandRigView 双实例 +
+  标定/示例适配），最后做
+- ⬜ **自定义开始状态 UI**：正放/倒放均可自定义起始态（公式页适配）；缺省回退
+  正放=公式逆序状态、倒放=还原态（已实现）
 - ⬜ **拍扩展**：接触轨道按拍编辑；关键帧箭头拖动吸附拍网格；拍网格吸附开关
 
-## 编辑器交互迭代（2026-08-13）
+### 桌面版（tauri）
+- ⬜ **双标题栏**：decorations:false + 自绘标题栏（data-tauri-drag-region + 窗口按钮）
+- ⬜ **icons 占位替换**：现复制自 gomoku，发布前替换
+- ⬜ **严格隐藏逻辑**：对象级显隐（魔方/左右手）与点选/命中交互规则统一
+- ⬜ **playtest 并入 CI**：networkidle0 卡点解决后再并入 ci.yml
 
-- ✅ **时间线默认显示**：移除侧边栏开关，时间线面板常驻 3D 视图下方
-- ✅ **点击选中 vs 拖拽跳转**：动作块点击=选中（Ctrl/Shift 多选恢复）；拖拽
-  （>6px）才 seek（单步占满轨道也可拖）；空白点击跳转
-- ✅ **添加关键帧帧号跟随进度**：未聚焦输入框时自动同步为当前 previewFrame
-- ✅ **自动添加关键帧（autoKf 开关）**：开启后编辑目标=当前进度帧，空白帧
-  改数值自动建帧（以插值姿态为基底），两处改动即得两个关键帧间插值
-- ✅ **绿色提示文字移至 3D 视图左下角**（save-status 绝对定位视口左下）
-- ✅ **标题去"关键帧"**：折叠区标题改为「选中编辑」
-- ✅ **交互细化（2026-08-13）**：时间线上方（秒/拍刻度区）点击=跳转；轨道点击
-  只选中动作（拖拽才 seek）；主区 details 精简（删重复的姿态读数/采样表，
-  保留添加关键帧行与帧读数）；保存按钮移入 3D 视图内播放按钮上方（文档图标、
-  与播放异色的绿色）；步进/标尺点击探针验证正常
-- ✅ **交互修正（2026-08-13 用户复测）**：←/→ 步进加 preventDefault（时间线不
-  滚动）；轨道拖拽 seek 删除（跳转只在标尺点击/拖拽）；band 按下即选中
-  （pointerdown 立即，Ctrl/Shift 多选生效）；姿态读数（pv-pose）恢复至详情区
-  下方；保存按钮改圆形、暗色悬停亮绿/浅色悬停深绿、失败变红；空拍验证——
-  空拍段魔方不动（alg 不变）、手部动画继续，关键帧 remap 不使手与魔方错位
+### 技术债 / 长期
+- ⬜ 调试后门 `window.__motionCube` 加 DEV 守卫；无 CSP
+- ⬜ 标定页每次输入全量重建 3D 几何（P1，防抖+rAF）；drawRuler 全量重建（P2）
+- ⬜ 动画抽搐/真实卡顿感（连击冷却已基础版 120ms）；圆弧等函数路径
 
-**待办优先级（2026-08-12 排序）**
+## rubik-anime-lab 迁移/合成计划（2026-08-20 新建，未动工）
 
-1. 🔴 **编辑器手掌三方向旋转调整**（RX/RY/RZ 欧拉角输入；数据层 quaternion 已就绪，
-   仅需 UI 层欧拉角↔四元数转换）——编辑器要用，实现成本低，**优先做**
-2. ✅ **倒放 bug 修复**（2026-08-12 完成：起点=完成态、逐步撤销（undoLastMove）、
-   终点完全回起始态（原停在"还原差一步"——step0 的 startFrame=0 使 `frame<0` 永不成立，
-   停止时补撤销剩余步骤）；公式拆分后 setMoves 整段+逐个撤销稳定）
-   → 迭代（2026-08-12）：**起始态对调**——正放从「公式逆序状态」（起始打乱态 S）开始
-   执行公式到还原态；倒放从还原态开始**逆序执行公式**（每步逆动作 applyMove，带动画、
-   最后一步不跳变）到起始态 S；selectTech 后魔方显示 S；循环回到各自起始态
-3. 🔴 **自定义开始状态**（公式完成后非还原态；正放/倒放都要能自定义起始态；
-   公式页适配——公式可声明起始/结束状态或关联前序公式；默认对调已实现（正放=S 逆公式
-   状态、倒放=还原态），自定义 UI 待做）
-4. ✅ **手指关节调整**（2026-08-13：关键帧编辑折叠区新增各指关节角度输入
-   ——拇指 CMC/MCP/IP、四指 MCP/PIP/DIP，bend 60~180 clamp；
-   autoKf 空白帧改角度自动建帧；姿态摘要同步）
-5. 🟡 **关键帧提示显著性**（3D 视图空间缩减 + 功能键移入视口侧边栏）
-6. 🟢 **左右手同时显示**（数据层大改：Pose 手型维度/双实例，最后做）
-7. ⚪ P3 长期：圆弧等函数路径、动画抽搐/真实卡顿、playtest QA 循环
-8. ⚪ 技术债：调试后门 DEV 守卫、CSP、标定页全量重建性能、drawRuler 重建
+> 来源：`E:\phx_lumin\Downloads\rubik-anime-lab-0b0c6984.zip`（单文件 index.html）
+> 提取：`%TEMP%\opencode\rubik-anime-lab\index.html`（分析用，未入库）
 
-- ✅ **大播放按钮**：3D 视口右下角圆形浮层（播放 ▶ / 暂停 ⏸ 图标），点击播放/暂停
-- ✅ **未选手法播放提示**：点击播放且未选择手法时，视口显示半透明灰字蒙版
-  （"请先选择或新建一个手法"），2.6s 自动消失
-- ✅ **允许无关键帧播放**：totalFrames 取 最后关键帧/步骤终点 最大值（至少 1 秒），
-  无关键帧时手显示默认姿态、魔方按公式步骤驱动
-- ✅ **时间线**：标尺背景加深（明显灰色长条）；默认帧宽 2→6px（3 倍）；
-  Ctrl+滚轮缩放（0.5~16 px/帧）；关键帧改为蓝色小箭头指向标尺（原 12×34 方块）
-- ✅ **手掌坐标输入修复**：输入过程中不再被格式化回写打断（对齐标定页手感）
-- ✅ **播放语义澄清**：移除预览区独立播放键（统一用视口大播放）；时间线标题
-  "1 帧 = 1/60 秒；Ctrl+滚轮缩放"、预览标题"补帧预览"
-- ✅ **时间线箭头**：关键帧改纯三角（clip-path，无残留背景），尖端朝下
-  （用户指定）指向下方动作刻度行
-- ✅ **播放模式**：默认不循环（播完自动停）；「循环」开关（播完回 0 继续）与
-  「倒放」开关（从公式完成态逐步骤撤销回求解态）
-- ✅ **时间模型 + 自动动作刻度**：解析示例差异——只有单拨 U 有 technique
-  （含 stepMapping），其余公式无手法、新建手法 stepMapping 为空 → 时间线无动作
-  刻度、播放不驱动魔方；且 selectTech 曾 setMoves 整段公式造成"瞬间完成"。
-  修复：① selectTech 不再 setMoves（魔方保持求解态，播放逐步骤驱动）；
-  ② stepMapping 为空时按 公式步数 × 每步默认 0.3s（与 cubing 单步动画匹配）
-  自动生成动作刻度；
-  ③ 单步应用剥掉 parseMoves 保留的分组括号（"(R'" → "R'"，修复复杂公式
-  "internal parsing error"）；④ 示例库每个公式补一个基础手法（自动动作刻度、
-  无关键帧，播放用手默认姿态）；⑤ 时间线双行：上真实秒刻度（标尺），下动作
-  刻度（S1/S2…）；⑥ 每动作可单独设完成时长（秒，最小 0.1，重建 stepMapping）
-- ✅ **手指关节调整**（2026-08-13 完成）：编辑器新增各指关节 bend 角度输入
-  （拇指 CMC/MCP/IP、四指 MCP/PIP/DIP），autoKf 支持空白帧自动建帧
-- ✅ **左右手初始位置定稿**（2026-08-12 用户确认）：右手 Z=-2.2 掌心朝视线、
-  左手 Z=2.2 掌背朝视线（掌心相对、拇指朝上）；defaultHandPose 即为最终定义
-- ✅ **编辑器手掌三方向旋转调整**（2026-08-12）：数据层 Pose.palm.transform.
-  quaternion 已建模完整旋转（四元数），无独立三方向字段但无需新增——编辑器
-  增加 RX/RY/RZ 欧拉角输入，UI 层做 欧拉角↔四元数 转换（three Euler/Quaternion）
-- ⬜ **左右手同时显示**（用户 2026-08-12 提出）：编辑器/游戏可同时渲染左右手
-  （当前为单手实例）。涉及数据层大改：Pose 需按手型各一份（关键帧/接触轨道/
-  插值按左右手分别驱动）、HandRigView 双实例注入、默认手位（左右手掌心相对
-  已定）、标定页/示例数据适配。先做准备（如 Pose 增加 handType 维度或双 pose
-  结构），实现时避免破坏单手兼容
-- ⬜ **自定义开始状态**：大部分公式完成后非还原态，"从完成态开始/倒放"需支持
-  自定义开始状态（2026-08-12 记录；正放/倒放都要；公式页也需适配——公式可
-  声明起始/结束状态或关联前序公式）
+### LSE 部分
+- ⬜ 保留我方 **4a→6E2C 阶段结构**，不照搬「整体最优+事后切里程碑」（该文件 4b/4c
+  常近空：全局最优把定向/归位穿插省步，EO 里程碑在序列末尾才首次满足）
+- ⬜ 可选借鉴「两条路线取短」：整体最优 vs 阶段化，仅当显著更短且阶段非空时采用；
+  注意步数不单调递减（演示可能先变乱再收）需评估
+- ⬜ 校验口径：切里程碑用与求解同源的坐标判定（对齐 lse-eolr 指纹/U 中心判定）
 
-### 体验优化（用户 2026-08-06 反馈）
+### 交互部分（CubePlayer / GamePage）
+- ⬜ **操作层高亮**：three.js 侧当前转动层加 emissive/tint；拖拽与播放移动都触发；
+  以片当前 pos 判层（对齐我方 CUBIES pos）
+- ⬜ **高可中断**：单一动画状态 + 队列，所有入口（拖转/跳步/打乱/复原/演示）先清
+  再接管；播放被打断时状态机直接落位（无 Promise）
+- ⬜ **任意角度拖拽**：Raycaster 拾面 → 拖向定轴（叉积）→ 连续角度跟随（±1.05π）
+  → 松手最近 90° 取整 + 吸附动画；px90 换算保证缩放无关手感
 
-1. 🚧 连续/快速按键动画抽搐
-   - 现象：快速连按时 cancel 重触发，动画观感抽搐。
-   - 方案：
-     - ✅ 基础：连击冷却/频率限制开关（`moveCooldownMs`，默认 120ms，设置页可调；实测 6 连按 → 2 步）
-     - 中期：动画调速（计划在动画编辑器阶段引入）
-     - 长期：高速动画的性能限制/简化（降插值精度、批量渲染），并模拟真实"一层未拧到位、另一层卡顿"的关联感
-2. ✅ 键位直觉化（基础版）
-   - 现状：键位按公式符号（U/D/L/R/F/B、Shift 反转、Space 双层），符合记法但不符合直觉。
-   - 完成：按键设置页（改键捕获 / localStorage 持久化 / 冲突检测 / 恢复默认）+ 说明页动态展示当前键位。
-   - 待办：键位预设方案（如面向新手的直觉布局）。
-   - 待办（编辑器快捷键）：与游戏键位分开配置、默认与公式保持一致（如 U 在游戏与编辑器中都录入 U）；
-     提供"连带设置"开关或批量设置时提示是否同步，选取人性化路线。
-3. ✅ 路由
-   - 完成：hash 路由（#/start | /game | /editor | /keymap | /help）+ 页面壳；动画编辑页为占位。
+### 重建思路：替换 cubing.js 渲染层
+- ⬜ **阶段 0 接口收敛（先做，低风险纯重构）**：CubePlayer 抽象接口隐藏 cubing
+  专属泄漏（`onThreeScene` 替代 `experimentalCurrentThreeJSPuzzleObject`、
+  `requestRender` 替代 `experimentalCurrentVantages/scheduleRender`）；
+  GrayOverlay/HandRigView/EditorPage 只依赖接口 → 之后替换只重写 CubePlayer
+- ⬜ **阶段 1 渲染替换**：three.js 自建 26 块+贴纸（数据复用 solver/engine 54 贴纸 +
+  stickering 坐标）+ rubik-anime-lab 交互特性
+- ⬜ **阶段 2 语法层**：默认保留 `cubing/alg`（纯 TS 无 DOM，唯一消费方
+  `src/notation/alg.ts`）；solver 与 3D 显示已解耦（engine 零 cubing 依赖）
+- 风险：GrayOverlay/HandRigView 靠 cubing 场景重建回调自愈 + 按需渲染；坐标/色彩
+  魔法数字（stickering ±1.5、CUBE_UNIT_WORLD=0.33、linearSRGB 管线）全要重推；
+  懒渲染兜底（kickRender/kickTimers）可删但要保证快照恢复不丢帧；动画语义
+  （experimentalAddMove cancel / jumpToEnd / timeRange）要重写保证等价
 
-### 功能
+## 已完成批次（摘要）
 
-- ✅ 公式库/手法库 UI（基础版）：列表 / 增删改 / JSON 导入导出 / 加载示例；手法库暂为只读列表
-- ✅ 手法 JSON 示例数据（data/samples/library.json，由 scripts/gen-samples.ts 生成并校验；含分类 + 单拨 U 三关键帧）
-- ✅ cuberoot.me 参考数据（2026-08-06）：站点/复盘/公式库均可达，公开 API `api.cuberoot.me`；
-   精选复盘样本 data/samples/cuberoot-recons.json（3 CFOP + 2 Roux + 1 ZB，含分步解法，
-   刷新脚本 scripts/fetch-cuberoot.mjs）；公式库示例扩充 5 条 speedcubedb 真实公式
-   （OLL 1 / PLL Aa / CMLL O Adjacent / ZBLL U 1 / 1LLL 1 1，verify-data 27/27）
-- ✅ 动画编辑器：坐标高度 / 吸附 / 起终自动路径 / 函数路径 / 关键帧细化（P1/P2，见上方路线）
-- ✅ 播放器整合：公式播放 + 手法 stepMapping 帧级同步（P0-B）
-- ✅ playtest QA 循环（含新页面回归）
-- ✅ 拇指根独立建模 + 手掌"大鱼际"凸块（2026-08-06 记录，用户反馈；P0-A）
-  - 现状缺陷：拇指没有"根部"，从手掌前缘角落伸出、与食指冲突；真实拇指根位于掌根（腕侧），
-    附着处有大鱼际隆起（thenar eminence）。
-  - 方案：① 把拇指根位置从"手掌角落"单独拎出来作为独立参数（贴近掌根/腕侧，配合 CMC 位姿），
-    不再与四指共用 MCP 线逻辑；② 待拇指位置确定后，在手掌对应位置加一块"大鱼际"几何，
-    使拇指看起来是从掌根伸出的。
-  - 相关代码：src/hand/handRigStore.ts（thumbCorner 参数）、src/hand/handGeometry.ts（拇指挂载点 / 手掌盒体）
+- **0.3.2 求解器移植**（08-19）：54 贴纸引擎 + search（PDB/IDA*）+ OLL/PLL/CMLL
+  图库 + F2L 表 + CFOP/Roux + solve 入口 + GamePage 求解 UI；smoke + puppeteer 全绿
+- **0.3.2 内置公式库**（08-19）：cuberoot.me 爬取 9 集合 241 case + 54 贴纸语义
+  校验 + BUILTIN_LIBRARY + 公式库页加载按钮
+- **0.3.3 游戏页+演示**（08-20，d58ad5c）：求解面板（方法/阶段/演示/复制）、打乱
+  按钮、恢复进度/打乱后 3D 显示修复、求解表空闲预热
+- **0.3.4 ZBLL/ZBLS 全覆盖**（08-20，8f75a5c）：解析器 `[2345]'` 记法；zbll 466→472；
+  全阶段禁 tidyAlg 不消步；ZBLS 305 落库接入；GamePage cfop-adv；一步 ZBLL 查表
+  （52.5% 覆盖 + 回退 OLL+PLL，prepare 0.5s）
+- **0.3.5 本轮**（08-20）：打乱 3 倍速播放；Roux LSE 改造（4a→6E2C、EOLR 一步表）；
+  6 色底双模式（跟随设置底/固定 D）；cfop-adv 中性发现（反例入
+  `data/samples/cfop-adv-zbll-case.json`）
+- **更早（08-06~08-13，归档）**：Vue/WinUI 迁移、动画编辑器全量迭代、拍概念、
+  标灰面板、首页视差、tauri 桌面版、安全审查等，详见 git log
 
-### 技术债
+## 工程约定
 
-- ✅ 四元数插值 nlerp → slerp（P1 已完成：Timeline.ts slerpQuat，近平行回退 nlerp）
-- ✅ contact.lifetime 精确起止帧建模（P1 已完成：手法级 contactTracks 起止帧，
-  插值不再离散切换）
-- ✅ cubing 大 chunk 分包优化（P2 已完成：路由级懒加载，main 804KB → 35.7KB）
-
-## 已完成
-
-- ✅ 开源评估（cubing.js 基底）与 Spike 三验证（记法 / 键盘 / 拖拽）
-- ✅ 项目骨架（Vite 8 + TS 7 + cubing 0.63.3），分层目录
-- ✅ 参数模型 docs/params.md（31 项，含拇指特例与 1/60s 帧精度）
-- ✅ 旧文档清理归档 docs/docs_old.md
-- ✅ 数据层：HandRig / formula / technique / Timeline（verify-data 12/12）
-- ✅ 路由与页面壳：开始 / 游戏 / 动画编辑（占位）/ 按键设置 / 说明（2026-08-06）
-- ✅ 自定义按键设置页：改键捕获、localStorage 持久化、冲突检测、连击冷却滑块（2026-08-06）
-- ✅ 连击冷却优化基础版：`moveCooldownMs` 默认 120ms，实测 6 连按 → 2 步（2026-08-06）
-- ✅ UI 流程实测：playtest-ui 8 项通过（路由切换 / 改键生效 / 冷却 / 各页渲染），修复导航被控制栏遮挡、innerHTML 清掉导航两个 bug
-- ✅ i18n 基础设施：文案集中到 src/i18n（zh-CN 全量 + 语言切换与 en 占位），设置持久化语言字段（2026-08-06）
-- ✅ UI 收尾（2026-08-06）：开始页居中且去掉重复导航；非开始页导航首项改为"返回"；
-   游戏页移除"记法自检"（spike 时代工具，校验保留在 scripts/verify-notation.mjs）；
-   说明页删除与按键设置重复的键位/冷却段落，补动画编辑器说明占位
-- ✅ 公式库/手法库页（2026-08-06）：路由 /library、列表增删改、JSON 导入导出、加载示例；
-   数据层新增 libraryStore（合并/持久化）与示例数据（verify-data 15/15）
-- ✅ 基建（2026-08-06）：@types/node；vite optimizeDeps 预打包 cubing，修复 dev 首次加载 504；
-   el() DOM 工具抽到 ui/dom.ts；i18n locales 目录与 css 按归属拆分
-- ✅ 分类系统（2026-08-06）：分类树（最多 4 层、深度校验、环检测、删除子分类上提）、
-   公式多归属（categoryIds，交叉分类）、大流派建议用标签（CFOP/Roux/ZZ 快捷建议）；
-   公式库页分类管理 + 公式行显示分类；示例数据含 OLL/PLL/1LLL/CMLL/ZBLL 与 ZBLL⊆1LLL
-- ✅ 开始页增加"公式库"入口（2026-08-06）
-- ✅ 排查修复：残留 dev server 占用 5173 导致 twisty 3D 动态块 404/504、游戏页黑屏
-   （根因是 Stop-Job 只杀 npm 包装进程、子进程成孤儿；改用按端口清理）
-- ✅ 公式表单重排（2026-08-06）：两行布局（名称+标签 / 公式+分类+确认取消）；
-   标签改为"+"添加胶囊（支持 ,/; 分隔、去重、最多 4 个、计数器）；测试端口改为 5174 避免与用户预览冲突
-- ✅ 分类改单选（2026-08-06）：Formula.categoryId（旧 categoryIds 数组自动迁移取首项）；
-   分类区说明文本（客观分类、选最小集合）；标签区说明（主观流派、,/; 分隔、首尾空格去除）
-- ✅ 手法模型约束（2026-08-06）：Technique.formulaId 必填、一个公式可绑定多个手法、
-   删除公式级联删除其手法；库页手法区加说明文本与公式行"手法 n"计数
-- ✅ 标灰系统（2026-08-06，游戏侧）：54 小面模型（src/cube/stickering.ts，坐标往返验证）；
-   3D 标灰用 three.js mesh 材质实现（绝对坐标绑定、随转动移动，scheduleRender 强制重绘）；
-   两类灰 mutable（浅灰，可随时改）/ immutable（深灰，固定）
-- ✅ 标灰面板（游戏页右上角）：预设 初始十字/左桥/右桥/清除 + 六面展开图点击/拖选 + 可变/不可变切换
-- ✅ 六色底适配：设置页全局底色（六色色块 + 随机底，localStorage 持久化）；
-   预设按底旋转适配（verify：六底色 45/41 灰一致）；测试端口 5174
-- ✅ 实测：标灰面板十字 45 灰/点选 46/清除 0；3D 即时显示且 R 转后灰格跟随移动
-- ✅ 反馈迭代（2026-08-06）：全局底色作用于游戏起始朝向（旋转使底色面朝下，baseFaceSetupAlg）；
-   游戏面板移除可变/不可变切换（留数据层，编辑器阶段再用）；
-   标灰小视图改为伪 3D（等轴测角对角 + 左/右/下三面半透明外投影，点击/拖选）；
-   公式表单分类改为级联胶囊下拉（按树逐层展开，最深选中项为分类，回显路径）
-- ✅ 伪3D 视图二次迭代（2026-08-06）：实心主体（无面间空隙、背面不外露）；隐藏三面投影拉远（2.0）全部可点选；
-   拖拽换面仅在按住时生效（悬停不换面，改用 clientX/Y 差值，适配真实浏览器与自动化）；
-   X/Y/Z 换面仅焦点在视图上时执行（不触发主魔方转动）；视图跟随魔方实时状态（读 mesh 位置，底面与真实魔方一致）；
-   viewBox 统计全部多边形 + SVG 自适应面板宽度（不再裁剪）
-- ✅ 分类级联下拉修复（2026-08-06）：change 监听闭包捕获循环结束后的 `level`，导致改选时切错链、
-   下拉回弹无法更改；改为按层捕获（`const lv = level`），改选首级时清空深层选择；playtest 回归通过
-- ✅ 时间线编辑器骨架（2026-08-06）：手法选择/新建（关联公式必填）、时间线轨道（60fps 标尺、
-   关键帧标记、步骤区间带）、选中关键帧（帧号移动/缓动/删除）、添加关键帧（复制选中或前序姿态）、
-   60fps 补帧预览（滑杆播放 + 插值姿态读数 + 每 15 帧采样表）、保存回库；playtest 15 项通过
-- ✅ 手/手掌 3D 模型（2026-08-06）：简化圆柱段 + 手掌盒体，拇指特例（2 段 3 关节、CMC 展收/对掌），
-   每段指腹（绿）/指背（橙）方向标记、接触点白球；注入 cubing 场景与魔方同视角（GrayOverlay 同款模式），
-   姿态跟随预览帧/选中关键帧；左右手切换（镜像）；默认手位放魔方前方（defaultHandPose，避免埋在魔方里）；
-   手材质用 MeshBasicMaterial（cubing 场景无灯光，Standard 材质会渲染成黑色）；playtest 16 项通过
-- ✅ 手部比例与初始位校准（2026-08-06）：几何在构建时放大、group 只做坐标映射（位置保持魔方单位语义）；
-   默认手位改魔方左前方（palm -3,0.5,9，手指伸向前表面，拉开距离减少遮挡）；像素实测魔方块边长≈67px
-- ✅ 手部比例按人体测量数据校准（2026-08-06）：各指总长比 acbjournal 2024（thumb 0.70 / index 0.90 /
-   middle 1.00 / ring 0.93 / little 0.75，中指=1）+ 指节长度占比 JSSM（中指近节 48.5% 等）+
-   指粗比（16/15/15/14/13 → 相对小指 1.23/1.15/1.15/1.08/1.00）；修复食指≈无名指等长、近节偏短、
-   手指粘连等问题；verify-data 新增比例断言（docs/params.md §手部比例）
-- ✅ 手部目测回调（2026-08-06）：小指锚点 3.1 → 2.1 块边长（HAND_SCALE 2.1/1.33，中指 ≈2.8 恰好横跨
-   一个魔方面）；手掌从 2.09×2.83 回调到 1.35×0.45×1.55（避免"过大长方体"）；
-   拇指根移到掌前缘下侧（0.68,-0.14,0.5）避免与食指重叠
-- ✅ 手部标定页（2026-08-06）：独立路由 #/hand、平铺手掌正交视图（无透视失真）+ 块边长标尺
-   （SVG 网格/宽长轴刻度，1 格 = 1 块边长）；参数面板（各指段长/段粗、手掌宽厚长、指根间距、
-   拇指根 X/Y/Z、整体放大系数）实时预览；「固化保存」写入 localStorage（motion-cube.handRig），
-   编辑器/游戏构造 HandRigView 时自动读取同一配置（handRigStore，含规范化/越界截断）；
-   几何构建抽到 handGeometry 供视图与标定共用（防漂移）；playtest 新增标定页用例（标尺/编辑/固化）全绿
-- ✅ 标定页显示修复（2026-08-06）：① 单位换算 bug——标尺刻度误用场景单位（1 格=3 块边长）、
-   视野过大，手被缩成角落小图；改为按 CUBE_UNIT_WORLD 换算并重设视野 ② 高分屏 dpr>1 下
-   setSize(w,h,false) 不更新 canvas CSS，缓冲区 2× 容器被 overflow:hidden 裁掉左上部分，
-   居中的手落在可见框右下角；改为 updateStyle=true ③ 镜头改为自动对准手包围盒中心
-   （视野仍覆盖手+标尺），手始终居中；新增 scripts/verify-hand-calib.mjs 像素级验证
-   （dpr=2 下中心 0.499/0.499）④ 编辑器无手法时也显示默认手位（不再空视口）
-- ✅ 调试心得（2026-08-06）：编辑器视口"空白"系 puppeteer 点击页面底部控件自动滚动页面、
-   裁剪截图区域在屏幕外所致，非渲染 bug；截图前需 scrollIntoView。cubing 的 TwistyPlayer 用
-   IntersectionObserver 懒初始化 + 闭式 shadow root（DOM 探查无效），渲染检查应以像素/识图为准
-- ✅ 待编辑器阶段全部完成（2026-08-13 同步）：动画编辑器"不可变选项"
-  （默认可变、编辑器切换、GrayOverlay 80ms 防抖截断高频请求）；编辑器起始底色；
-  伪 3D 视图 x/y/z 整面翻转（滑环 6 方向点 + 键盘）；immutable 面板深灰填充
-  区分（3D 中 immutable 为深灰 GRAY_IMMUTABLE）
+- 端口 **5173** 为用户日常预览；本项目 dev/playtest 用 **5174** 或其它非 5173 端口
+- 版本号 package.json 与 src-tauri/tauri.conf.json 必须同步（tauri 打包以 conf 为准）
+- 提交：不 amend、不擅自 push；功能/修复提交时评估 bump
+- 验证命令：`npm run typecheck` / `npm run build` / `node scripts/smoke-solver.ts` /
+  `node scripts/smoke-solver-edge.ts` / `node scripts/playtest-ui.mjs`（SPIKE_URL 指向非 5173）

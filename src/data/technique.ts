@@ -1,5 +1,5 @@
 /**
- * 手法库模型（docs/start.md、docs/params.md）。
+ * 手法库模型。
  * 与公式强关联（formulaId）但可单独编辑；关键帧为稀疏控制点，系统按 1/60s 补帧。
  */
 import { FINGER_ORDER, type Contact, type FingerName, type Pose, type Side } from "../hand/HandRig";

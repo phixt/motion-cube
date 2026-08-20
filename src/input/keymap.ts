@@ -1,5 +1,5 @@
 /**
- * 层 C'：自定义键盘映射（docs/base.md、docs/todo.md 体验问题 #2）。
+ * 层 C'：自定义键盘映射（docs/todo.md 体验问题）。
  * 每个动作（SiGN 动作 / 特殊动作）绑定一个物理键组合（code + Shift + Space 修饰）。
  * Space 保留为"双层 wide 修饰键"；Shift 常作反转修饰。配置可持久化（见 settings.ts）。
  */

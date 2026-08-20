@@ -25,7 +25,7 @@ for (let i = 0; i < iters; i++) {
   const state = applyAlg(solvedState(), scramble);
   const scrambleStr = tidyAlg(scramble).join(" ");
 
-  for (const method of ["cfop", "roux"] as const) {
+  for (const method of ["cfop", "cfop-adv", "roux"] as const) {
     const ts = performance.now();
     let res;
     try { res = solve(state, method); } catch (e) {

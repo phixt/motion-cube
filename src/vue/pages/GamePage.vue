@@ -152,19 +152,35 @@ const clearProgress = (): void => {
   scrambleAlg.value = "";
 };
 
-/** 生成随机打乱（20 步，与 WCA 同风格）并应用 */
-const scrambleCube = (): void => {
-  if (!session) return;
+/** 生成随机打乱（20 步，与 WCA 同风格）并逐步播放（速度受 speed 控件控制，最高 3 倍速） */
+const scrambleCube = async (): Promise<void> => {
+  if (!session || demoRunning.value) return;
   cancelDemo();
   const scr = randomScramble(20).join(" ");
-  session.applyAlg(scr);
   scrambleAlg.value = scr;
   status.value = t("hud.scrambled", { n: 20 });
+  session.player.pause();
+  demoRunning.value = true;
+  const myToken = demoToken;
+  const delay = Math.max(60, 420 / speed.value);
+  for (const mv of scr.split(" ")) {
+    if (demoToken !== myToken) return;
+    session.player.applyMove(mv);
+    await new Promise<void>((r) => {
+      sleepResolve = r;
+      setTimeout(() => { if (sleepResolve === r) sleepResolve = null; r(); }, delay);
+    });
+  }
+  if (demoToken !== myToken) return;
+  demoRunning.value = false;
+  session.player.pause(); // 停在打乱态
 };
 
-/** 当前真实魔方状态：已解 + 底色整体旋转 + 玩家步 */
+/** 当前真实魔方状态：已解 + 底色整体旋转（六色底开关关 = 固定 D）+ 玩家步 */
 const currentState = (): Uint8Array => {
-  const setup = baseFaceSetupAlg(loadSettings().baseFace);
+  const s = loadSettings();
+  const base = s.sixColorBase ? s.baseFace : "D";
+  const setup = baseFaceSetupAlg(base);
   const alg = (setup ? setup + " " : "") + (session?.player.currentAlg ?? "");
   return applyAlgState(solvedState(), alg);
 };

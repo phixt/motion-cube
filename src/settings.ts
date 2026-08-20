@@ -38,6 +38,8 @@ export type AppSettings = {
   locale: Locale;
   /** 全局底色（预设标灰按此适配；六色底） */
   baseFace: Face;
+  /** 六色底双模式开关：开 = 求解/起始朝向跟随设置底；关 = 固定 D 底 */
+  sixColorBase: boolean;
   /** 标尺默认显示 */
   rulerEnabled: boolean;
   /** 首页视差强度 */
@@ -48,6 +50,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   moveCooldownMs: 120,
   locale: DEFAULT_LOCALE,
   baseFace: "D",
+  sixColorBase: true,
   rulerEnabled: true,
   parallaxIntensity: DEFAULT_PARALLAX_INTENSITY,
 };
@@ -120,6 +123,10 @@ export function loadSettings(): AppSettings {
       baseFace: (FACES as readonly string[]).includes(base ?? "")
         ? (base as Face)
         : DEFAULT_SETTINGS.baseFace,
+      sixColorBase:
+        typeof obj?.sixColorBase === "boolean"
+          ? obj.sixColorBase
+          : DEFAULT_SETTINGS.sixColorBase,
       rulerEnabled:
         typeof obj?.rulerEnabled === "boolean"
           ? obj.rulerEnabled

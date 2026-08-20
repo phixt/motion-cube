@@ -153,6 +153,7 @@ export const en: Record<string, string> = {
   "keymap.special.reset": "Reset",
   "keymap.special.play": "Play/Pause",
   "keymap.baseTitle": "Base color (six-color orientation)",
+  "keymap.sixColorBase": "Six-color base mode (off = fixed D)",
   "keymap.baseNote":
     "Presets (cross / Roux left-right block) adapt to the base color; the editor can set another base.",
   "keymap.randomBase": "Random",
@@ -226,7 +227,7 @@ export const en: Record<string, string> = {
   "help.title": "Help",
   "help.project": "Project",
   "help.projectDesc":
-    "Motion Cube: a cube algorithm playback / editing / viewing tool. Built on the cubing.js 3D cube; the core is a finger animation editor (hand/finger parameter model: docs/params.md).",
+    "Motion Cube: a cube algorithm playback / editing / viewing tool. Built on the cubing.js 3D cube; the core is a finger animation editor (hand/finger parameter model: docs/todo.md).",
   "help.gameOps": "Game page",
   "help.opDrag": "Drag the cube area: orbit the view",
   "help.opKeys":

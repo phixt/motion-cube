@@ -1,5 +1,5 @@
 /**
- * 公式库模型（docs/formula.md、docs/params.md）。
+ * 公式库模型。
  * 只存公式本身（标准 R L 记法），不存速度/手法；与手法库通过 formulaId 弱关联。
  */
 import { normalizeMoves, validateFormulaMoves } from "../notation/alg";
@@ -69,7 +69,7 @@ export function removeFormula(lib: FormulaLibrary, id: string): FormulaLibrary {
   return { ...lib, formulas: lib.formulas.filter((f) => f.id !== id) };
 }
 
-/** 导出为 JSON 字符串（存储格式，docs/formula.md：存储/导出可与标准记法不一致） */
+/** 导出为 JSON 字符串（存储格式，存储/导出可与标准记法不一致） */
 export function serializeFormula(lib: FormulaLibrary): string {
   return JSON.stringify(lib, null, 2);
 }

@@ -3,14 +3,16 @@
  *   1. 左块   ：D-L 1x2x3，全面前转 IDA*。
  *   2. 右块   ：D-R 1x2x3，<R,U,M> IDA*（保证不破坏左块）。
  *   3. CMLL  ：四个 U 角，块安全公式图 BFS。
- *   4. LSE   ：<M,U> 内最后六棱，4a 棱定向 → 4b UL/UR → 4c L4E。
+ *   4. LSE   ：<M,U> 内最后六棱；4a 棱定向（优先 EOLR 一步：EO + UL/UR 伪位）→
+ *      6E2C（4c L4E 一步，UL/UR 伪位并入——4b 不再单列）。
  */
 import { ALG_LIBRARY, algGraph } from "./algs";
 import {
-  applyAlg, cubieSolved, edgeDecode, edgeHomeCode, edgeSlot, normalsOf, pos, posKey, tidyAlg, FACE_MOVES,
+  applyAlg, cubieSolved, edgeDecode, edgeHomeCode, edgeSlot, normalsOf, parseAlg, pos, posKey, readCenter, readEdge, solvedState, tidyAlg, CUBIES, FACE_MOVES,
 } from "./engine";
-import type { State } from "./engine";
+import type { State, Vec3 } from "./engine";
 import { ItemSolver, itemCenter, itemCorner, itemEdge } from "./search";
+import cuberootJson from "../../../data/samples/cuberoot-algs.json";
 
 const LEFT = [itemCorner("DLF"), itemCorner("DLB"), itemEdge("DL"), itemEdge("LF"), itemEdge("LB")];
 const RIGHT = [itemCorner("DRF"), itemCorner("DBR"), itemEdge("DR"), itemEdge("RF"), itemEdge("RB")];
@@ -18,6 +20,7 @@ export const LEFT_NAMES = ["DLF", "DLB", "DL", "LF", "LB"];
 export const RIGHT_NAMES = ["DRF", "DBR", "DR", "RF", "RB"];
 const RUM = ["R", "R2", "R'", "U", "U2", "U'", "M", "M2", "M'"];
 const MU = ["M", "M2", "M'", "U", "U2", "U'"];
+const U_MOVES = ["", "U", "U2", "U'"];
 
 const LSE_EDGE_NAMES = ["UF", "UB", "DF", "DB", "UL", "UR"];
 const LSE_EDGES = LSE_EDGE_NAMES.map(itemEdge);
@@ -37,6 +40,39 @@ function orientedCodes(homeName: string, slotFilter?: Set<number>): number[] {
   return out;
 }
 
+/** LSE 动态 EO 判定：棱的 U/D 色贴纸（0/3）法线平行于「当前 U 中心法线」（M 层偏移系） */
+function lseEoDone(state: State): boolean {
+  let nu: Vec3 = [0, 1, 0];
+  for (const c of CUBIES) if (c.type === "center") for (const s of c.stickers) if (state[s.index] === 0) { nu = s.normal; break; }
+  for (const n of LSE_EDGE_NAMES) {
+    const p = pos(n);
+    const cubie = CUBIES.find((c) => c.pos[0] === p[0] && c.pos[1] === p[1] && c.pos[2] === p[2]);
+    if (!cubie) return false;
+    const ok = cubie.stickers.some(
+      (s) => (state[s.index] === 0 || state[s.index] === 3)
+        && Math.abs(s.normal[0] * nu[0] + s.normal[1] * nu[1] + s.normal[2] * nu[2]) === 1,
+    );
+    if (!ok) return false;
+  }
+  return true;
+}
+
+/** EOLR 表指纹：6 棱 code + U 中心 code，U 旋转 4 种取最小 */
+function eolrFingerprint(state: State): { fp: number; um: number } {
+  let best = Infinity, um = 0;
+  for (let m = 0; m < 4; m++) {
+    const st = m ? applyAlg(state, parseAlg(U_MOVES[m])) : state;
+    let fp = readCenter(st, "U");
+    for (const n of LSE_EDGE_NAMES) fp = fp * 24 + readEdge(st, n);
+    if (fp < best) { best = fp; um = m; }
+  }
+  return { fp: best, um };
+}
+
+const EOLR_RAW = (cuberootJson as {
+  sets: { "lse-eolr": { cases: Array<{ name: string; setup: string; alg: string }> } };
+}).sets["lse-eolr"];
+
 export type RouxTables = {
   block1: ItemSolver;
   block2: ItemSolver;
@@ -44,6 +80,8 @@ export type RouxTables = {
   eo: ItemSolver;
   ulur: ItemSolver;
   l4e: ItemSolver;
+  /** EOLR 一步表：状态指纹（U 旋转归一 + U 中心）→ {公式, case 名}。仅收「施加后全 EO」case。 */
+  eolr: Map<number, { moves: string[]; name: string }>;
   ms: number;
 };
 
@@ -69,7 +107,20 @@ export function prepare(): RouxTables {
     ].concat([[0, 3]]),
   });
   const l4e = new ItemSolver(LSE_EDGES.concat([centerU, cornerUFR]), MU, { subsetSize: 3, name: "lse-l4e" });
-  TABLES = { block1, block2, cmll, eo, ulur, l4e, ms: Date.now() - t0 };
+
+  // EOLR 一步表：setup 态指纹 → 公式。仅保留「施加后动态 EO done」的全 EO case（Arrow 等中间态不入表）。
+  const eolr = new Map<number, { moves: string[]; name: string }>();
+  for (const c of EOLR_RAW.cases) {
+    let S: State, T: State, moves: string[];
+    try { S = applyAlg(solvedState(), parseAlg(c.setup)); } catch { continue; }
+    try { moves = parseAlg(c.alg); } catch { continue; }
+    try { T = applyAlg(S, moves); } catch { continue; }
+    if (!lseEoDone(T)) continue;
+    const { fp } = eolrFingerprint(S);
+    if (!eolr.has(fp)) eolr.set(fp, { moves, name: c.name });
+  }
+
+  TABLES = { block1, block2, cmll, eo, ulur, l4e, eolr, ms: Date.now() - t0 };
   return TABLES;
 }
 
@@ -106,17 +157,32 @@ export function solve(state0: State): { stages: SolveStage[]; state: State } {
   st = applyAlg(st, cm);
   stages.push({ key: "cmll", label: "顶层角块 CMLL", short: "CMLL", moves: cm, algs: names });
 
-  mv = runItem(T.eo, 12, 4e6);
-  if (!mv) throw new Error("LSE edge orientation failed");
-  stages.push({ key: "lse-eo", label: "棱定向 EO (4a)", short: "4a EO", moves: mv });
+  // 4a 棱定向：优先 EOLR 一步（EO + UL/UR 伪位）；未匹配回退搜索
+  let eolrUsed = false;
+  const { fp, um } = eolrFingerprint(st);
+  const eolrHit = T.eolr.get(fp);
+  if (eolrHit) {
+    const pre = um ? parseAlg(U_MOVES[um]) : [];
+    const st2 = applyAlg(st, [...pre, ...eolrHit.moves]);
+    if (lseEoDone(st2)) {
+      st = st2;
+      stages.push({
+        key: "lse-eolr", label: "棱定向 + UL/UR (EOLR)", short: "EOLR",
+        moves: [...pre, ...eolrHit.moves], algs: [eolrHit.name],
+      });
+      eolrUsed = true;
+    }
+  }
+  if (!eolrUsed) {
+    mv = runItem(T.eo, 12, 4e6);
+    if (!mv) throw new Error("LSE edge orientation failed");
+    stages.push({ key: "lse-eo", label: "棱定向 EO (4a)", short: "4a EO", moves: mv });
+  }
 
-  mv = runItem(T.ulur, 14, 4e6);
-  if (!mv) throw new Error("LSE UL/UR failed");
-  stages.push({ key: "lse-ulur", label: "UL/UR 归位 (4b)", short: "4b UL/UR", moves: mv });
-
-  mv = runItem(T.l4e, 16, 6e6);
+  // 6E2C：UL/UR 伪位并入 4c 一步（4b 不再单列——l4e 从「UL/UR 任意」解到已解，已验证 8/8）
+  mv = runItem(T.l4e, 18, 8e6);
   if (!mv) throw new Error("LSE last four edges failed");
-  stages.push({ key: "lse-l4e", label: "最后四棱 (4c)", short: "4c L4E", moves: mv });
+  stages.push({ key: "lse-l4e", label: "最后六棱二中心 (6E2C)", short: "6E2C", moves: mv });
 
   return { stages, state: st };
 }

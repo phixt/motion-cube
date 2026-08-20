@@ -36,7 +36,7 @@ export class CubePlayer {
       background: "none",
       controlPanel: "none",
       hintFacelets: "none",
-      // 键盘：关闭内置输入，由 keymap 层接管（docs/base.md 要求自定义键位）
+      // 键盘：关闭内置输入，由 keymap 层接管（自定义键位要求）
       experimentalMovePressInput: "none",
       // 拖拽：保留内置视角拖拽，验证其行为后再决定自定义手势层
       experimentalDragInput: "auto",

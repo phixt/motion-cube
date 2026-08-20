@@ -42,7 +42,8 @@ export function createGameSession(
   hooks: GameSessionHooks,
 ): GameSession {
   const settings = loadSettings();
-  const player = new CubePlayer(stage, { cameraDistance: 6.5, baseFace: settings.baseFace });
+  const activeBase = settings.sixColorBase ? settings.baseFace : "D";
+  const player = new CubePlayer(stage, { cameraDistance: 6.5, baseFace: activeBase });
 
   // ---- 标灰：状态 + 3D 覆盖层 + 面板 ----
   const grayState: { state: GrayState } = { state: createGrayState() };
@@ -58,11 +59,11 @@ export function createGameSession(
       overlay.requestApply(s);
       grayPanelApi.refresh();
     },
-    getBase: () => settings.baseFace,
+    getBase: () => activeBase,
     getKind: () => "mutable",
     getPositions: () => overlay.currentPositions(),
     applyPreset: (p: GrayPreset | "clear") => {
-      grayState.state = p === "clear" ? createGrayState() : presetGrayState(p, settings.baseFace);
+      grayState.state = p === "clear" ? createGrayState() : presetGrayState(p, activeBase);
       overlay.requestApply(grayState.state);
       grayPanelApi.refresh();
     },

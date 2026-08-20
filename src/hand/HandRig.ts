@@ -1,5 +1,5 @@
 /**
- * 层 E 数据模型：手/手指骨架定义与姿态快照（docs/params.md）。
+ * 层 E 数据模型：手/手指骨架定义与姿态快照。
  * 关键特例：拇指 2 段、关节表 CMC/MCP/IP；CMC 位于手掌基底，
  * 含屈伸 + 展收 + 对掌旋转自由度（thumb.baseDOF）。
  */
@@ -103,7 +103,7 @@ function standardFinger(name: FingerName, lengths: number[], widths: number[]): 
 /**
  * 默认手骨架（指节长度/粗细按开源人体测量数据折算为魔方单位；拇指为特例）。
  *
- * 数据来源（2026-08-06 校准，见 docs/params.md §手部比例）：
+ * 数据来源（2026-08-06 校准）：
  * - 各指总长比（以中指为 1）：acbjournal 2024（51 名 18–30 岁青年，指节之和 mm）
  *   thumb 49.5 / index 63.9 / middle 70.7 / ring 65.5 / little 53.3
  *   → 0.700 / 0.904 / 1.000 / 0.926 / 0.754

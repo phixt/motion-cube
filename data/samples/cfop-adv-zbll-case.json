@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "source": "本地诊断案例（docs/todo.md 备注；2026-08-20 由当前工作树求解器产出）",
+  "note": "cfop-adv 一步 ZBLL 命中但比纯 CFOP 更长的反例：ZBLS miss → EO 预置成额外开支，当前流水线 LL 步数与 OLL+PLL 中性。",
+  "scramble": "R2 D2 L2 R' D2 B2 R' D' U2 L2 F B' R F D' L2 B D2 R2 B2",
+  "solutions": {
+    "cfop": "U L F2 R' L2 B' F' U2 F2 R' F' R F U' F' U F U F' U R' U' R2 B' R' B B' U' B L U L' U' R U R' U' R' r U R U' r' U R U2 R D R' U R D' R' U' R' U R U R'",
+    "cfop-adv": "U L F2 R' L2 B' F' U2 F2 R' F' R F U' F' U F U F' U R' U' R2 B' R' B B' U' B L U L' R' U2 R U R' U R r U2 R' U' R U' r' U2 U2 L' B' L F' L' B L2 F l' U' L' U l",
+    "roux": "R F2 U L' F' B R' B2 R2 M' U' M U' R M' U R2 U R' U R U2 R' U' R U' R' M' U' M' U M M2 U2 M U2 M U M U2 M U"
+  },
+  "cfopAdvStages": [
+    { "key": "cross", "label": "底层十字", "moves": 6 },
+    { "key": "f2l1", "label": "F2L 第 1 组", "moves": 6 },
+    { "key": "f2l2", "label": "F2L 第 2 组", "moves": 7 },
+    { "key": "f2l3", "label": "F2L 第 3 组", "moves": 7 },
+    { "key": "f2l4", "label": "F2L 第 4 组（ZBLS miss）", "moves": 6 },
+    { "key": "zbl-eo", "label": "棱定向预置", "moves": 14 },
+    { "key": "zbl", "label": "顶层一步 ZBLL", "algs": ["ZBLL U 29"], "moves": 15 }
+  ],
+  "metrics": {
+    "cfop": 59,
+    "cfop-adv": 61,
+    "roux": 42,
+    "finding": "ZBLL 命中（61）仍比纯 CFOP（59）长 2 步：zbl-eo 14 + zbl 15 = 29 ≈ OLL 13 + PLL 15 = 28，步数中性。",
+    "agg24": {
+      "hit": 12,
+      "miss": 12,
+      "avgMovesHit": 59.4,
+      "avgMovesMiss": 68.4,
+      "avgCfop": 59.5,
+      "conclusion": "命中时与 CFOP 持平，miss 时比 CFOP 多 ~9 步；真赢点只在 ZBLS 命中使 EO 免费、LL 剩一步 ZBLL 对 OLL+PLL。"
+    }
+  }
+}

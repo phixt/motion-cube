@@ -52,4 +52,3 @@ node scripts/shot-preview.mjs       # WinUI 预览页截图
 ## 迁移状态
 
 原 vanilla TS 命令式 DOM 版已整体迁移到 Vue 3 + WinUIonWeb（7 个页面全部迁移，playtest 全量通过）。
-评估与实施计划见 [docs/migration-vue-winui-plan.md](docs/migration-vue-winui-plan.md)。
