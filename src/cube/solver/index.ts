@@ -1,8 +1,8 @@
-export * from "./engine";
-export * from "./search";
-export * from "./algs";
-export * from "./f2lTable";
-export * from "./solve";
-export type { SolveStage } from "./cfop";
-export * as CFOP from "./cfop";
-export * as ROUX from "./roux";
+export * from "./engine.ts";
+export * from "./search.ts";
+export * from "./algs.ts";
+export * from "./f2lTable.ts";
+export * from "./solve.ts";
+export type { SolveStage } from "./cfop.ts";
+export * as CFOP from "./cfop.ts";
+export * as ROUX from "./roux.ts";

@@ -5,12 +5,12 @@
  *   1. 中心漂移：slice 步会转中心，先把状态拨回 home 朝向，再把解法每步映射回真魔方。
  *   2. 校验：重放解法序列，除非六面真的一致否则拒绝。
  */
-import { applyAlg, isSolved, isUniform, normalizeOrientation, transformMove } from "./engine";
-import type { State } from "./engine";
-import { CFOP, prepare as cfopPrepare, type SolveStage } from "./cfop";
-import { ROUX, prepare as rouxPrepare } from "./roux";
-import { prepare as zblPrepare } from "./zbl";
-import { prepare as zblsPrepare } from "./zbls";
+import { applyAlg, isSolved, isUniform, normalizeOrientation, transformMove } from "./engine.ts";
+import type { State } from "./engine.ts";
+import { CFOP, prepare as cfopPrepare, type SolveStage } from "./cfop.ts";
+import { ROUX, prepare as rouxPrepare } from "./roux.ts";
+import { prepare as zblPrepare } from "./zbl.ts";
+import { prepare as zblsPrepare } from "./zbls.ts";
 
 export type SolveMethodKey = "cfop" | "cfop-adv" | "roux" | "roux-adv";
 export type Method = {

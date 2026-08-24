@@ -5,13 +5,13 @@
  *   OLL  ：翻色坐标 BFS，边 = 经核验的纯 LL 公式。
  *   PLL  ：置换坐标 BFS，边 = 朝向中性公式。
  */
-import { ALG_LIBRARY, algGraph } from "./algs";
-import { applyAlg, cubieSolved, edgeHomeCode, cornerHomeCode, isSolved, pos, readCorner, readEdge, rot, rotMatrix, transformMove, veq, viewState, FACE_MOVES, parseAlg } from "./engine";
-import { solveZbls } from "./zbls";
-import type { State, Vec3 } from "./engine";
-import { ItemSolver, itemEdge } from "./search";
-import { F2L_TABLE } from "./f2lTable";
-import { solveLL } from "./zbl";
+import { ALG_LIBRARY, algGraph } from "./algs.ts";
+import { applyAlg, cubieSolved, edgeHomeCode, cornerHomeCode, isSolved, pos, readCorner, readEdge, rot, rotMatrix, transformMove, veq, viewState, FACE_MOVES, parseAlg } from "./engine.ts";
+import { solveZbls } from "./zbls.ts";
+import type { State, Vec3 } from "./engine.ts";
+import { ItemSolver, itemEdge } from "./search.ts";
+import { F2L_TABLE } from "./f2lTable.ts";
+import { solveLL } from "./zbl.ts";
 
 export const CROSS_EDGES = ["DF", "DR", "DB", "DL"];
 const EJECT: Record<number, string> = { 4: "R U R'", 5: "L' U' L", 6: "L U L'", 7: "R' U R" };
@@ -58,7 +58,7 @@ export function prepare(): CFOPTables {
   return TABLES;
 }
 
-import { ollCode, pllCode } from "./algs";
+import { ollCode, pllCode } from "./algs.ts";
 
 export type SlotResult = { state: State; moves: string[]; failed?: boolean };
 

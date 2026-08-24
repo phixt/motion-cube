@@ -1,7 +1,7 @@
 // 求解器冒烟测试：随机打乱 → CFOP/Roux 求解 → 六面 uniform + 步合法。
 // 用法：npx tsx scripts/smoke-solver.ts [iterations] [--seed N]
-import { solve, prepareSolvers } from "../src/cube/solver";
-import { applyAlg, isUniform, MOVES, parseAlg, randomScramble, solvedState, tidyAlg } from "../src/cube/solver";
+import { solve, prepareSolvers } from "../src/cube/solver/index.ts";
+import { applyAlg, isUniform, MOVES, parseAlg, randomScramble, solvedState, tidyAlg } from "../src/cube/solver/index.ts";
 
 const args = process.argv.slice(2);
 const iters = args[0] ? parseInt(args[0], 10) : 3;

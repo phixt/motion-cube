@@ -10,10 +10,10 @@
  *   施加后验证（F2L solved && LL 棱定向）→ 通过即返回；无匹配/验证失败 → null（回退传统 F2L+OLL）。
  * 注：整转 x/y 前置候选逆会产生中心漂移态 → normalize 判 -1 → 自动排除（主候选已覆盖）。
  */
-import { applyAlg, cubieSolved, normalizeOrientation, parseAlg, solvedState, CUBIES } from "./engine";
-import type { State } from "./engine";
-import { llCornerPerm, llCornerTwists, llEdgeFlips, llEdgePerm, permIndex } from "./algs";
-import cuberootJson from "../../../data/samples/cuberoot-algs.json";
+import { applyAlg, cubieSolved, normalizeOrientation, parseAlg, solvedState, CUBIES } from "./engine.ts";
+import type { State } from "./engine.ts";
+import { llCornerPerm, llCornerTwists, llEdgeFlips, llEdgePerm, permIndex } from "./algs.ts";
+import cuberootJson from "../../../data/samples/cuberoot-algs.json" with { type: "json" };
 
 const SLOT_EDGE_POS: Array<[string, [number, number, number]]> = [
   ["FR", [1, 0, 1]],

@@ -8,7 +8,7 @@ import {
   CORNER_MOVE, CENTER_MOVE, EDGE_MOVE, MOVES, applyAlg, cubieSolved, cubieSolvedAt,
   centerHomeCode, cornerHomeCode, edgeHomeCode, readCenter, readCorner, readEdge, solvedState,
   type State,
-} from "./engine";
+} from "./engine.ts";
 
 export type ItemKind = "edge" | "corner" | "center";
 export type Item = { kind: ItemKind; home: string };

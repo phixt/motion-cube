@@ -6,13 +6,13 @@
  *   4. LSE   ：<M,U> 内最后六棱；4a 棱定向（优先 EOLR 一步：EO + UL/UR 伪位）→
  *      6E2C（4c L4E 一步，UL/UR 伪位并入——4b 不再单列）。
  */
-import { ALG_LIBRARY, algGraph } from "./algs";
+import { ALG_LIBRARY, algGraph } from "./algs.ts";
 import {
   applyAlg, cubieSolved, edgeDecode, edgeHomeCode, edgeSlot, normalsOf, parseAlg, pos, posKey, readCenter, readEdge, solvedState, tidyAlg, CUBIES, FACE_MOVES,
-} from "./engine";
-import type { State, Vec3 } from "./engine";
-import { ItemSolver, itemCenter, itemCorner, itemEdge } from "./search";
-import cuberootJson from "../../../data/samples/cuberoot-algs.json";
+} from "./engine.ts";
+import type { State, Vec3 } from "./engine.ts";
+import { ItemSolver, itemCenter, itemCorner, itemEdge } from "./search.ts";
+import cuberootJson from "../../../data/samples/cuberoot-algs.json" with { type: "json" };
 
 const LEFT = [itemCorner("DLF"), itemCorner("DLB"), itemEdge("DL"), itemEdge("LF"), itemEdge("LB")];
 const RIGHT = [itemCorner("DRF"), itemCorner("DBR"), itemEdge("DR"), itemEdge("RF"), itemEdge("RB")];
@@ -127,8 +127,8 @@ export function prepare(): RouxTables {
   return TABLES;
 }
 
-import { cmllCode } from "./algs";
-import type { SolveStage } from "./cfop";
+import { cmllCode } from "./algs.ts";
+import type { SolveStage } from "./cfop.ts";
 
 export function solve(state0: State): { stages: SolveStage[]; state: State } {
   const T = prepare();
@@ -222,15 +222,17 @@ export function solveBasic(state0: State): { stages: SolveStage[]; state: State 
   stages.push({ key: "cmll", label: "顶层角块 CMLL", short: "CMLL", moves: cm, algs: names });
 
   // 基础 LSE 分步（普通）：4a 棱定向 → 4b UL/UR 归位 → 4c M 层四棱归位
+  // 4c 用 l4e（LSE_EDGES + centerU + cornerUFR）——与旧版 3e30423 roux.solve 逐行一致
+  // （人类式分步；从 4a/4b 完成后 cornerUFR 恒在 home，表含角无影响、语义同旧版）
   mv = runItem(T.eo, 12, 4e6);
   if (!mv) throw new Error("LSE edge orientation failed");
   stages.push({ key: "lse-eo", label: "棱定向 EO (4a)", short: "4a EO", moves: mv });
   mv = runItem(T.ulur, 12, 5e6);
   if (!mv) throw new Error("LSE UL/UR placement failed");
   stages.push({ key: "lse-ulur", label: "UL/UR 归位 (4b)", short: "4b ULUR", moves: mv });
-  mv = runItem(T.lse4c, 14, 6e6);
+  mv = runItem(T.l4e, 16, 6e6);
   if (!mv) throw new Error("LSE last four edges failed");
-  stages.push({ key: "lse-4c", label: "M 层四棱归位 (4c)", short: "4c", moves: mv });
+  stages.push({ key: "lse-4c", label: "M 层四棱归位 (4c)", short: "4c L4E", moves: mv });
 
   return { stages, state: st };
 }

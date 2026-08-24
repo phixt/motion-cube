@@ -147,7 +147,9 @@ const clearProgress = (): void => {
   scrambleAlg.value = "";
 };
 
-/** 生成随机打乱（20 步，与 WCA 同风格）并逐步播放（速度受 speed 控件控制，最高 3 倍速） */
+/** 生成随机打乱（20 步，与 WCA 同风格）并逐步播放。
+ *  打乱固定 3 倍速（用户确认：打乱默认 3x，不受演示滑条控制）；
+ *  解法演示播放仍由 speed 滑条控制（见 demoSolve）。 */
 const scrambleCube = async (): Promise<void> => {
   if (!session || demoRunning.value) return;
   cancelDemo();
@@ -157,7 +159,8 @@ const scrambleCube = async (): Promise<void> => {
   session.player.pause();
   demoRunning.value = true;
   const myToken = demoToken;
-  const delay = Math.max(60, 420 / speed.value);
+  // 打乱默认 3 倍速独立于滑条（420/3=140ms 每步；不低于 60ms）
+  const delay = Math.max(60, 420 / 3);
   for (const mv of scr.split(" ")) {
     if (demoToken !== myToken) return;
     session.player.applyMove(mv);

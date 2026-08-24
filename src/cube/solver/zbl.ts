@@ -8,11 +8,11 @@
  *     上以 cuberoot 466 条 ZBLL 公式为边 BFS——库完整，故任意"棱已定向"的
  *     顶层态都恰有一条 ZBLL 一步解；找不到即回退 OLL→PLL。
  */
-import { applyAlg, invertAlg, parseAlg, solvedState } from "./engine";
-import type { State } from "./engine";
-import { ALG_LIBRARY, algGraph, analyzeAlg, llCornerPerm, llCornerTwists, llEdgeFlips, llEdgePerm, permIndex } from "./algs";
-import type { LibEntry } from "./algs";
-import cuberootJson from "../../../data/samples/cuberoot-algs.json";
+import { applyAlg, invertAlg, parseAlg, solvedState } from "./engine.ts";
+import type { State } from "./engine.ts";
+import { ALG_LIBRARY, algGraph, analyzeAlg, llCornerPerm, llCornerTwists, llEdgeFlips, llEdgePerm, permIndex } from "./algs.ts";
+import type { LibEntry } from "./algs.ts";
+import cuberootJson from "../../../data/samples/cuberoot-algs.json" with { type: "json" };
 
 const base3 = (v: number[]): number => v[0] + 3 * v[1] + 9 * v[2] + 27 * v[3];
 const base2 = (v: number[]): number => v[0] + 2 * v[1] + 4 * v[2] + 8 * v[3];

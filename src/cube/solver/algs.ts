@@ -6,9 +6,9 @@
  * 阶段解 = 在"整条算法为边"的坐标图上 BFS（algGraph）；代表元是真实魔方状态，
  * 因此转移不可能出错，解序列天然正确。
  */
-import { applyAlg, cubieSolved, cubieSolvedAt, invertAlg, parseAlg, readCorner, readEdge, solvedState, stickerIndex, CORNER_POS, EDGE_POS, normalsOf, CUBIES, MOVES } from "./engine";
-import type { State } from "./engine";
-import { ALG_RAW } from "./algsRaw";
+import { applyAlg, cubieSolved, cubieSolvedAt, invertAlg, parseAlg, readCorner, readEdge, solvedState, stickerIndex, CORNER_POS, EDGE_POS, normalsOf, CUBIES, MOVES } from "./engine.ts";
+import type { State } from "./engine.ts";
+import { ALG_RAW } from "./algsRaw.ts";
 
 export const LL_CORNERS = ["UFR", "URB", "UBL", "ULF"];
 export const LL_EDGES = ["UF", "UR", "UB", "UL"];
