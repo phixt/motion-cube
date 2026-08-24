@@ -72,12 +72,20 @@
   → 松手最近 90° 取整 + 吸附动画；px90 换算保证缩放无关手感
 
 ### 重建思路：替换 cubing.js 渲染层
-- ⬜ **阶段 0 接口收敛（先做，低风险纯重构）**：CubePlayer 抽象接口隐藏 cubing
-  专属泄漏（`onThreeScene` 替代 `experimentalCurrentThreeJSPuzzleObject`、
+- ✅ **阶段 0 接口收敛**（c91c531）：CubePlayer 抽象接口隐藏 cubing 专属泄漏
+  （`onThreeScene` 替代 `experimentalCurrentThreeJSPuzzleObject`、
   `requestRender` 替代 `experimentalCurrentVantages/scheduleRender`）；
   GrayOverlay/HandRigView/EditorPage 只依赖接口 → 之后替换只重写 CubePlayer
-- ⬜ **阶段 1 渲染替换**：three.js 自建 26 块+贴纸（数据复用 solver/engine 54 贴纸 +
+- 🚧 **阶段 1 渲染替换**：three.js 自建 26 块+贴纸（数据复用 solver/engine 54 贴纸 +
   stickering 坐标）+ rubik-anime-lab 交互特性
+  - ✅ 渲染核心（b142a37）：`src/cube/render/pose.ts`（纯逻辑层：27 块姿态 pos+rot3x3、
+    axisAngleMat 右手正角 / quarterMat 顺时针=负角 snap 精确 0/±1、applyMovePose 同步
+    54 state）+ `src/cube/render/RenderCube.ts`（three 视图：root.scale=1/3 对齐 cubing
+    尺度、26 块黑体+至多 3 张贴纸@dir*1.5、C1 动画队列 step(dt) easeOut、可中断丢弃、
+    undo 历史栈、setState 重涂槽位色）+ `scripts/verify-render-cube.ts`（自检 10/10 全绿）
+  - ⬜ 接驳：CubePlayer 内部切换 RenderCube 后端（容器挂载/宿主场景渲染循环驱动/相机）+
+    播放条语义（play/pause/setMoves/jumpToEnd 等价）+ 拖转拾取（B1/Raycaster）+
+    视觉验证（dev 5174 + 截图）
 - ⬜ **阶段 2 语法层**：默认保留 `cubing/alg`（纯 TS 无 DOM，唯一消费方
   `src/notation/alg.ts`）；solver 与 3D 显示已解耦（engine 零 cubing 依赖）
 - 风险：GrayOverlay/HandRigView 靠 cubing 场景重建回调自愈 + 按需渲染；坐标/色彩
