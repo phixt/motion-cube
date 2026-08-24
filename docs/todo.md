@@ -49,8 +49,12 @@
 
 ## rubik-anime-lab 迁移/合成计划（2026-08-20 新建，未动工）
 
-> 来源：`E:\phx_lumin\Downloads\rubik-anime-lab-0b0c6984.zip`（单文件 index.html）
-> 提取：`%TEMP%\opencode\rubik-anime-lab\index.html`（分析用，未入库）
+> 参考文件已入库 `reference/`（分析用，不入 3D 渲染依赖）：
+> - `reference/rubik-anime-lab.html`：上一参考实现（原
+>   `rubik-anime-lab-0b0c6984.zip`，已分析）
+> - `reference/rubik-cube.html`：求解器移植来源（可读源，48xx 行）
+> - `reference/rubik-v4promax.html`：v4 增强版单文件 build（minified，含
+>   Three.js；动漫卡线渲染 + 表面拖转 + CFOP/Roux 分步演示）
 
 ### LSE 部分
 - ⬜ 保留我方 **4a→6E2C 阶段结构**，不照搬「整体最优+事后切里程碑」（该文件 4b/4c
@@ -80,6 +84,30 @@
   魔法数字（stickering ±1.5、CUBE_UNIT_WORLD=0.33、linearSRGB 管线）全要重推；
   懒渲染兜底（kickRender/kickTimers）可删但要保证快照恢复不丢帧；动画语义
   （experimentalAddMove cancel / jumpToEnd / timeRange）要重写保证等价
+
+### v4pro max 参考分析（2026-08-20，只读）
+
+> 来源 `reference/rubik-v4promax.html`（minified，5066 行，含 Three.js 单文件）。
+> 基于它作阶段 1/2 的可借鉴特性，非照搬清单。
+
+- ⬜ **动漫卡线渲染（零后处理）**：反转壳体描边（hull=黑底 BackSide 材质 + 1.02 放大
+  盒体）+ MeshToonMaterial + gradientMap（0.28/0.55/0.8/1 色阶）+ 贴纸微 emissive +
+  圆角贴纸几何；三光源 + shadowMap + 地面径向渐变紫光；背景旋转光芒/透视网格为纯
+  CSS 可忽略
+- ⬜ **表面拖转交互模型**：射线拾面 → 切向得分选轴 → 先锁轴 → 拖角带增益
+  （1.8×，clamp ±π）→ 松手按最近 90° 吸附（可出 0/1/2/3 圈，0.32rad 死区）；
+  5px 死区防误触；视角 orbit 带惯性 + 双指 pinch（5.6–17 clamp）+ 空闲自动旋转
+- ⬜ **双解法 + 中心校正**：CFOP（十字搜索→贪心 F2L→OLL/PLL 表）与 Roux
+  （FB/SB 块搜索→CMLL→LSE 4a/4b/4c）双路线，total/ms/verified 重放自检；
+  「centre」阶段归位中心（与 solver 中心漂移处理一致，UI 化展示）
+- ⬜ **Worker 求解**：求解器作为字符串经 Blob URL 跑 Web Worker，8s 超时降级
+  inline，UI 不阻塞
+- ⬜ **分步演示 UI**：底部播放条分阶段彩色进度段 + 标签、当前步大字 + 阶段名 +
+  计数、首/上/播/下/尾 + 进度条点击 seek（pendingSeek 合并 + 直接 apply 快进）；
+  右侧步骤按阶段分组、每步 chip 可点击跳转、当前 chip 自动滚动进视口；
+  播放完 COMPLETE! 庆祝 + solved-badge；手动转动即失效旧解法并 toast
+- ⬜ 工程韧性：boot try/catch + 非 WebGL 优雅降级；analysePixels 渲染帧采样贴纸
+  颜色自检；单一动画队列 + isLocked() 门禁（与「高可中断」一致）
 
 ## 已完成批次（摘要）
 
