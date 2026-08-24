@@ -150,6 +150,41 @@ const randV3 = (): Vec3 => [RNG() * 2 - 1, RNG() * 2 - 1, RNG() * 2 - 1];
   check("G1 setState 后 committedPose.state == target", stateEq((rcG as unknown as { committedPose: { state: Uint8Array } }).committedPose.state, target));
 }
 
+// ---- H/I/J/K：拖转逻辑（B1：setLayerVisual 视觉层、dragMove 净零/提交、吸附 from）----
+{
+  // H setLayerVisual 是视觉层：只变换 geometry，不触碰 committed state
+  const rcH = new RenderCube({ internalRaf: false });
+  const before = rcH.committedPose.state;
+  rcH.setLayerVisual(0, [1], -Math.PI / 2);
+  check("H setLayerVisual 视觉旋转不改 committed state", stateEq(rcH.committedPose.state, before));
+  // H1 setLayerVisual 在动画中时被忽略（U 正常完成）
+  rcH.playMove("U");
+  rcH.setLayerVisual(1, [1], 1.5);
+  rcH.step(0.4);
+  check("H1 动画中 setLayerVisual 被忽略（U 正常完成）", stateEq(rcH.committedPose.state, applyAlg(solvedState(), "U")));
+  // I dragMove 净零：from=0.6 → to=0、mi=null：完成后回 committed、不提交不压栈
+  const rcI = new RenderCube({ internalRaf: false });
+  rcI.dragMove(0, [1], 0.6, 0, 200, null);
+  check("I0 dragMove 后 isAnimating=true", rcI.isAnimating);
+  rcI.step(0.25);
+  check("I1 净零拖转完成后 isAnimating=false", !rcI.isAnimating);
+  check("I2 净零拖转完成后 state 仍 solved", stateEq(rcI.committedPose.state, solvedState()));
+  check("I3 净零拖转不压栈（undo 返回 false）", rcI.undo() === false);
+  // J dragMove 提交：axis0 layers[1] from0→-π/2 mi=R
+  const rcJ = new RenderCube({ internalRaf: false });
+  rcJ.dragMove(0, [1], 0, -Math.PI / 2, 200, "R");
+  rcJ.step(0.25);
+  check("J0 提交拖转完成 state == applyAlg(R)", stateEq(rcJ.committedPose.state, applyAlg(solvedState(), "R")));
+  rcJ.undo();
+  check("J1 提交拖转已压栈（undo → solved）", stateEq(rcJ.committedPose.state, solvedState()));
+  // K 吸附动画带 from≠0 起点
+  const rcK = new RenderCube({ internalRaf: false });
+  rcK.dragMove(0, [1], 0.4, Math.PI / 2, 200, "R'");
+  rcK.step(0.25);
+  check("K 吸附动画（from=0.4→π/2）完成 state == applyAlg(R')", stateEq(rcK.committedPose.state, applyAlg(solvedState(), "R'")));
+}
+
+
 // ---- 汇总 ----
 for (const f of FAIL) console.log("FAIL:", f);
 console.log(`\nrender-cube 自检：PASS ${PASS.length} / FAIL ${FAIL.length}`);

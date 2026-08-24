@@ -83,9 +83,19 @@
     54 state）+ `src/cube/render/RenderCube.ts`（three 视图：root.scale=1/3 对齐 cubing
     尺度、26 块黑体+至多 3 张贴纸@dir*1.5、C1 动画队列 step(dt) easeOut、可中断丢弃、
     undo 历史栈、setState 重涂槽位色）+ `scripts/verify-render-cube.ts`（自检 10/10 全绿）
-  - ⬜ 接驳：CubePlayer 内部切换 RenderCube 后端（容器挂载/宿主场景渲染循环驱动/相机）+
-    播放条语义（play/pause/setMoves/jumpToEnd 等价）+ 拖转拾取（B1/Raycaster）+
-    视觉验证（dev 5174 + 截图）
+  - ✅ 接驳宿主与拖转（待提交）：`src/cube/render/RenderCubeHost.ts`（Scene +
+    PerspectiveCamera(cubing 对齐 lat20/lon30/dist6.5)+WebGLRenderer+自驱 rAF+B1 拖转
+    状态机：拾面 pending→useB 判轴→layer 拖角 ±1.05π→endPointer 角度+速度惯性取整→
+    dragMove(from,to,dur,mi) 吸附 commit、净零 mi=null 不提交、orbit/wheel dist∈[5.2,18]/
+    autoSpin + onManualMove/onInteractionChange；pick/planeHit 用 Raycaster）
+    + RenderCube 升级（Anim.from、dragMove、setLayerVisual、debugMeshHits(userData)、
+    isAnimating）+ `src/vue/pages/RenderDemoPage.vue`（`#/render-demo` 调试验证：打乱连播/
+    撤销/适配视角/演示公式/自转）+ `scripts/render-shot.mjs`（puppeteer 截图验证：
+    初始视角对齐 cubing、拖中心→U 顺时针 mi=U 提交、连播中断；输出 spike-shots/
+    render-*.png）+ verify-render-cube 扩 H/I/J/K 拖转断言（19/19）
+  - ⬜ 接驳余项：CubePlayer 内部切换 RenderCube 后端（容器挂载/宿主场景渲染循环/相机）+
+    播放条语义（play/pause/setMoves/jumpToEnd 等价）+ EditorPage 自建宿主循环
+    （替换 cubing vantages）+ 最终视觉对比（dev 5174 + 截图）
 - ⬜ **阶段 2 语法层**：默认保留 `cubing/alg`（纯 TS 无 DOM，唯一消费方
   `src/notation/alg.ts`）；solver 与 3D 显示已解耦（engine 零 cubing 依赖）
 - 风险：GrayOverlay/HandRigView 靠 cubing 场景重建回调自愈 + 按需渲染；坐标/色彩

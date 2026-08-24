@@ -8,14 +8,19 @@
  *
  * 块变换由逻辑姿态驱动（src/cube/render/pose.ts 的 PoseState：块中心规范尺度
  * {±1/0}³、rot 3x3 单位矩阵；贴纸面中心 = 块 + 法线*1.5）。动画 = C1 队列语义
- * （reference/rubik-anime-lab.html）：anim { axis, layers, amount, to, t, dur }；
- * step(dt) 用 easeOut(x)=1-(1-x)^3；到 dur 时 commit（applyMovePose 同步逻辑姿态
- * 与 54 贴纸 state，压历史栈）。可中断：新 playMove 直接丢弃当前动画、几何 snap
+ * （reference/rubik-anime-lab.html）：anim { mi, axis, layers, from, to, t, dur }；
+ * step(dt) 用 easeOut(x)=1-(1-x)^3 在 [from,to] 间插值；到 dur 时 commit（applyMovePose
+ * 同步逻辑姿态与 54 贴纸 state，压历史栈）。可中断：新 move 直接丢弃当前动画、几何 snap
  * 回 committed 姿态再开新动画（同 cubing experimentalAddMove(cancel:true)）。
  *
+ * 拖转（B1 语义）：setLayerVisual 在无动画时把参与层按当前角视觉旋转（不触碰逻辑态）；
+ * endPointer 用 dragMove(axis,layers,from,to,dur,mi) 开吸附动画——mi 为 null 时是净零
+ * 拖转（|n|<半步），动画到点直接回 committed、不提交不压栈。anim.from 支持使吸附起点
+ * 从拖拽当前角起。
+ *
  * 贴纸 = 物理模型：颜色 = 所属块 home 面固定色（随块转）。外部 setState(state54)
- *（编辑器恢复/快照）时每张贴纸切到独立 stateMaterial 重涂为槽位色，几何保持
- * committed 姿态。
+ *（编辑器恢复/快照）时每张贴纸切到独立 stateMaterial 重涂为槽位色，几何保持 committed
+ * 姿态。
  *
  * 渲染驱动：宿主已有 rAF 循环（编辑器场景）→ 每帧调 step(dt)；独立挂载置
  * internalRaf=true 自行驱动。
@@ -61,7 +66,17 @@ export type RenderCubeOptions = {
   onStateChange?: (state: Uint8Array) => void;
 };
 
-type Anim = { mi: string; axis: number; layers: number[]; amount: number; to: number; t: number; dur: number };
+type Anim = {
+  /** 动画到点要提交的动作；null = 净零（不提交、不压栈，几何直接回 committed） */
+  mi: string | null;
+  axis: number;
+  layers: number[];
+  /** 动画起始视觉角（拖转吸附从当前角起）与结束目标角 */
+  from: number;
+  to: number;
+  t: number;
+  dur: number;
+};
 
 export class RenderCube {
   readonly root = new Group();
@@ -118,6 +133,7 @@ export class RenderCube {
       const g = new Group();
       g.name = `block-${i}`;
       const body = new Mesh(this.bodyGeo, this.bodyMaterial);
+      body.userData = { piece: i };
       g.add(body);
       const stickers: BlockView["stickers"] = [];
       for (const s of c.stickers) {
@@ -127,6 +143,7 @@ export class RenderCube {
         const d = s.normal;
         mesh.position.set(d[0] * 1.5, d[1] * 1.5, d[2] * 1.5);
         mesh.quaternion.setFromUnitVectors(new Vector3(0, 0, 1), new Vector3(d[0], d[1], d[2]));
+        mesh.userData = { piece: i, sticker: stickers.length };
         stickers.push({ dir: s.normal, face: s.face, mesh, faceMaterial, stateMaterial });
         g.add(mesh);
       }
@@ -170,7 +187,7 @@ export class RenderCube {
     this.anim.t += dt * 1000;
     const a = this.anim;
     const x = clamp(a.t / a.dur, 0, 1);
-    const theta = easeOut(x) * a.to;
+    const theta = easeOut(x) * (a.to - a.from) + a.from;
     if (theta !== 0) this.applyVisualRotation(a, theta);
     if (x >= 1) this.commit(a);
   }
@@ -190,11 +207,12 @@ export class RenderCube {
 
   private commit(a: Anim): void {
     this.anim = null;
+    this.syncBlocks();
+    if (a.mi == null) return; // 净零拖转：不提交、不改状态（视觉已回 committed）
     const before = this.clonePose(this.poseState);
     this.poseState = applyMovePose(this.poseState, a.mi);
     this.history.push(before);
     if (this.history.length > 256) this.history.shift();
-    this.syncBlocks();
     this.onMoveDone?.(a.mi);
     this.onStateChange?.(this.poseState.state);
   }
@@ -209,11 +227,38 @@ export class RenderCube {
       mi,
       axis: m.axis,
       layers: m.layers.slice(),
-      amount: m.amount,
+      from: 0,
       to: -((((m.amount % 4) + 4) % 4) * (Math.PI / 2)),
       t: 0,
       dur: playDur(this.speed),
     };
+  }
+
+  /**
+   * 拖转吸附动画（B1 endPointer 语义）：from=当前拖拽角、to=目标四分角、
+   * mi=要提交的动作（q==0 时传 null → 净零，动画到点回 committed、不提交不压栈）。
+   */
+  dragMove(axis: number, layers: number[], from: number, to: number, dur: number, mi: string | null): void {
+    this.anim = null;
+    this.syncBlocks();
+    this.anim = { mi, axis, layers, from, to, t: 0, dur };
+  }
+
+  /** 拖拽实时视觉：无动画时把「参与层」按 theta 视觉旋转（不触碰逻辑姿态/历史） */
+  setLayerVisual(axis: number, layers: number[], theta: number): void {
+    if (this.anim || theta === 0) return;
+    this.applyVisualRotation({ axis, layers }, theta);
+  }
+
+  /** 拾取清单：全部块体+贴纸 mesh（body userData={piece}；sticker userData={piece,sticker}） */
+  debugMeshHits(): Object3D[] {
+    const out: Object3D[] = [];
+    for (const b of this.blocks) {
+      for (const c of b.group.children) {
+        if (c instanceof Mesh) out.push(c);
+      }
+    }
+    return out;
   }
 
   /** 立即执行（无动画；用于应用/恢复最终态） */
@@ -292,6 +337,11 @@ export class RenderCube {
 
   get committedPose(): PoseState {
     return this.poseState;
+  }
+
+  /** 当前是否有动画在播（拖转可拾取的判定之一） */
+  get isAnimating(): boolean {
+    return this.anim != null;
   }
 }
 
