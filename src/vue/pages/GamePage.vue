@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import WinButton from "../../vendor/winui-on-web/components/WinButton.vue";
 import WinSlider from "../../vendor/winui-on-web/components/WinSlider.vue";
 import WinTextBox from "../../vendor/winui-on-web/components/WinTextBox.vue";
@@ -10,6 +10,8 @@ import { parseMoves } from "../../notation/alg";
 import { useI18n } from "../i18n";
 import { applyAlg as applyAlgState, randomScramble, solvedState, solve as solveCube, prepareSolvers } from "../../cube/solver";
 import type { SolveResult } from "../../cube/solver";
+import * as methodOpts from "../../cube/solver/methodOptions";
+import SolverOptionsPanel from "../components/SolverOptionsPanel.vue";
 import { baseFaceSetupAlg } from "../../cube/stickering";
 import { loadSettings } from "../../settings";
 
@@ -25,7 +27,21 @@ const status = ref("");
 const speed = ref(1);
 const moves = ref<string[]>([]);
 
-const solveMethod = ref<"cfop" | "cfop-adv" | "roux">("cfop");
+const solveMethod = ref<methodOpts.SolverBase>("cfop");
+const solveOptions = ref<methodOpts.SolverOptions>(methodOpts.loadSolverOptions());
+/** 二级选项面板展开态（点方法按钮展开/再点收起；高级不常驻） */
+const optionsOpen = ref(false);
+const currentOptionGroup = computed(() =>
+  methodOpts.METHOD_OPTION_GROUPS.find((g) => g.method === solveMethod.value),
+);
+const selectMethod = (m: methodOpts.SolverBase): void => {
+  if (solveMethod.value === m) optionsOpen.value = !optionsOpen.value;
+  else {
+    solveMethod.value = m;
+    optionsOpen.value = true;
+  }
+};
+watch(solveOptions, (v) => methodOpts.saveSolverOptions(v), { deep: true });
 const solving = ref(false);
 const solveResult = ref<SolveResult | null>(null);
 const solveError = ref("");
@@ -193,7 +209,10 @@ const doSolve = (): void => {
   // 让状态栏/按钮先刷新，再跑同步求解（预热未完成时首解会建表 ~几百 ms）
   void nextTick(() => {
     try {
-      const res = solveCube(currentState(), solveMethod.value);
+      const res = solveCube(
+        currentState(),
+        methodOpts.resolveSolverMethod(solveMethod.value, solveOptions.value),
+      );
       solveResult.value = res;
       status.value = res.moves.length ? t("solve.total", { n: res.moves.length }) : t("solve.empty");
     } catch (e) {
@@ -254,10 +273,16 @@ const demoSolve = async (): Promise<void> => {
       <WinTextBlock class="speed-label" :Text="`${t('hud.speed')} ${speed.toFixed(1)}x`" FontSize="13" />
       <WinSlider id="speed" class="hud-speed" v-model:Value="speed" :Minimum="0.1" :Maximum="3" StepFrequency="0.1" />
       <span id="solve-method" class="solve-method">
-        <WinButton id="btn-method-cfop" :class="['method-btn', { active: solveMethod === 'cfop' }]" :Content="t('solve.methodCfop')" @Click="solveMethod = 'cfop'" />
-        <WinButton id="btn-method-cfop-adv" :class="['method-btn', { active: solveMethod === 'cfop-adv' }]" :Content="t('solve.methodCfopAdv')" @Click="solveMethod = 'cfop-adv'" />
-        <WinButton id="btn-method-roux" :class="['method-btn', { active: solveMethod === 'roux' }]" :Content="t('solve.methodRoux')" @Click="solveMethod = 'roux'" />
+        <WinButton id="btn-method-cfop" :class="['method-btn', { active: solveMethod === 'cfop' }]" :Content="t('solve.methodCfop')" @Click="selectMethod('cfop')" />
+        <WinButton id="btn-method-roux" :class="['method-btn', { active: solveMethod === 'roux' }]" :Content="t('solve.methodRoux')" @Click="selectMethod('roux')" />
         <WinButton id="btn-solve" :Content="t('solve.btn')" @Click="doSolve" />
+        <SolverOptionsPanel
+          v-if="optionsOpen && currentOptionGroup"
+          id="solver-options"
+          class="solve-options"
+          v-model="solveOptions"
+          :group="currentOptionGroup"
+        />
       </span>
       <span id="hud-status" class="hud-status">{{ status }}</span>
     </div>
