@@ -55,6 +55,9 @@ export class HandCalibView {
   private ctrlActive = false;
   /** 当前活跃的 window 级拖拽监听清理器（dispose 时移除，防切页泄漏） */
   private dragCleanup: (() => void) | null = null;
+  /** 标尺重绘调度：拖拽移动/角度连续输入高频触发，合并到下一动画帧再全量重画 SVG（避免每 pointermove 全量重建 overlay） */
+  private rulerDirty = false;
+  private rulerRaf = 0;
 
   constructor(
     container: HTMLElement,
@@ -111,7 +114,7 @@ export class HandCalibView {
   setRuler(opts: RulerOptions): void {
     this.ruler.enabled = opts.enabled;
     this.ruler.angle = ((opts.angle % 360) + 360) % 360;
-    this.drawRuler();
+    this.scheduleRulerDraw();
   }
 
   /** 移动标尺中心（视图平面 u/v，块边长；连续无极，二维自由拖拽） */
@@ -126,14 +129,24 @@ export class HandCalibView {
       this.ruler.centerU = clamp(u, box.min.x / EDGE, box.max.x / EDGE);
       this.ruler.centerV = clamp(v, box.min.z / EDGE, box.max.z / EDGE);
     }
-    this.drawRuler();
+    this.scheduleRulerDraw();
   }
 
   /** 旋转标尺到指定角度（度，0=水平/90=竖直；任意角度） */
   rotateRuler(angle: number): void {
     this.ruler.angle = ((angle % 360) + 360) % 360;
-    this.drawRuler();
+    this.scheduleRulerDraw();
     this.rulerChangeHandler?.(this.ruler.angle);
+  }
+
+  /** 标尺重绘合并到下一动画帧（高频拖拽移动/角度输入只以帧率重画，不再每事件全量重建 overlay） */
+  private scheduleRulerDraw(): void {
+    if (this.rulerDirty) return;
+    this.rulerDirty = true;
+    this.rulerRaf = requestAnimationFrame(() => {
+      this.rulerDirty = false;
+      this.drawRuler();
+    });
   }
 
   getRuler(): RulerState {
@@ -181,6 +194,9 @@ export class HandCalibView {
   }
 
   dispose(): void {
+    if (this.rulerRaf) cancelAnimationFrame(this.rulerRaf);
+    this.rulerRaf = 0;
+    this.rulerDirty = false;
     this.dragCleanup?.();
     this.dragCleanup = null;
     this.dragging = null;

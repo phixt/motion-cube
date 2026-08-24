@@ -51,8 +51,9 @@
 - ⬜ **playtest 并入 CI**：networkidle0 卡点解决后再并入 ci.yml
 
 ### 技术债 / 长期
-- ⬜ 调试后门 `window.__motionCube` 加 DEV 守卫；无 CSP
-- ⬜ 标定页每次输入全量重建 3D 几何（P1，防抖+rAF）；drawRuler 全量重建（P2）
+- ✅ 调试后门 `window.__motionCube` DEV 守卫（59d7751：仅 `import.meta.env.DEV` 挂载）；无 CSP ⬜
+- ✅ 标定页每次输入全量重建 3D 几何：输入防抖 150ms + 重建放 rAF（连续键入/拖动期间合并一次，不再每键同步重建双视图）；标尺 `drawRuler` 改 rAF 合并调度（拖拽移动不再每 pointermove 全量重画 SVG overlay）
+- ⬜ 手部模型精度细化（低优先，困难）：网格细节/关节比例/肤色观感打磨；待标定页重建完成后评估
 - ⬜ 动画抽搐/真实卡顿感（连击冷却已基础版 120ms）；圆弧等函数路径
 
 ## rubik-anime-lab 迁移/合成计划（2026-08-20 新建，未动工）
