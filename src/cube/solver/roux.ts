@@ -80,6 +80,8 @@ export type RouxTables = {
   eo: ItemSolver;
   ulur: ItemSolver;
   l4e: ItemSolver;
+  /** 基础 LSE 4c：M 层四棱归位（普通桥式分步用；goal=全 home，无角项） */
+  lse4c: ItemSolver;
   /** EOLR 一步表：状态指纹（U 旋转归一 + U 中心）→ {公式, case 名}。仅收「施加后全 EO」case。 */
   eolr: Map<number, { moves: string[]; name: string }>;
   ms: number;
@@ -107,6 +109,7 @@ export function prepare(): RouxTables {
     ].concat([[0, 3]]),
   });
   const l4e = new ItemSolver(LSE_EDGES.concat([centerU, cornerUFR]), MU, { subsetSize: 3, name: "lse-l4e" });
+  const lse4c = new ItemSolver(LSE_EDGES.concat([centerU]), MU, { subsetSize: 3, name: "lse-4c" });
 
   // EOLR 一步表：setup 态指纹 → 公式。仅保留「施加后动态 EO done」的全 EO case（Arrow 等中间态不入表）。
   const eolr = new Map<number, { moves: string[]; name: string }>();
@@ -120,7 +123,7 @@ export function prepare(): RouxTables {
     if (!eolr.has(fp)) eolr.set(fp, { moves, name: c.name });
   }
 
-  TABLES = { block1, block2, cmll, eo, ulur, l4e, eolr, ms: Date.now() - t0 };
+  TABLES = { block1, block2, cmll, eo, ulur, l4e, lse4c, eolr, ms: Date.now() - t0 };
   return TABLES;
 }
 
@@ -187,4 +190,49 @@ export function solve(state0: State): { stages: SolveStage[]; state: State } {
   return { stages, state: st };
 }
 
-export const ROUX = { prepare, solve, LEFT_NAMES, RIGHT_NAMES };
+/** 普通桥式：1-look CMLL（标准、复用）+ 基础 LSE 分步（4a 棱定向 → 4b UL/UR 归位 →
+ *  4c M 层四棱归位）。与高级（EOLR 一步 + 6E2C）区分：普通不用 EOLR 伪位表、LSE 逐步演示。 */
+export function solveBasic(state0: State): { stages: SolveStage[]; state: State } {
+  const T = prepare();
+  const stages: SolveStage[] = [];
+  let st = state0;
+  const runItem = (solver: ItemSolver, maxDepth: number, budget: number): string[] | null => {
+    const mv = solver.solve(solver.read(st), maxDepth, budget);
+    if (!mv) return null;
+    st = applyAlg(st, mv);
+    return tidyAlg(mv);
+  };
+
+  let mv = runItem(T.block1, 12, 6e6);
+  if (!mv) throw new Error("first block failed");
+  stages.push({ key: "block1", label: "左侧一层块", short: "Block 1", moves: mv });
+  if (!LEFT_NAMES.every((n) => cubieSolved(st, n))) throw new Error("first block wrong");
+
+  mv = runItem(T.block2, 14, 8e6);
+  if (!mv) throw new Error("second block failed");
+  stages.push({ key: "block2", label: "右侧一层块", short: "Block 2", moves: mv });
+  if (!RIGHT_NAMES.every((n) => cubieSolved(st, n))) throw new Error("second block wrong");
+
+  const path = T.cmll.solve(st);
+  if (!path) throw new Error("CMLL state not recognised");
+  let cm: string[] = [], names: string[] = [];
+  for (const step of path) { cm = cm.concat(step.moves); if (!/^U/.test(step.name)) names.push(step.name); }
+  cm = tidyAlg(cm);
+  st = applyAlg(st, cm);
+  stages.push({ key: "cmll", label: "顶层角块 CMLL", short: "CMLL", moves: cm, algs: names });
+
+  // 基础 LSE 分步（普通）：4a 棱定向 → 4b UL/UR 归位 → 4c M 层四棱归位
+  mv = runItem(T.eo, 12, 4e6);
+  if (!mv) throw new Error("LSE edge orientation failed");
+  stages.push({ key: "lse-eo", label: "棱定向 EO (4a)", short: "4a EO", moves: mv });
+  mv = runItem(T.ulur, 12, 5e6);
+  if (!mv) throw new Error("LSE UL/UR placement failed");
+  stages.push({ key: "lse-ulur", label: "UL/UR 归位 (4b)", short: "4b ULUR", moves: mv });
+  mv = runItem(T.lse4c, 14, 6e6);
+  if (!mv) throw new Error("LSE last four edges failed");
+  stages.push({ key: "lse-4c", label: "M 层四棱归位 (4c)", short: "4c", moves: mv });
+
+  return { stages, state: st };
+}
+
+export const ROUX = { prepare, solve, solveBasic, LEFT_NAMES, RIGHT_NAMES };

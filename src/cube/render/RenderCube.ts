@@ -277,6 +277,15 @@ export class RenderCube {
     this.onStateChange?.(this.poseState.state);
   }
 
+  /** 完全复位：姿态+state 回 solved、清历史栈（几何同步；区别于 setState 只重涂） */
+  reset(): void {
+    this.anim = null;
+    this.poseState = RenderCube.solvedPose();
+    this.history = [this.clonePose(this.poseState)];
+    this.syncBlocks();
+    this.onStateChange?.(this.poseState.state);
+  }
+
   /** 撤销最后一步（弹历史栈，无动画） */
   undo(): boolean {
     if (this.history.length <= 1) return false;

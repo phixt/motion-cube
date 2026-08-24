@@ -85,6 +85,26 @@ export function solveSlot(state: State, slot: Slot, limit = 8): SlotResult {
   return { state: st, moves, failed: true };
 }
 
+/** 普通 LL：OLL（一步）+ PLL（一步）。高级双路线取短也用它（保证高级 LL 段不劣于普通） */
+function solveOllPll(st0: State, stages: SolveStage[]): State {
+  const T = prepare();
+  let st = st0;
+  const ollPath = T.oll.solve(st);
+  if (!ollPath) throw new Error("OLL state not recognised");
+  let ollMoves: string[] = [], ollNames: string[] = [];
+  for (const step of ollPath) { ollMoves = ollMoves.concat(step.moves); if (!/^U/.test(step.name)) ollNames.push(step.name); }
+  st = applyAlg(st, ollMoves);
+  stages.push({ key: "oll", label: "顶层翻色 OLL", short: "OLL", moves: ollMoves, algs: ollNames });
+
+  const pllPath = T.pll.solve(st);
+  if (!pllPath) throw new Error("PLL state not recognised");
+  let pllMoves: string[] = [], pllNames: string[] = [];
+  for (const step of pllPath) { pllMoves = pllMoves.concat(step.moves); if (!/^U/.test(step.name)) pllNames.push(step.name); }
+  st = applyAlg(st, pllMoves);
+  stages.push({ key: "pll", label: "顶层归位 PLL", short: "PLL", moves: pllMoves, algs: pllNames });
+  return st;
+}
+
 export function solve(state0: State): { stages: SolveStage[]; state: State } {
   const T = prepare();
   const stages: SolveStage[] = [];
@@ -110,19 +130,7 @@ export function solve(state0: State): { stages: SolveStage[]; state: State } {
     stages.push({ key: "f2l" + n, label: `F2L 第 ${n} 组`, short: "F2L " + n, moves: best.r.moves, slot: best.slot.name });
   }
 
-  const ollPath = T.oll.solve(st);
-  if (!ollPath) throw new Error("OLL state not recognised");
-  let ollMoves: string[] = [], ollNames: string[] = [];
-  for (const step of ollPath) { ollMoves = ollMoves.concat(step.moves); if (!/^U/.test(step.name)) ollNames.push(step.name); }
-  st = applyAlg(st, ollMoves);
-  stages.push({ key: "oll", label: "顶层翻色 OLL", short: "OLL", moves: ollMoves, algs: ollNames });
-
-  const pllPath = T.pll.solve(st);
-  if (!pllPath) throw new Error("PLL state not recognised");
-  let pllMoves: string[] = [], pllNames: string[] = [];
-  for (const step of pllPath) { pllMoves = pllMoves.concat(step.moves); if (!/^U/.test(step.name)) pllNames.push(step.name); }
-  st = applyAlg(st, pllMoves);
-  stages.push({ key: "pll", label: "顶层归位 PLL", short: "PLL", moves: pllMoves, algs: pllNames });
+  st = solveOllPll(st, stages);
 
   return { stages, state: st };
 }
@@ -152,48 +160,31 @@ export function solveAdvanced(state0: State): { stages: SolveStage[]; state: Sta
     stages.push({ key: "f2l" + n, label: `F2L 第 ${n} 组`, short: "F2L " + n, moves: best.r.moves, slot: best.slot.name });
   }
 
-  // 第 4 组：ZBLS 一步（插入最后一组 F2L + 顶层十字 EO）；库外状态回退传统 F2L + OLL
-  const zbls = solveZbls(st);
-  if (zbls) {
-    st = applyAlg(st, zbls.moves);
-    stages.push({ key: zbls.key, label: zbls.label, short: zbls.short, moves: zbls.moves, algs: zbls.algs });
+  // 第 4 组双路线：普通 F2L 插入 vs ZBLS 一步（插入最后一组 F2L + 顶层十字 EO），
+  // 取 moves 短者——保证「高级」F2L 段绝不劣于普通
+  const r4 = solveSlot(st, remaining[0]);
+  const zb4 = solveZbls(st);
+  if (zb4 && zb4.moves.length < r4.moves.length) {
+    st = applyAlg(st, zb4.moves);
+    stages.push({ key: zb4.key, label: zb4.label, short: zb4.short, moves: zb4.moves, algs: zb4.algs });
   } else {
-    // ZBLS 未覆盖 → 第 4 组 F2L（不做 OLL——solveLL 统一做 EO 预置 + 一步 ZBLL，未覆盖才回退 OLL+PLL）
-    let best: { slot: Slot; r: SlotResult } | null = null;
-    for (const slot of remaining) {
-      const r = solveSlot(st, slot);
-      if (r.failed) continue;
-      if (!best || r.moves.length < best.r.moves.length) best = { slot, r };
-    }
-    if (!best) throw new Error("F2L failed");
-    st = best.r.state;
-    remaining.splice(remaining.indexOf(best.slot), 1);
-    stages.push({ key: "f2l4", label: `F2L 第 4 组`, short: "F2L 4", moves: best.r.moves, slot: best.slot.name });
+    if (r4.failed) throw new Error("F2L failed");
+    st = r4.state;
+    stages.push({ key: "f2l4", label: `F2L 第 4 组`, short: "F2L 4", moves: r4.moves, slot: remaining[0].name });
   }
 
-  const ll = solveLL(st);
-  for (const s of ll.stages) {
-    stages.push({ key: s.key, label: s.label, short: s.short, moves: s.moves, algs: s.algs });
-  }
-  if (isSolved(ll.state)) {
-    st = ll.state;
+  // LL 双路线取短：高级（EO 预置 + 一步 ZBLL；仅全 solved 且更短才用）vs 普通（OLL+PLL）
+  const adv = solveLL(st);
+  const advLen = adv.stages.reduce((a, s) => a + s.moves.length, 0);
+  const normStages: SolveStage[] = [];
+  const normState = solveOllPll(st, normStages);
+  const normLen = normStages.reduce((a, s) => a + s.moves.length, 0);
+  if (isSolved(adv.state) && advLen < normLen) {
+    for (const s of adv.stages) stages.push({ key: s.key, label: s.label, short: s.short, moves: s.moves, algs: s.algs });
+    st = adv.state;
   } else {
-    // 一步 ZBLL 未覆盖 → 回退 OLL+PLL（LL 未全定向（EO/CO）才做 OLL）
-    let s0 = ll.state;
-    if (ollCode(s0) !== 0) {
-      const ollPath = T.oll.solve(s0);
-      if (!ollPath) throw new Error("OLL state not recognised");
-      let ollMoves: string[] = [], ollNames: string[] = [];
-      for (const step of ollPath) { ollMoves = ollMoves.concat(step.moves); if (!/^U/.test(step.name)) ollNames.push(step.name); }
-      s0 = applyAlg(s0, ollMoves);
-      stages.push({ key: "oll", label: "顶层翻色 OLL", short: "OLL", moves: ollMoves, algs: ollNames });
-    }
-    const pllPath = T.pll.solve(s0);
-    if (!pllPath) throw new Error("PLL state not recognised");
-    let pllMoves: string[] = [], pllNames: string[] = [];
-    for (const step of pllPath) { pllMoves = pllMoves.concat(step.moves); if (!/^U/.test(step.name)) pllNames.push(step.name); }
-    st = applyAlg(s0, pllMoves);
-    stages.push({ key: "pll", label: "顶层归位 PLL", short: "PLL", moves: pllMoves, algs: pllNames });
+    for (const s of normStages) stages.push(s);
+    st = normState;
   }
   return { stages, state: st };
 }

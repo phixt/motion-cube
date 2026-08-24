@@ -12,7 +12,7 @@ import { ROUX, prepare as rouxPrepare } from "./roux";
 import { prepare as zblPrepare } from "./zbl";
 import { prepare as zblsPrepare } from "./zbls";
 
-export type SolveMethodKey = "cfop" | "cfop-adv" | "roux";
+export type SolveMethodKey = "cfop" | "cfop-adv" | "roux" | "roux-adv";
 export type Method = {
   key: SolveMethodKey;
   label: string;
@@ -34,8 +34,13 @@ export const SOLVER_METHODS: Record<SolveMethodKey, Method> = {
     prepare: () => { cfopPrepare(); zblPrepare(); zblsPrepare(); }, run: (s) => CFOP.solveAdvanced(s),
   },
   roux: {
-    key: "roux", label: "桥式解法 Roux", short: "Roux",
-    blurb: "左块 → 右块 → CMLL → LSE",
+    key: "roux", label: "桥式解法 Roux（普通）", short: "Roux",
+    blurb: "左块 → 右块 → CMLL → LSE（4a/4b/4c 分步）",
+    prepare: () => rouxPrepare(), run: (s) => ROUX.solveBasic(s),
+  },
+  "roux-adv": {
+    key: "roux-adv", label: "桥式高级 Roux（EOLR）", short: "Roux+",
+    blurb: "左块 → 右块 → CMLL → LSE（EOLR 一步 + 6E2C）",
     prepare: () => rouxPrepare(), run: (s) => ROUX.solve(s),
   },
 };
@@ -61,7 +66,7 @@ export type SolveResult = {
 
 /**
  * @param state 当前魔方
- * @param method 'cfop' | 'roux'
+ * @param method 'cfop' | 'cfop-adv' | 'roux' | 'roux-adv'
  * @returns {method,label,stages,moves,stageOf,ms,rotated}
  */
 export function solve(state: State, method?: SolveMethodKey): SolveResult {

@@ -184,6 +184,19 @@ const randV3 = (): Vec3 => [RNG() * 2 - 1, RNG() * 2 - 1, RNG() * 2 - 1];
   check("K 吸附动画（from=0.4→π/2）完成 state == applyAlg(R')", stateEq(rcK.committedPose.state, applyAlg(solvedState(), "R'")));
 }
 
+// ---- L：reset（完全复位：几何+state 回 solved、历史清）----
+{
+  const rcL = new RenderCube({ internalRaf: false });
+  rcL.playMove("R");
+  rcL.step(0.4);
+  rcL.playMove("U");
+  rcL.step(0.4);
+  check("L0 打乱后 state != solved", !stateEq(rcL.committedPose.state, solvedState()));
+  rcL.reset();
+  check("L1 reset 后 state == solved", stateEq(rcL.committedPose.state, solvedState()));
+  check("L2 reset 后历史清（undo 返回 false）", rcL.undo() === false);
+}
+
 
 // ---- 汇总 ----
 for (const f of FAIL) console.log("FAIL:", f);

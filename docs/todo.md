@@ -18,9 +18,15 @@
 ### 求解器 / 公式库
 - ⬜ **EOLR 一步表命中率 ~0**：lse-eolr 46 case 建表仅收全 EO 22 条；精确指纹匹配
   命中率 ~0，需改 EO 分类匹配（见「Roux LSE 改造」进度）
-- ⬜ **cfop-adv 微优化**：一步 ZBLL 命中 12/24（50%），命中均步 59.4 ≈ CFOP，
-  miss 均步 68.4（多 ~9）；ZBLS miss 时先探测 4 种 AUF 的 zblCode 再决定是否付
-  zbl-eo（EO 预置是额外开支）
+- ✅ **cfop-adv 双路线取短（本轮已落地）**：第 4 组 F2L vs ZBLS、LL 普通（OLL+PLL）
+  vs 高级（EO 预置+一步 ZBLL）各取较短路——实测 24 样本 `高级>普通 0/24`
+  （==23、<1 例 -9），均值 61.21 ≤ CFOP 61.58，恒保证高级不劣于普通
+- ⬜ **cfop-adv 剩余**（要「高级真实更短」，非必须）：一步 ZBLL 覆盖 ~52%（命中均步
+  ≈ CFOP、未覆盖靠双路线已不劣）；补全 ZBLL 库 / EO 预置并入首步（深工程，暂缓）
+- ✅ **桥式普通入口恢复（本轮已落地）**：`roux` = 普通桥式（1-look CMLL + LSE
+  4a/4b/4c 分步，新增 lse4c 表）；`roux-adv` = 现有效果（EOLR 一步 + 6E2C）完整保留
+- ⬜ **rouxBasic 数值复测**：probe-solver-methods.ts 已加 rouxBasic 列，待 Windows
+  tsx 跑（WSL 缺 linux esbuild；Windows 侧需 full-access 授权）
 - ⬜ **CFOP 进阶集**：快速十字（预判）+ 高级 F2L（双向/多槽 multislot）
 - ⬜ **Roux 进阶集**：LSE 4b+4c 合并一步、EOLR 之上更优解法
 - ⬜ **高级方法**：降群（Thistlethwaite/Kociemba）、ZZ（EO-Line → 桥 → 顶层）；
