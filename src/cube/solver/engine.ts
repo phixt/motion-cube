@@ -215,6 +215,51 @@ export function parseAlgFull(s: string | string[]): string[] {
 export const invertAlg = (alg: string | string[]): string[] => parseAlg(alg).slice().reverse().map((n) => MOVES[n].inverse);
 export const algString = (alg: string | string[]): string => parseAlg(alg).join(" ");
 
+// ------------------------------------------------------------- mirror ----
+// M2 镜像记谱（算法级，与 mirrorState 贴纸 x 反射严格一致——见
+// scripts/verify-zbll-coverage.ts 恒等式校验）：R↔L' 互换且翻转；F/B/U/D
+// 各自翻转；宽层 r↔l'、u↔d'；中层 E↔E'、S↔S'；整体 y↔y'、z↔z'；2 步保持。
+// 例外：绕镜像法线轴（x）的步方向保持——M/M'/M2、x/x'/x2 不翻转
+//（贴纸反射下与该轴转动对易）。
+const MIR: Record<string, string> = {
+  R: "L'", "R'": "L", R2: "L2", "R2'": "L2'",
+  L: "R'", "L'": "R", L2: "R2", "L2'": "R2'",
+  F: "F'", "F'": "F", F2: "F2", "F2'": "F2'",
+  B: "B'", "B'": "B", B2: "B2", "B2'": "B2'",
+  U: "U'", "U'": "U", U2: "U2", "U2'": "U2'",
+  D: "D'", "D'": "D", D2: "D2", "D2'": "D2'",
+  r: "l'", "r'": "l", r2: "l2", "r2'": "l2'",
+  l: "r'", "l'": "r", l2: "r2", "l2'": "r2'",
+  f: "f'", "f'": "f", f2: "f2", "f2'": "f2'",
+  b: "b'", "b'": "b", b2: "b2", "b2'": "b2'",
+  u: "u'", "u'": "u", u2: "u2", "u2'": "u2'",
+  d: "d'", "d'": "d", d2: "d2", "d2'": "d2'",
+  M: "M", "M'": "M'", M2: "M2", "M2'": "M2'",
+  E: "E'", "E'": "E", E2: "E2", "E2'": "E2'",
+  S: "S'", "S'": "S", S2: "S2", "S2'": "S2'",
+  x: "x", "x'": "x'", x2: "x2", "x2'": "x2'",
+  y: "y'", "y'": "y", y2: "y2", "y2'": "y2'",
+  z: "z'", "z'": "z", z2: "z2", "z2'": "z2'",
+};
+
+/** 镜像记谱（M2 约定）：逐步查 MIR 表，未知步原样保留。 */
+export const mirrorAlg = (alg: string | string[]): string[] => parseAlg(alg).map((n) => MIR[n] ?? n);
+
+/** 贴纸级镜像（地面真值）：过 `plane` 平面反射位置/法线，再重标颜色。
+ *  x 面（R↔L）：relabel [0,4,2,3,1,5]（1↔4）；z 面（F↔B）：relabel [0,1,5,3,2,4]（2↔5）。 */
+export function mirrorState(state: State, plane: "x" | "z" = "x"): State {
+  const relabel = plane === "x" ? [0, 4, 2, 3, 1, 5] : [0, 1, 5, 3, 4, 2]; // x:1↔4(R↔L) z:2↔5(F↔B)
+  const m = new Uint8Array(54);
+  for (let i = 0; i < 54; i++) {
+    const p = STICKER_POS[i], n = STICKER_NORMAL[i];
+    const pm: Vec3 = plane === "x" ? [-p[0], p[1], p[2]] : [p[0], p[1], -p[2]];
+    const nm: Vec3 = plane === "x" ? [-n[0], n[1], n[2]] : [n[0], n[1], -n[2]];
+    m[stickerIndex(pm, nm)] = state[i];
+  }
+  for (let i = 0; i < 54; i++) m[i] = relabel[m[i]];
+  return m;
+}
+
 export const solvedState = (): State => { const s = new Uint8Array(54); for (let i = 0; i < 54; i++) s[i] = (i / 9) | 0; return s; };
 
 export function applyMove(state: State, name: string): State {

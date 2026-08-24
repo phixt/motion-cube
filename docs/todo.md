@@ -125,10 +125,18 @@
   + SDF 圆角贴纸裁切 + 三段色调；three 侧用 ShaderMaterial 翻译
 - **R3 快照重放分步演示 + LSE 里程碑切段**：`solGeo` 快照 + `jumpTo(k)` 重放前 k 步
   （L1966-2050）进 GamePage 演示；D2 按 predEO/predULUR 切 4a/4b/4c 演示边界（思路）
-- **R5 coverage 回归工具**：`orbit_count`+`per_set_coverage`+`pll_closure*`
-  提取为 `scripts/verify-zbll-coverage.mjs` 只读回归（当前应报 926/1944）
-- **R6 实现 mirrorAlg**：`analysis.mjs` MIR 表 + `sticker_analysis.mjs` x 面反射
-  （贴纸↔元组双向转换）落地 engine/algs（现只有 invertAlg）——补轨道前置
+- **R5 coverage 回归工具**：`orbit_count`+`per_set_coverage` 逻辑（family
+  并集 4 变体 canon）提取为 `scripts/verify-zbll-coverage.ts`（Node 原生
+  TS strip-types 运行，勿用 tsx——WSL/沙箱 esbuild 平台不匹配）。当前报
+  **926/1944（49.5% of 1872）**，各 set 断言：T148/U152/L226/Pi148/S232/AS234/H87，
+  与 .research 全对齐。（实现为 .ts 而非原决议 .mjs：直接复用主引擎，先做
+  贴纸一致性校验，避免双引擎重复）
+- **R6 实现 mirrorAlg + mirrorState**：落地 `engine.ts`（与 invertAlg 同级）——
+  MIR 表（analysis.mjs）+ x/z 面贴纸反射（sticker_analysis.mjs）+ R↔L/F↔B 重标。
+  **重大语义修正**：绕镜像法线轴（x）的步 M/M'/M2、x/x'/x2 **方向保持不翻转**
+  （贴纸反射下与 x 轴转动对易，探针实证；其余照 M2 表）。恒等式校验内置于
+  R5 工具（单步+300 随机序列 mirrorAlg∘apply == mirrorState∘apply，354/354，
+  mirror 对合 200/200）——决议要求的「贴纸引擎与主 engine.ts 一致性校验」即此。
 - **R8 v4pro 交互增强**：undo（逆向）、键盘（space 暂停/Z 撤销/方向键单步/
   键入 UDRLFBMS/Alt+S 打乱）、复制解法到剪贴板、COMPLETE 庆祝+solved-badge+toast
 - **R10 oc 阶段摘要 HTML**：解法分阶段摘要视图（phases 列表+各阶段步数），
