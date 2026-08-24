@@ -49,10 +49,8 @@ export const CUBE_WORLD_SCALE = 1 / 3;
 
 const easeOut = (x: number) => 1 - (1 - x) ** 3;
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-/** 播放时长基准统一（两后端同语义）：1x = 1000ms/步（与 cubing tempoScale=1 对齐）。
- *  clamp [70, 2000]（高速 ≤ 50x 下限 70ms 防抖；低速封顶 2s）。
- *  游戏页打乱 delay=1000/倍速 与此精确同步 → 播完即下一步、无跳变无空档。 */
-const playDur = (speed: number) => clamp(1000 / Math.max(0.05, speed), 70, 2000);
+/** C1 playDur：300/speed ms 夹 [70, 900]（保留参考实现语义；基准统一已在重做清单） */
+const playDur = (speed: number) => clamp(300 / Math.max(0.05, speed), 70, 900);
 
 type BlockView = {
   group: Group;

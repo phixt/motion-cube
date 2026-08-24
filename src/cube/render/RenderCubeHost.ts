@@ -457,5 +457,7 @@ export class RenderCubeHost {
     c.removeEventListener("wheel", this.onWheel);
     this.renderCube.dispose();
     this.renderer.dispose();
+    this.renderer.forceContextLoss?.();
+    c.remove(); // 关键：移除 canvas——否则 HMR/卸载后不透明黑底 canvas 残留在容器全屏（背景黑污染）
   }
 }

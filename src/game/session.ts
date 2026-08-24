@@ -43,9 +43,10 @@ export function createGameSession(
 ): GameSession {
   const settings = loadSettings();
   const activeBase = settings.sixColorBase ? settings.baseFace : "D";
-  // 游戏页统一走 R1 阶段1 自建 render 后端（RenderCubeHost：26 块+贴纸、可中断动画、B1 拖转）；
-  // cubing TwistyPlayer 仅编辑器/预览保留。baseFace 朝向 render 轨暂忽略（视觉差异已知，见 CubePlayer 注释）。
-  const player = new CubePlayer(stage, { cameraDistance: 6.5, baseFace: activeBase, backend: "render" });
+  // 回退（2026-08-20）：游戏页恢复 cubing 后端——render 后端在真机浏览器崩溃
+  // （headless/swiftshader 验证通过但真机 GPU 环境失败），R1 render 轨整体待重做
+  // （重做前必须先经真机验证，详见 docs/todo.md 技术债区）。
+  const player = new CubePlayer(stage, { cameraDistance: 6.5, baseFace: activeBase });
 
   // ---- 标灰：状态 + 3D 覆盖层 + 面板 ----
   const grayState: { state: GrayState } = { state: createGrayState() };
