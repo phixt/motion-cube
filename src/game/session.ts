@@ -43,7 +43,9 @@ export function createGameSession(
 ): GameSession {
   const settings = loadSettings();
   const activeBase = settings.sixColorBase ? settings.baseFace : "D";
-  const player = new CubePlayer(stage, { cameraDistance: 6.5, baseFace: activeBase });
+  // 游戏页统一走 R1 阶段1 自建 render 后端（RenderCubeHost：26 块+贴纸、可中断动画、B1 拖转）；
+  // cubing TwistyPlayer 仅编辑器/预览保留。baseFace 朝向 render 轨暂忽略（视觉差异已知，见 CubePlayer 注释）。
+  const player = new CubePlayer(stage, { cameraDistance: 6.5, baseFace: activeBase, backend: "render" });
 
   // ---- 标灰：状态 + 3D 覆盖层 + 面板 ----
   const grayState: { state: GrayState } = { state: createGrayState() };
