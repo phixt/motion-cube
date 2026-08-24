@@ -147,7 +147,10 @@ export function createGameSession(
   keymap.setMoveCooldown(settings.moveCooldownMs);
   keymap.attach();
 
-  window.__motionCube = { player, keymap };
+  // 调试后门：仅 dev 挂载（生产不向全局暴露内部对象；见 todo 技术债「调试后门加 DEV 守卫」）
+  if (import.meta.env.DEV) {
+    window.__motionCube = { player, keymap };
+  }
 
   return {
     player,

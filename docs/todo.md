@@ -25,8 +25,10 @@
   ≈ CFOP、未覆盖靠双路线已不劣）；补全 ZBLL 库 / EO 预置并入首步（深工程，暂缓）
 - ✅ **桥式普通入口恢复（本轮已落地）**：`roux` = 普通桥式（1-look CMLL + LSE
   4a/4b/4c 分步，新增 lse4c 表）；`roux-adv` = 现有效果（EOLR 一步 + 6E2C）完整保留
-- ⬜ **rouxBasic 数值复测**：probe-solver-methods.ts 已加 rouxBasic 列，待 Windows
-  tsx 跑（WSL 缺 linux esbuild；Windows 侧需 full-access 授权）
+- ✅ **rouxBasic 数值复测（2026-08-21 完成）**：probe-solver-methods.ts rouxBasic 列，
+  Windows tsx 跑 40 样本（seed 0x9e3779b9 可复现）——普通 Roux 均值 47.33 vs 高级
+  （EOLR）45.08，恒 高级≤普通（无变劣）；CFOP 高级>普通 0/40（==37、<3 例 Δ-9/-4/-4）
+  → 双路线取短承诺再次兑现
 - ⬜ **CFOP 进阶集**：快速十字（预判）+ 高级 F2L（双向/多槽 multislot）
 - ⬜ **Roux 进阶集**：LSE 4b+4c 合并一步、EOLR 之上更优解法
 - ⬜ **高级方法**：降群（Thistlethwaite/Kociemba）、ZZ（EO-Line → 桥 → 顶层）；
@@ -99,6 +101,15 @@
     撤销/适配视角/演示公式/自转）+ `scripts/render-shot.mjs`（puppeteer 截图验证：
     初始视角对齐 cubing、拖中心→U 顺时针 mi=U 提交、连播中断；输出 spike-shots/
     render-*.png）+ verify-render-cube 扩 H/I/J/K 拖转断言（19/19）
+  - ⚠ **碰壁记录（2026-08-21）**：游戏页切 render 后端后真机崩溃已回退（提交
+    947e9fd）。**root cause**：RenderCubeHost.dispose 从未移除自己的 canvas（全屏
+    不透明黑底，clear 0x0b0e18）→ HMR/卸载后残留黑底 canvas + 重建后端双实例叠加
+    （双 canvas 同时 rAF 渲染 + 双指针监听）→ 背景黑污染 + 渲染/旋转错乱。**已修**：
+    dispose 补 `renderer.forceContextLoss()` + `canvas.remove()`。**教训**：headless/
+    swiftshader 验证通过 ≠ 真机（GPU/生命周期差异），渲染类改动**必须先真机验证再
+    提交**。**重做清单**：dispose 完整化（remove canvas/forceContextLoss/停 rAF）、
+    单实例保证（残留 canvas 检测）、真机前置验证、相机/拖转真机手感。游戏页已回
+    cubing 后端（session backend 默认）。
   - ⬜ 接驳余项：CubePlayer 内部切换 RenderCube 后端（容器挂载/宿主场景渲染循环/相机）+
     播放条语义（play/pause/setMoves/jumpToEnd 等价）+ EditorPage 自建宿主循环
     （替换 cubing vantages）+ 最终视觉对比（dev 5174 + 截图）

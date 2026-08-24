@@ -1,6 +1,6 @@
 // 边界用例：已解状态 + 含 M/E/S 打乱（中心漂移映射回真实魔方）。
-import { solve } from "../src/cube/solver";
-import { applyAlg, isSolved, isUniform, MOVES, solvedState } from "../src/cube/solver";
+import { solve } from "../src/cube/solver/index.ts";
+import { applyAlg, isSolved, isUniform, MOVES, solvedState } from "../src/cube/solver/index.ts";
 
 let ok = true;
 const check = (name: string, state: Uint8Array, method: "cfop" | "roux") => {
