@@ -237,4 +237,49 @@ export function solveBasic(state0: State): { stages: SolveStage[]; state: State 
   return { stages, state: st };
 }
 
-export const ROUX = { prepare, solve, solveBasic, LEFT_NAMES, RIGHT_NAMES };
+/** 普通 + 合并 4b+4c：4a 棱定向（分步）→ 4b/4c 合并一步（l4e，UL/UR 伪位并入）。
+ *  仍为人类式分步演示（LSE 两段：4a + 4b+4c），非「算法一次算完伪装阶段」；
+ *  Roux 选项「合并 4b+4c」（默认勾选，调研实测净省 ~2.46 步、0 例变长）走此路径。 */
+export function solveMerge4c(state0: State): { stages: SolveStage[]; state: State } {
+  const T = prepare();
+  const stages: SolveStage[] = [];
+  let st = state0;
+  const runItem = (solver: ItemSolver, maxDepth: number, budget: number): string[] | null => {
+    const mv = solver.solve(solver.read(st), maxDepth, budget);
+    if (!mv) return null;
+    st = applyAlg(st, mv);
+    return tidyAlg(mv);
+  };
+
+  let mv = runItem(T.block1, 12, 6e6);
+  if (!mv) throw new Error("first block failed");
+  stages.push({ key: "block1", label: "左侧一层块", short: "Block 1", moves: mv });
+  if (!LEFT_NAMES.every((n) => cubieSolved(st, n))) throw new Error("first block wrong");
+
+  mv = runItem(T.block2, 14, 8e6);
+  if (!mv) throw new Error("second block failed");
+  stages.push({ key: "block2", label: "右侧一层块", short: "Block 2", moves: mv });
+  if (!RIGHT_NAMES.every((n) => cubieSolved(st, n))) throw new Error("second block wrong");
+
+  const path = T.cmll.solve(st);
+  if (!path) throw new Error("CMLL state not recognised");
+  let cm: string[] = [], names: string[] = [];
+  for (const step of path) { cm = cm.concat(step.moves); if (!/^U/.test(step.name)) names.push(step.name); }
+  cm = tidyAlg(cm);
+  st = applyAlg(st, cm);
+  stages.push({ key: "cmll", label: "顶层角块 CMLL", short: "CMLL", moves: cm, algs: names });
+
+  // 4a 棱定向（分步，不并入搜索——人类式第一步）
+  mv = runItem(T.eo, 12, 4e6);
+  if (!mv) throw new Error("LSE edge orientation failed");
+  stages.push({ key: "lse-eo", label: "棱定向 EO (4a)", short: "4a EO", moves: mv });
+
+  // 4b+4c 合并：UL/UR 归位 + L4E 一步（l4e 表，从「EO 完成」直接到已解）
+  mv = runItem(T.l4e, 16, 6e6);
+  if (!mv) throw new Error("LSE last four edges failed");
+  stages.push({ key: "lse-4c", label: "合并 4b+4c（UL/UR+L4E 一步）", short: "4b+4c", moves: mv });
+
+  return { stages, state: st };
+}
+
+export const ROUX = { prepare, solve, solveBasic, solveMerge4c, LEFT_NAMES, RIGHT_NAMES };

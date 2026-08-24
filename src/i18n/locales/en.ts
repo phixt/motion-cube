@@ -93,6 +93,7 @@ export const en: Record<string, string> = {
   "hud.copyFail": "Copy failed",
   "hud.clearProgress": "Clear progress",
   "hud.speed": "Speed",
+  "hud.scrambleSpeed": "Scramble speed",
   "hud.keyHelp":
     "Drag = orbit view ｜ Undo Backspace ｜ Reset Esc ｜ Play/Pause P ｜ other keys: see “Settings”",
   "hud.logTitle": "Move log",

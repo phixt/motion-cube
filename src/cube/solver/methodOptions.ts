@@ -63,10 +63,12 @@ export const METHOD_OPTION_GROUPS: SolverOptionGroup[] = [
 
 export const ALL_OPTION_IDS: string[] = METHOD_OPTION_GROUPS.flatMap((g) => g.options.map((o) => o.id));
 
-/** 默认勾选：全关（普通=默认，高级不常驻） */
-export const DEFAULT_SOLVER_OPTIONS: Readonly<Record<string, boolean>> = Object.fromEntries(
-  ALL_OPTION_IDS.map((id) => [id, false]),
-);
+/** 默认勾选：高级项全关（普通=默认，高级不常驻），但 roux.merge4b4c 默认开——
+ *  合并 4b+4c 仍是人类式分步（4a + 4b+4c 两段），调研实测净省 ~2.46 步且 0 例变长。 */
+export const DEFAULT_SOLVER_OPTIONS: Readonly<Record<string, boolean>> = {
+  ...Object.fromEntries(ALL_OPTION_IDS.map((id) => [id, false])),
+  "roux.merge4b4c": true,
+};
 
 export type SolverOptions = Record<string, boolean>;
 
@@ -101,7 +103,12 @@ export function saveSolverOptions(opts: SolverOptions): void {
  * 方法基 + 勾选集合 → 实际求解方法（现映射到 SOLVER_METHODS 四个键）。
  * 选项粒度细化时以此处为准扩展。
  */
-export function resolveSolverMethod(base: SolverBase, opts: SolverOptions): "cfop" | "cfop-adv" | "roux" | "roux-adv" {
+export function resolveSolverMethod(
+  base: SolverBase,
+  opts: SolverOptions,
+): "cfop" | "cfop-adv" | "roux" | "roux-merge" | "roux-adv" {
   if (base === "cfop") return opts["cfop.zbll"] ? "cfop-adv" : "cfop";
-  return opts["roux.eolr"] || opts["roux.merge4b4c"] ? "roux-adv" : "roux";
+  if (opts["roux.eolr"]) return "roux-adv"; // EOLR 一步 + 合并（高级）
+  if (opts["roux.merge4b4c"]) return "roux-merge"; // 仅合并 4b+4c（4a 分步 + 4c 一步，默认）
+  return "roux"; // 纯分步 4a/4b/4c
 }

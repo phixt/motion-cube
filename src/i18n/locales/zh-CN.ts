@@ -92,6 +92,7 @@ export const zhCN: Record<string, string> = {
   "hud.copyFail": "复制失败",
   "hud.clearProgress": "清除进度",
   "hud.speed": "速度",
+  "hud.scrambleSpeed": "打乱速度",
   "hud.keyHelp": "拖拽 = 转视角 ｜ 撤销 Backspace ｜ 重置 Esc ｜ 播放/暂停 P ｜ 其余按键见「设置」页",
   "hud.logTitle": "移动日志",
   "hud.logMuted": "（键盘/按钮产生的逐步动作）",

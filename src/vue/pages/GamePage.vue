@@ -25,6 +25,8 @@ const algText = ref("");
 const playing = ref(false);
 const status = ref("");
 const speed = ref(1);
+/** 打乱专用倍速（默认 3x，独立滑条）。临时方案：高可中断渲染重建后并入统一播放速度控制。 */
+const scrambleSpeed = ref(3);
 const moves = ref<string[]>([]);
 
 const solveMethod = ref<methodOpts.SolverBase>("cfop");
@@ -164,8 +166,9 @@ const clearProgress = (): void => {
 };
 
 /** 生成随机打乱（20 步，与 WCA 同风格）并逐步播放。
- *  打乱固定 3 倍速（用户确认：打乱默认 3x，不受演示滑条控制）；
- *  解法演示播放仍由 speed 滑条控制（见 demoSolve）。 */
+ *  打乱速度用独立滑条 scrambleSpeed（默认 3x），且步间隔与 cubing 动画时长同步
+ *  （delay = 1000ms / 倍速 —— 动画播完再下一步，避免跳变截断）。临时方案：
+ *  高可中断渲染重建后并入统一播放速度控制。解法演示仍由 speed 滑条控制（demoSolve）。 */
 const scrambleCube = async (): Promise<void> => {
   if (!session || demoRunning.value) return;
   cancelDemo();
@@ -175,8 +178,9 @@ const scrambleCube = async (): Promise<void> => {
   session.player.pause();
   demoRunning.value = true;
   const myToken = demoToken;
-  // 打乱默认 3 倍速独立于滑条（420/3=140ms 每步；不低于 60ms）
-  const delay = Math.max(60, 420 / 3);
+  // 打乱动画实时速度 = 打乱滑条；步间隔 = 动画基准 1000ms / 倍速（播完再下一步）
+  session.player.setSpeed(scrambleSpeed.value);
+  const delay = Math.max(60, 1000 / scrambleSpeed.value);
   for (const mv of scr.split(" ")) {
     if (demoToken !== myToken) return;
     session.player.applyMove(mv);
@@ -188,6 +192,7 @@ const scrambleCube = async (): Promise<void> => {
   if (demoToken !== myToken) return;
   demoRunning.value = false;
   session.player.pause(); // 停在打乱态
+  session.player.setSpeed(speed.value); // 恢复演示滑条速度（防打乱倍速残留）
 };
 
 /** 当前真实魔方状态：已解 + 底色整体旋转（六色底开关关 = 固定 D）+ 玩家步 */
@@ -239,6 +244,7 @@ const demoSolve = async (): Promise<void> => {
   demoRunning.value = true;
   const myToken = demoToken;
   session.player.pause();
+  session.player.setSpeed(speed.value); // 演示用演示滑条速度（打乱后防残留）
   const delay = Math.max(60, 420 / speed.value);
   for (const mv of movesToShow) {
     if (demoToken !== myToken) return;
@@ -263,28 +269,31 @@ const demoSolve = async (): Promise<void> => {
     </header>
 
     <div class="game-hud">
-      <WinTextBox v-model:Text="algText" class="hud-alg" :PlaceholderText="t('hud.algPlaceholder')" />
-      <WinButton id="btn-apply" :Content="t('hud.apply')" @Click="applyAlg" />
-      <WinButton id="btn-play" :Content="playing ? t('hud.pause') : t('hud.play')" @Click="togglePlay" />
-      <WinButton id="btn-scramble" :Content="t('hud.scramble')" @Click="scrambleCube" />
-      <WinButton id="btn-reset" :Content="t('hud.reset')" @Click="reset" />
-      <WinButton id="btn-gray" :Content="t('gray.btn')" @Click="toggleGray" />
-      <WinButton id="btn-clear-progress" :Content="t('hud.clearProgress')" @Click="clearProgress" />
-      <WinTextBlock class="speed-label" :Text="`${t('hud.speed')} ${speed.toFixed(1)}x`" FontSize="13" />
-      <WinSlider id="speed" class="hud-speed" v-model:Value="speed" :Minimum="0.1" :Maximum="3" StepFrequency="0.1" />
-      <span id="solve-method" class="solve-method">
-        <WinButton id="btn-method-cfop" :class="['method-btn', { active: solveMethod === 'cfop' }]" :Content="t('solve.methodCfop')" @Click="selectMethod('cfop')" />
-        <WinButton id="btn-method-roux" :class="['method-btn', { active: solveMethod === 'roux' }]" :Content="t('solve.methodRoux')" @Click="selectMethod('roux')" />
-        <WinButton id="btn-solve" :Content="t('solve.btn')" @Click="doSolve" />
-        <SolverOptionsPanel
-          v-if="optionsOpen && currentOptionGroup"
-          id="solver-options"
-          class="solve-options"
-          v-model="solveOptions"
-          :group="currentOptionGroup"
-        />
-      </span>
-      <span id="hud-status" class="hud-status">{{ status }}</span>
+      <div class="hud-row">
+        <WinTextBox v-model:Text="algText" class="hud-alg" :PlaceholderText="t('hud.algPlaceholder')" />
+        <WinButton id="btn-apply" :Content="t('hud.apply')" @Click="applyAlg" />
+        <WinButton id="btn-play" :Content="playing ? t('hud.pause') : t('hud.play')" @Click="togglePlay" />
+        <WinButton id="btn-scramble" :Content="t('hud.scramble')" @Click="scrambleCube" />
+        <WinButton id="btn-reset" :Content="t('hud.reset')" @Click="reset" />
+        <WinButton id="btn-gray" :Content="t('gray.btn')" @Click="toggleGray" />
+        <WinButton id="btn-clear-progress" :Content="t('hud.clearProgress')" @Click="clearProgress" />
+      </div>
+      <div class="hud-row hud-row-2">
+        <span class="speed-group">
+          <WinTextBlock class="speed-label" :Text="`${t('hud.speed')} ${speed.toFixed(1)}x`" FontSize="13" />
+          <WinSlider id="speed" class="hud-speed" v-model:Value="speed" :Minimum="0.1" :Maximum="3" StepFrequency="0.1" />
+        </span>
+        <span class="speed-group">
+          <WinTextBlock class="speed-label" :Text="`${t('hud.scrambleSpeed')} ${scrambleSpeed.toFixed(1)}x`" FontSize="13" />
+          <WinSlider id="scramble-speed" class="hud-speed" v-model:Value="scrambleSpeed" :Minimum="0.1" :Maximum="3" StepFrequency="0.1" />
+        </span>
+        <span id="solve-method" class="solve-method">
+          <WinButton id="btn-method-cfop" :class="['method-btn', { active: solveMethod === 'cfop' }]" :Content="t('solve.methodCfop')" @Click="selectMethod('cfop')" />
+          <WinButton id="btn-method-roux" :class="['method-btn', { active: solveMethod === 'roux' }]" :Content="t('solve.methodRoux')" @Click="selectMethod('roux')" />
+          <WinButton id="btn-solve" :Content="t('solve.btn')" @Click="doSolve" />
+        </span>
+        <span id="hud-status" class="hud-status">{{ status }}</span>
+      </div>
     </div>
 
     <div v-if="scrambleAlg" class="scramble-bar">
@@ -296,6 +305,15 @@ const demoSolve = async (): Promise<void> => {
     <WinTextBlock class="key-help" :Text="t('hud.keyHelp')" FontSize="12" />
 
     <main ref="stageEl" class="stage"></main>
+
+    <!-- 方法二级选项面板：浮在 3D 视图左侧中部空白处（脱离顶部方法栏，左中空白定位） -->
+    <SolverOptionsPanel
+      v-if="optionsOpen && currentOptionGroup"
+      id="solver-options"
+      class="solve-options-float"
+      v-model="solveOptions"
+      :group="currentOptionGroup"
+    />
 
     <div ref="grayPanelEl" id="gray-panel" class="gray-panel"></div>
 
@@ -354,6 +372,16 @@ const demoSolve = async (): Promise<void> => {
   flex-direction: column;
 }
 
+/* 方法二级选项面板：浮在 3D 视图左侧中部空白（脱离顶部方法栏，左中定位） */
+.solve-options-float {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 30;
+  max-width: 250px;
+}
+
 .game-header {
   z-index: 35;
   display: flex;
@@ -371,9 +399,8 @@ const demoSolve = async (): Promise<void> => {
 .game-hud {
   z-index: 30;
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
   margin-top: 6px;
   padding: 8px 14px;
   background: var(--ctrl-fill-default);
@@ -382,10 +409,30 @@ const demoSolve = async (): Promise<void> => {
   border-bottom: 1px solid var(--stroke-divider);
 }
 
+/* 两行结构：第1行=公式+按钮；第2行=速度组×2+方法+状态（间距 18px，防拥挤遮挡） */
+.hud-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.hud-row-2 {
+  gap: 18px;
+  padding-top: 2px;
+}
+
 .hud-alg {
   flex: 1 1 340px;
   min-width: 260px;
   font-family: ui-monospace, Consolas, monospace;
+}
+
+/* 速度组：label+滑条 整组不拆行（flex-wrap 换行时保持成对，防文字与滑条分离/遮挡） */
+.speed-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
 }
 
 .speed-label {
@@ -394,7 +441,7 @@ const demoSolve = async (): Promise<void> => {
 }
 
 .hud-speed {
-  width: 140px;
+  width: 110px;
 }
 
 .hud-status {
@@ -519,6 +566,9 @@ const demoSolve = async (): Promise<void> => {
   color: var(--text-tertiary);
   pointer-events: none;
   padding: 6px 14px 0;
+  position: relative; /* 高于全屏 stage 的层叠，避免被画布边缘遮断 */
+  white-space: nowrap;
+  overflow: visible;
 }
 
 .stage {

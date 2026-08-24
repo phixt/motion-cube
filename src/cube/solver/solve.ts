@@ -12,7 +12,7 @@ import { ROUX, prepare as rouxPrepare } from "./roux.ts";
 import { prepare as zblPrepare } from "./zbl.ts";
 import { prepare as zblsPrepare } from "./zbls.ts";
 
-export type SolveMethodKey = "cfop" | "cfop-adv" | "roux" | "roux-adv";
+export type SolveMethodKey = "cfop" | "cfop-adv" | "roux" | "roux-merge" | "roux-adv";
 export type Method = {
   key: SolveMethodKey;
   label: string;
@@ -37,6 +37,11 @@ export const SOLVER_METHODS: Record<SolveMethodKey, Method> = {
     key: "roux", label: "桥式解法 Roux（普通）", short: "Roux",
     blurb: "左块 → 右块 → CMLL → LSE（4a/4b/4c 分步）",
     prepare: () => rouxPrepare(), run: (s) => ROUX.solveBasic(s),
+  },
+  "roux-merge": {
+    key: "roux-merge", label: "桥式 Roux（合并 4b+4c）", short: "Roux✚",
+    blurb: "左块 → 右块 → CMLL → LSE（4a 分步 + 4b+4c 合并一步）",
+    prepare: () => rouxPrepare(), run: (s) => ROUX.solveMerge4c(s),
   },
   "roux-adv": {
     key: "roux-adv", label: "桥式高级 Roux（EOLR）", short: "Roux+",

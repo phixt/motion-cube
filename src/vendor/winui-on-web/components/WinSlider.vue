@@ -1,5 +1,5 @@
 <template>
-  <div class="win-slider-root" :class="{ 'is-disabled': !IsEnabled }" :style="rootStyle">
+  <div v-bind="attrs" class="win-slider-root" :class="{ 'is-disabled': !IsEnabled }" :style="rootStyle">
     <WinTextBlock v-if="Header" class="win-slider-header" :Text="Header" />
     <div
       ref="trackRef"
