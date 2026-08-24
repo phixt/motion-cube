@@ -109,6 +109,42 @@
 - ⬜ 工程韧性：boot try/catch + 非 WebGL 优雅降级；analysePixels 渲染帧采样贴纸
   颜色自检；单一动画队列 + isLocked() 门禁（与「高可中断」一致）
 
+### 参考文件全面审查（2026-08-21，只读审查 + 用户采用决议）
+
+> 子代理审查：`.research_zbll/` 全部 28 脚本 + 5 JSON；`reference/` 三份 HTML。
+> 核心结论：rubik-anime-lab.html = 零依赖纯 WebGL 自建魔方，正是「阶段 0/1/2
+> 渲染替换」的现成范本；52.5% 覆盖（926/1944）是 cuberoot 单源 family 闭包天花板。
+
+**✅ 已确认采用（用户选定）**
+- **R1 渲染替换三件套**（阶段 1 地基）：CubeCore 26 块模型
+  （`newGeo`/`geoApply`，rubik-anime-lab L552-585）+ 拖转交互
+  （L1868-1946：拾面→屏幕方向→角度累进→动量吸附最近 90°，含中间层）
+  + 高可中断动画队列（L1764-1849：单状态+每帧 step+`anim=null` 即打断）
+  —— B/C 逻辑可近乎直接照搬，几何/渲染按 three.js 翻译
+- **R2 动漫卡线两遍渲染**（L1413-1459/1590-1654）：反向外壳（FRONT+expand）
+  + SDF 圆角贴纸裁切 + 三段色调；three 侧用 ShaderMaterial 翻译
+- **R3 快照重放分步演示 + LSE 里程碑切段**：`solGeo` 快照 + `jumpTo(k)` 重放前 k 步
+  （L1966-2050）进 GamePage 演示；D2 按 predEO/predULUR 切 4a/4b/4c 演示边界（思路）
+- **R5 coverage 回归工具**：`orbit_count`+`per_set_coverage`+`pll_closure*`
+  提取为 `scripts/verify-zbll-coverage.mjs` 只读回归（当前应报 926/1944）
+- **R6 实现 mirrorAlg**：`analysis.mjs` MIR 表 + `sticker_analysis.mjs` x 面反射
+  （贴纸↔元组双向转换）落地 engine/algs（现只有 invertAlg）——补轨道前置
+- **R8 v4pro 交互增强**：undo（逆向）、键盘（space 暂停/Z 撤销/方向键单步/
+  键入 UDRLFBMS/Alt+S 打乱）、复制解法到剪贴板、COMPLETE 庆祝+solved-badge+toast
+- **R10 oc 阶段摘要 HTML**：解法分阶段摘要视图（phases 列表+各阶段步数），
+  与现有 solve panel 阶段展示合并参考
+
+**⬜ 暂缓 / 未采用**
+- R4 记谱宽层展开+化简（parse/simplify）：cubing.js 已覆盖大部分，仅 simplify 可能有用
+- R7 zbll_map 双源并集闭包：唯一可突破 52.5% 的路径，但需先量化 union 再决定
+  （风险中高，暂缓）
+- R9 Dx 中心校正 + verified 重放自检：主项目已覆盖中心漂移处理，印证为主
+- 明确不复用：`debug_*`、空 `roman_canons.json`、cubing.js 依赖脚本
+
+**README 引用声明（待办）**
+- ⬜ 采用参考实现后，在 README 添加致谢：「部分实现思路（具体写出）参考或者
+  直接采用了灰测群群友跑出来的魔方」——待用户确认最终措辞/指向后再写入
+
 ## 已完成批次（摘要）
 
 - **0.3.2 求解器移植**（08-19）：54 贴纸引擎 + search（PDB/IDA*）+ OLL/PLL/CMLL
