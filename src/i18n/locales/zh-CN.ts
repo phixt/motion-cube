@@ -117,6 +117,8 @@ export const zhCN: Record<string, string> = {
   "solve.done": "演示完成（已还原）",
   "solve.close": "关闭",
   "solve.fail": "求解失败",
+  "solve.baseLabel": "解法底",
+  "solve.baseGlobal": "跟随全局底",
   "solve.optGroup.cfop": "CFOP 选项",
   "solve.optGroup.roux": "Roux 选项",
   "solve.opt.zbll": "一步顶层 (ZBLL)",

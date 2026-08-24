@@ -10,14 +10,33 @@
 import { computed } from "vue";
 import WinTextBlock from "../../vendor/winui-on-web/components/WinTextBlock.vue";
 import { useI18n } from "../i18n";
-import type { SolverOptionGroup, SolverOptions } from "../../cube/solver/methodOptions";
+import type { SolverOptionGroup, SolverOptions, SolveBaseChoice } from "../../cube/solver/methodOptions";
+import type { Face } from "../../cube/stickering";
+
+/** 面序 U/R/F/D/L/B（与 RenderCube FACE_COLORS / solver engine 面序一致） */
+const BASE_FACES: Face[] = ["U", "R", "F", "D", "L", "B"];
+const FACE_COLORS: Record<Face, string> = {
+  U: "#ffffff",
+  R: "#ff9900",
+  F: "#00ff00",
+  D: "#ffff00",
+  L: "#ff0000",
+  B: "#2266ff",
+};
 
 const props = defineProps<{
   group: SolverOptionGroup;
   modelValue: SolverOptions;
+  /** 解法底：跟随全局底（"global"，默认）或显式任一底面（多色底 / 6 色底） */
+  solveBase?: SolveBaseChoice;
+  /** 全局底色（settings.baseFace，"global" chip 的色点显示其当前色） */
+  globalBase?: Face;
 }>();
 
-const emit = defineEmits<{ (e: "update:modelValue", v: SolverOptions): void }>();
+const emit = defineEmits<{
+  (e: "update:modelValue", v: SolverOptions): void;
+  (e: "update:solveBase", v: SolveBaseChoice): void;
+}>();
 
 const { t } = useI18n();
 
@@ -26,10 +45,44 @@ const selected = computed(() => props.modelValue);
 const toggle = (id: string, on: boolean): void => {
   emit("update:modelValue", { ...selected.value, [id]: on });
 };
+
+const setBase = (b: SolveBaseChoice): void => {
+  emit("update:solveBase", b);
+};
 </script>
 
 <template>
   <div class="solver-options-panel">
+    <!-- 解法底（多色底 / 6 色底）：默认跟随全局底，或显式任选一色 -->
+    <div class="base-section">
+      <WinTextBlock class="opt-group-title" :Text="t('solve.baseLabel')" FontSize="12" />
+      <div class="base-row">
+        <button
+          type="button"
+          class="base-chip"
+          :class="{ on: (solveBase ?? 'global') === 'global' }"
+          @click="setBase('global')"
+        >
+          <span
+            class="base-dot"
+            :style="{ background: globalBase ? FACE_COLORS[globalBase] : FACE_COLORS.D }"
+          ></span>
+          <span class="base-name">{{ t("solve.baseGlobal") }}</span>
+        </button>
+        <button
+          v-for="f in BASE_FACES"
+          :key="f"
+          type="button"
+          class="base-chip"
+          :class="{ on: solveBase === f }"
+          @click="setBase(f)"
+        >
+          <span class="base-dot" :style="{ background: FACE_COLORS[f] }"></span>
+          <span class="base-name">{{ f }}</span>
+        </button>
+      </div>
+    </div>
+
     <WinTextBlock class="opt-group-title" :Text="t(group.groupKey)" FontSize="12" />
     <label v-for="opt in group.options" :key="opt.id" class="opt-row">
       <span class="opt-check">
@@ -109,6 +162,47 @@ const toggle = (id: string, on: boolean): void => {
   line-height: 1.2;
   cursor: pointer;
   user-select: none;
+}
+.base-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+.base-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.base-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px 2px 5px;
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  border-radius: 12px;
+  background: #f2f2f2; /* 浅灰底（与选项勾选框一致） */
+  cursor: pointer;
+  user-select: none;
+}
+.base-chip.on {
+  border-color: var(--win-accent, #2266ff);
+  background: rgba(34, 102, 255, 0.12);
+}
+.base-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  display: inline-block;
+  flex: none;
+}
+.base-name {
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-primary);
 }
 .opt-hint {
   opacity: 0.5;

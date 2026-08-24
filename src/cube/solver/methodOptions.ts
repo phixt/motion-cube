@@ -16,7 +16,13 @@
  *   - roux + (roux.eolr | roux.merge4b4c) → 'roux-adv'，否则 'roux'
  *     （现 roux-adv = EOLR 一步表 + 6E2C 合一；「仅合并 4b4c 不 EOLR」的独立粒度
  *       待 docs/research-roux-adv.md 调研结论后再拆。）
+ *
+ * 解法底（多色底 / 6 色底）：独立 localStorage key（motion-cube.solveBase），
+ * 取值 "global"（默认，跟随全局底色设置）或任意 Face（六色底 6 选 1）。
+ * 消费方 = GamePage 求解时传给 solver.solve(state, method, baseFace)。
  */
+import { FACES, type Face } from "../stickering.ts";
+
 export type SolverBase = "cfop" | "roux";
 
 export interface SolverMethodOption {
@@ -94,6 +100,36 @@ export function loadSolverOptions(): SolverOptions {
 export function saveSolverOptions(opts: SolverOptions): void {
   try {
     localStorage.setItem(SOLVE_OPTIONS_KEY, JSON.stringify(opts));
+  } catch {
+    /* 忽略写入失败 */
+  }
+}
+
+// ---------- 解法底（多色底 / 6 色底） ----------
+
+/** 解法底选择：跟随全局底（"global"，默认）或显式任意底面（六色底 6 选 1） */
+export type SolveBaseChoice = Face | "global";
+
+const SOLVE_BASE_KEY = "motion-cube.solveBase";
+
+export const DEFAULT_SOLVE_BASE: SolveBaseChoice = "global";
+
+/** 读取解法底（与合法面全集归一化：未知值回退跟随全局底） */
+export function loadSolveBase(): SolveBaseChoice {
+  try {
+    const raw = localStorage.getItem(SOLVE_BASE_KEY);
+    if (!raw) return DEFAULT_SOLVE_BASE;
+    if (raw === "global") return "global";
+    if ((FACES as readonly string[]).includes(raw)) return raw as Face;
+    return DEFAULT_SOLVE_BASE;
+  } catch {
+    return DEFAULT_SOLVE_BASE;
+  }
+}
+
+export function saveSolveBase(base: SolveBaseChoice): void {
+  try {
+    localStorage.setItem(SOLVE_BASE_KEY, base);
   } catch {
     /* 忽略写入失败 */
   }

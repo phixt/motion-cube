@@ -6,9 +6,12 @@
 
 ## 当前状态
 
-- 版本 **0.3.5**（package.json 与 src-tauri/tauri.conf.json 同步）
+- 版本 **0.3.6**（package.json 与 src-tauri/tauri.conf.json 同步）
 - 求解器：CFOP / CFOP+（一步 ZBLL + 回退）/ Roux（LSE 4a+6E2C）三方法全绿
   （typecheck + smoke-solver + smoke-solver-edge + verify-data）
+- 解法底选择：CFOP/Roux 方法面板「解法底」区——global（跟随全局底，默认）+ 六色底
+  （U/R/F/D/L/B）；坐标中性（跨/F2L 按 D 面位坐标、与颜色无关），显式底不改解法
+  输出（SolveResult.base 记录视角 + 未来色底求解器预留）
 - 一步 ZBLL 覆盖 52.5%（M2 变体闭包，1944 轨道，prepare 0.5s）；未覆盖回退 OLL+PLL
 - ZBLS 305 条落库接入 solve 链（F2L×3→ZBLS→一步 ZBLL，显示排除 F2L）
 - 技术栈：Vite 8 + Vue 3.5 + cubing.js（TwistyPlayer + cubing/alg）+ three.js（手模型）
@@ -200,9 +203,12 @@
 - **0.3.4 ZBLL/ZBLS 全覆盖**（08-20，8f75a5c）：解析器 `[2345]'` 记法；zbll 466→472；
   全阶段禁 tidyAlg 不消步；ZBLS 305 落库接入；GamePage cfop-adv；一步 ZBLL 查表
   （52.5% 覆盖 + 回退 OLL+PLL，prepare 0.5s）
-- **0.3.5 本轮**（08-20）：打乱 3 倍速播放；Roux LSE 改造（4a→6E2C、EOLR 一步表）；
+- **0.3.5**（08-20）：打乱 3 倍速播放；Roux LSE 改造（4a→6E2C、EOLR 一步表）；
   6 色底双模式（跟随设置底/固定 D）；cfop-adv 中性发现（反例入
   `data/samples/cfop-adv-zbll-case.json`）
+- **0.3.6 本轮**（08-21）：解法底选择——方法面板「解法底」区（跟随全局底(默认)/六色底
+  U/R/F/D/L/B），localStorage `motion-cube.solveBase` 持久化；坐标中性结论：显式底不改
+  moves、仅记录视角（SolveResult.base）；验证 verify-solve-base 11/11 + UI 7 chip 全绿
 - **更早（08-06~08-13，归档）**：Vue/WinUI 迁移、动画编辑器全量迭代、拍概念、
   标灰面板、首页视差、tauri 桌面版、安全审查等，详见 git log
 

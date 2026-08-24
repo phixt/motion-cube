@@ -119,6 +119,8 @@ export const en: Record<string, string> = {
   "solve.done": "Demo finished (solved)",
   "solve.close": "Close",
   "solve.fail": "Solve failed",
+  "solve.baseLabel": "Solve base",
+  "solve.baseGlobal": "Follow global base",
   "solve.optGroup.cfop": "CFOP options",
   "solve.optGroup.roux": "Roux options",
   "solve.opt.zbll": "1-look LL (ZBLL)",

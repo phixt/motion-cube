@@ -31,6 +31,8 @@ const moves = ref<string[]>([]);
 
 const solveMethod = ref<methodOpts.SolverBase>("cfop");
 const solveOptions = ref<methodOpts.SolverOptions>(methodOpts.loadSolverOptions());
+/** 解法底（多色底 / 6 色底）：默认 "global" = 跟随全局底色设置；可选任一显式底 */
+const solveBase = ref<methodOpts.SolveBaseChoice>(methodOpts.loadSolveBase());
 /** 二级选项面板展开态（点方法按钮展开/再点收起；高级不常驻） */
 const optionsOpen = ref(false);
 const currentOptionGroup = computed(() =>
@@ -44,6 +46,7 @@ const selectMethod = (m: methodOpts.SolverBase): void => {
   }
 };
 watch(solveOptions, (v) => methodOpts.saveSolverOptions(v), { deep: true });
+watch(solveBase, (v) => methodOpts.saveSolveBase(v));
 const solving = ref(false);
 const solveResult = ref<SolveResult | null>(null);
 const solveError = ref("");
@@ -217,6 +220,8 @@ const doSolve = (): void => {
       const res = solveCube(
         currentState(),
         methodOpts.resolveSolverMethod(solveMethod.value, solveOptions.value),
+        // 解法底：默认跟随全局底（不额外转，起始状态已把全局底转到 D）；显式底时整块旋转求解
+        solveBase.value === "global" ? undefined : solveBase.value,
       );
       solveResult.value = res;
       status.value = res.moves.length ? t("solve.total", { n: res.moves.length }) : t("solve.empty");
@@ -312,6 +317,9 @@ const demoSolve = async (): Promise<void> => {
       id="solver-options"
       class="solve-options-float"
       v-model="solveOptions"
+      :solve-base="solveBase"
+      :global-base="loadSettings().baseFace"
+      @update:solve-base="(b) => (solveBase = b)"
       :group="currentOptionGroup"
     />
 

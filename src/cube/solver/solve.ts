@@ -7,6 +7,7 @@
  */
 import { applyAlg, isSolved, isUniform, normalizeOrientation, transformMove } from "./engine.ts";
 import type { State } from "./engine.ts";
+import type { Face } from "../stickering.ts";
 import { CFOP, prepare as cfopPrepare, type SolveStage } from "./cfop.ts";
 import { ROUX, prepare as rouxPrepare } from "./roux.ts";
 import { prepare as zblPrepare } from "./zbl.ts";
@@ -67,21 +68,31 @@ export type SolveResult = {
   stageOf: number[];
   ms: number;
   rotated: boolean;
+  /** 解法底：跟随全局底（"global"）或显式选定的面（多色底 / 6 色底） */
+  base: Face | "global";
 };
 
 /**
  * @param state 当前魔方
  * @param method 'cfop' | 'cfop-adv' | 'roux' | 'roux-adv'
- * @returns {method,label,stages,moves,stageOf,ms,rotated}
+ * @param baseFace 解法底：undefined / "global" = 跟随全局底（默认）；显式 Face = 指定解法底
+ *   （多色底 / 6 色底）。求解器坐标中性——同一坐标解对任意底同构（cross/F2L 按 D 面位
+ *   坐标、与颜色无关；isUniform 判定对整块旋转不变 ⇒ moves 对任何底都还原），
+ *   因此 baseFace 仅记录为视角标注（SolveResult.base），为未来色底求解器预留接入点；
+ *   不做整块旋转（会破坏求解器「中心归 home」前提——探针实证 CFOP 对整块旋转后的
+ *   状态解不到 uniform）。默认情形下演示起始状态已把全局底颜色转到 D 面位（六色底），
+ *   求解视角即与全局底一致——「默认跟随全局底」语义由此成立。
+ * @returns {method,label,stages,moves,stageOf,ms,rotated,base}
  */
-export function solve(state: State, method?: SolveMethodKey): SolveResult {
+export function solve(state: State, method?: SolveMethodKey, baseFace?: Face | "global"): SolveResult {
   const key = method ?? "cfop";
   const m = SOLVER_METHODS[key];
   const t0 = now();
   m.prepare();
   const norm = normalizeOrientation(state);
-  const res = m.run(norm.state);
+  const targetDown = baseFace && baseFace !== "global" ? baseFace : null;
   const mapBack = norm.alg.length ? (mv: string) => transformMove(mv, norm.inverse) : (mv: string) => mv;
+  const res = m.run(norm.state);
 
   const stages: SolveStage[] = [];
   const moves: string[] = [], stageOf: number[] = [];
@@ -99,5 +110,6 @@ export function solve(state: State, method?: SolveMethodKey): SolveResult {
     method: m.key, label: m.label, short: m.short, blurb: m.blurb,
     stages, moves, stageOf, ms: Math.max(0, now() - t0),
     rotated: !isSolved(end),
+    base: targetDown ?? "global",
   };
 }
