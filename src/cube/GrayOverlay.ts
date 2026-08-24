@@ -29,7 +29,7 @@ export class GrayOverlay {
 
   async init(): Promise<void> {
     // cubing 每次调度渲染时可能重建材质/对象，在回调中重放标灰
-    const obj = await this.player.element.experimentalCurrentThreeJSPuzzleObject(() => {
+    const obj = await this.player.onThreeScene(() => {
       if (!this.ready || this.map.size < 54) this.tryBuildMap();
       if (this.ready && this.lastState) this.doApply(this.lastState);
       this.renderListener?.();
@@ -93,14 +93,9 @@ export class GrayOverlay {
     }, 80);
   }
 
-  /** 强制 cubing 重绘（应用标灰后调用） */
+  /** 强制重绘一帧（应用标灰后调用；走 CubePlayer 抽象接口） */
   private async requestRender(): Promise<void> {
-    try {
-      const vantages = await this.player.element.experimentalCurrentVantages();
-      for (const v of vantages) v.scheduleRender();
-    } catch {
-      // 场景未就绪时忽略
-    }
+    await this.player.requestRender();
   }
 
   private doApply(state: GrayState): void {

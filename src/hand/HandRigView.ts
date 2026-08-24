@@ -62,7 +62,7 @@ export class HandRigView {
 
   /** 注入场景；cubing 每次调度渲染时回调（场景重建时自愈重挂 + 重放姿态） */
   async init(): Promise<void> {
-    const obj = await this.player.element.experimentalCurrentThreeJSPuzzleObject(() => {
+    const obj = await this.player.onThreeScene(() => {
       this.attach(obj);
       this.applyPose();
     });
@@ -106,14 +106,9 @@ export class HandRigView {
     void this.requestRender();
   }
 
-  /** 强制 cubing 重绘（同 GrayOverlay.requestRender） */
+  /** 强制重绘一帧（同 GrayOverlay；走 CubePlayer 抽象接口） */
   private async requestRender(): Promise<void> {
-    try {
-      const vantages = await this.player.element.experimentalCurrentVantages();
-      for (const v of vantages) v.scheduleRender();
-    } catch {
-      // 场景未就绪时忽略
-    }
+    await this.player.requestRender();
   }
 
   /** 当前驱动姿态（测试/调试用） */

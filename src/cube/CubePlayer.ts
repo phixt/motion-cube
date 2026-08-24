@@ -59,17 +59,33 @@ export class CubePlayer {
       .catch(() => {});
   }
 
-  /** 魔方显隐（编辑器快捷键；隐藏魔方只留手，便于规划动作） */
-  async showCube(visible: boolean): Promise<void> {
-    this.cubeVisible = visible;
-    if (this.cubeObj) this.cubeObj.visible = visible;
-    // cubing 惰性渲染：改 visible 后需强制重绘
+  /// ---- 抽象渲染接口（阶段 0 收敛：消费方不再直连 cubing 专属 API） ----
+
+  /**
+   * 订阅 three.js 场景中的魔方对象；`onRecreate` 在每次调度渲染/场景重建时回调
+   * （同 cubing experimentalCurrentThreeJSPuzzleObject 自愈模式：GrayOverlay/
+   * HandRigView 靠它重放标灰/姿态）。返回当前魔方对象（Object3D）。
+   */
+  onThreeScene(onRecreate: () => void): Promise<Object3D> {
+    return this.element.experimentalCurrentThreeJSPuzzleObject(onRecreate);
+  }
+
+  /** 强制重绘一帧（映射 cubing vantages/scheduleRender） */
+  async requestRender(): Promise<void> {
     try {
       const vantages = await this.element.experimentalCurrentVantages();
       for (const v of vantages) v.scheduleRender();
     } catch {
       // 场景未就绪忽略
     }
+  }
+
+  /** 魔方显隐（编辑器快捷键；隐藏魔方只留手，便于规划动作） */
+  async showCube(visible: boolean): Promise<void> {
+    this.cubeVisible = visible;
+    if (this.cubeObj) this.cubeObj.visible = visible;
+    // cubing 惰性渲染：改 visible 后需强制重绘
+    await this.requestRender();
   }
 
   /** 追加一步并立即动画：键盘映射的核心通道 */

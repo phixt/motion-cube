@@ -201,12 +201,7 @@ const syncCubeToFrame = (frame: number): void => {
   moveCursor = cursor;
   const start = tech.value.startState ?? (formulaMoves.length ? invertMoves(formulaMoves.join(" ")) : "");
   player.setMoves(moves.length ? `${start} ${moves.join(" ")}` : start);
-  void player.element
-    .experimentalCurrentVantages()
-    .then((vs) => {
-      for (const v of vs) v.scheduleRender();
-    })
-    .catch(() => {});
+  void player.requestRender();
 };
 
 const onTrackPointerDown = (e: PointerEvent): void => {
@@ -1291,8 +1286,7 @@ onMounted(() => {
   const kickRender = (): void => {
     void (async () => {
       try {
-        const vantages = await player?.element.experimentalCurrentVantages();
-        for (const v of vantages ?? []) v.scheduleRender();
+        await player?.requestRender();
       } catch {
         // 场景未就绪时忽略
       }
