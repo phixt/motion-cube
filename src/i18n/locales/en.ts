@@ -251,6 +251,15 @@ export const en: Record<string, string> = {
   "help.opFormula":
     "Algorithm box: standard notation (supports M/E/S, r/u wide moves, x/y/z, commutators), press “Apply”",
   "help.opSpeed": "Speed slider: animation playback speed",
+  "help.blind.title": "Blindfold 彳亍法 · 3D encoding model",
+  "help.blind.axis":
+    "Default orientation: yellow-top red-front (U=yellow, F=red, R=blue, L=green, B=orange, D=white)",
+  "help.blind.buffer": "Buffer: edge UF + corner UFR (marked ✕, 5 sticker positions)",
+  "help.blind.cycle":
+    "彳亍法 = 3-cycle: each time the buffer swaps with two other same-type pieces (corners / edges)",
+  "help.blind.letter":
+    "Encoding: one letter per sticker position (edges & corners encoded separately). Corner letters run clockwise per piece starting from its top face (bottom pieces also clockwise viewed from below), ending with WMN/XYZ. Drag to rotate the cube",
+  "help.blind.tip": "letter ↔ block / sticker mapping: data/blind-code-map.json",
   "help.editorOps": "Animation editor",
   "help.editorPlaceholder": "To be filled in once the editor ships",
 

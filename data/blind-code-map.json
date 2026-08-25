@@ -24,7 +24,8 @@
       "stickerOnBlock": "U",
       "letter": "D",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "U6"
     },
     {
       "face": "U",
@@ -34,7 +35,8 @@
       "stickerOnBlock": "U",
       "letter": "E",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "U7"
     },
     {
       "face": "U",
@@ -44,7 +46,8 @@
       "stickerOnBlock": "U",
       "letter": "G",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "U8"
     },
     {
       "face": "U",
@@ -54,7 +57,8 @@
       "stickerOnBlock": "U",
       "letter": "C",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "U3"
     },
     {
       "face": "U",
@@ -64,7 +68,8 @@
       "stickerOnBlock": "U",
       "letter": "",
       "buffer": false,
-      "center": true
+      "center": true,
+      "engineId": "U4"
     },
     {
       "face": "U",
@@ -74,7 +79,8 @@
       "stickerOnBlock": "U",
       "letter": "G",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "U5"
     },
     {
       "face": "U",
@@ -84,7 +90,8 @@
       "stickerOnBlock": "U",
       "letter": "A",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "U0"
     },
     {
       "face": "U",
@@ -94,7 +101,8 @@
       "stickerOnBlock": "U",
       "letter": "",
       "buffer": true,
-      "center": false
+      "center": false,
+      "engineId": "U1"
     },
     {
       "face": "U",
@@ -104,7 +112,8 @@
       "stickerOnBlock": "U",
       "letter": "",
       "buffer": true,
-      "center": false
+      "center": false,
+      "engineId": "U2"
     },
     {
       "face": "D",
@@ -114,7 +123,8 @@
       "stickerOnBlock": "D",
       "letter": "W",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "D0"
     },
     {
       "face": "D",
@@ -124,7 +134,8 @@
       "stickerOnBlock": "D",
       "letter": "I",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "D1"
     },
     {
       "face": "D",
@@ -134,7 +145,8 @@
       "stickerOnBlock": "D",
       "letter": "X",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "D2"
     },
     {
       "face": "D",
@@ -144,7 +156,8 @@
       "stickerOnBlock": "D",
       "letter": "K",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "D3"
     },
     {
       "face": "D",
@@ -154,7 +167,8 @@
       "stickerOnBlock": "D",
       "letter": "",
       "buffer": false,
-      "center": true
+      "center": true,
+      "engineId": "D4"
     },
     {
       "face": "D",
@@ -164,7 +178,8 @@
       "stickerOnBlock": "D",
       "letter": "O",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "D5"
     },
     {
       "face": "D",
@@ -174,7 +189,8 @@
       "stickerOnBlock": "D",
       "letter": "O",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "D6"
     },
     {
       "face": "D",
@@ -184,7 +200,8 @@
       "stickerOnBlock": "D",
       "letter": "M",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "D7"
     },
     {
       "face": "D",
@@ -194,7 +211,8 @@
       "stickerOnBlock": "D",
       "letter": "R",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "D8"
     },
     {
       "face": "F",
@@ -204,7 +222,8 @@
       "stickerOnBlock": "F",
       "letter": "B",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "F0"
     },
     {
       "face": "F",
@@ -214,7 +233,8 @@
       "stickerOnBlock": "F",
       "letter": "",
       "buffer": true,
-      "center": false
+      "center": false,
+      "engineId": "F1"
     },
     {
       "face": "F",
@@ -224,7 +244,8 @@
       "stickerOnBlock": "F",
       "letter": "",
       "buffer": true,
-      "center": false
+      "center": false,
+      "engineId": "F2"
     },
     {
       "face": "F",
@@ -234,7 +255,8 @@
       "stickerOnBlock": "F",
       "letter": "S",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "F3"
     },
     {
       "face": "F",
@@ -244,7 +266,8 @@
       "stickerOnBlock": "F",
       "letter": "",
       "buffer": false,
-      "center": true
+      "center": true,
+      "engineId": "F4"
     },
     {
       "face": "F",
@@ -254,7 +277,8 @@
       "stickerOnBlock": "F",
       "letter": "Q",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "F5"
     },
     {
       "face": "F",
@@ -264,7 +288,8 @@
       "stickerOnBlock": "F",
       "letter": "N",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "F6"
     },
     {
       "face": "F",
@@ -274,7 +299,8 @@
       "stickerOnBlock": "F",
       "letter": "J",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "F7"
     },
     {
       "face": "F",
@@ -284,7 +310,8 @@
       "stickerOnBlock": "F",
       "letter": "Y",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "F8"
     },
     {
       "face": "B",
@@ -294,7 +321,8 @@
       "stickerOnBlock": "B",
       "letter": "H",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "B0"
     },
     {
       "face": "B",
@@ -304,7 +332,8 @@
       "stickerOnBlock": "B",
       "letter": "F",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "B1"
     },
     {
       "face": "B",
@@ -314,7 +343,8 @@
       "stickerOnBlock": "B",
       "letter": "F",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "B2"
     },
     {
       "face": "B",
@@ -324,7 +354,8 @@
       "stickerOnBlock": "B",
       "letter": "Y",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "B3"
     },
     {
       "face": "B",
@@ -334,7 +365,8 @@
       "stickerOnBlock": "B",
       "letter": "",
       "buffer": false,
-      "center": true
+      "center": true,
+      "engineId": "B4"
     },
     {
       "face": "B",
@@ -344,7 +376,8 @@
       "stickerOnBlock": "B",
       "letter": "W",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "B5"
     },
     {
       "face": "B",
@@ -354,7 +387,8 @@
       "stickerOnBlock": "B",
       "letter": "T",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "B6"
     },
     {
       "face": "B",
@@ -364,7 +398,8 @@
       "stickerOnBlock": "B",
       "letter": "N",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "B7"
     },
     {
       "face": "B",
@@ -374,7 +409,8 @@
       "stickerOnBlock": "B",
       "letter": "P",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "B8"
     },
     {
       "face": "R",
@@ -384,7 +420,8 @@
       "stickerOnBlock": "R",
       "letter": "",
       "buffer": true,
-      "center": false
+      "center": false,
+      "engineId": "R2"
     },
     {
       "face": "R",
@@ -394,7 +431,8 @@
       "stickerOnBlock": "R",
       "letter": "H",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "R1"
     },
     {
       "face": "R",
@@ -404,7 +442,8 @@
       "stickerOnBlock": "R",
       "letter": "I",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "R0"
     },
     {
       "face": "R",
@@ -414,7 +453,8 @@
       "stickerOnBlock": "R",
       "letter": "R",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "R5"
     },
     {
       "face": "R",
@@ -424,7 +464,8 @@
       "stickerOnBlock": "R",
       "letter": "",
       "buffer": false,
-      "center": true
+      "center": true,
+      "engineId": "R4"
     },
     {
       "face": "R",
@@ -434,7 +475,8 @@
       "stickerOnBlock": "R",
       "letter": "Z",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "R3"
     },
     {
       "face": "R",
@@ -444,7 +486,8 @@
       "stickerOnBlock": "R",
       "letter": "Z",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "R8"
     },
     {
       "face": "R",
@@ -454,7 +497,8 @@
       "stickerOnBlock": "R",
       "letter": "P",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "R7"
     },
     {
       "face": "R",
@@ -464,7 +508,8 @@
       "stickerOnBlock": "R",
       "letter": "S",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "R6"
     },
     {
       "face": "L",
@@ -474,7 +519,8 @@
       "stickerOnBlock": "L",
       "letter": "E",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "L2"
     },
     {
       "face": "L",
@@ -484,7 +530,8 @@
       "stickerOnBlock": "L",
       "letter": "D",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "L1"
     },
     {
       "face": "L",
@@ -494,7 +541,8 @@
       "stickerOnBlock": "L",
       "letter": "C",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "L0"
     },
     {
       "face": "L",
@@ -504,7 +552,8 @@
       "stickerOnBlock": "L",
       "letter": "X",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "L5"
     },
     {
       "face": "L",
@@ -514,7 +563,8 @@
       "stickerOnBlock": "L",
       "letter": "",
       "buffer": false,
-      "center": true
+      "center": true,
+      "engineId": "L4"
     },
     {
       "face": "L",
@@ -524,7 +574,8 @@
       "stickerOnBlock": "L",
       "letter": "T",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "L3"
     },
     {
       "face": "L",
@@ -534,7 +585,8 @@
       "stickerOnBlock": "L",
       "letter": "Q",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "L8"
     },
     {
       "face": "L",
@@ -544,7 +596,8 @@
       "stickerOnBlock": "L",
       "letter": "L",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "L7"
     },
     {
       "face": "L",
@@ -554,7 +607,8 @@
       "stickerOnBlock": "L",
       "letter": "M",
       "buffer": false,
-      "center": false
+      "center": false,
+      "engineId": "L6"
     }
   ],
   "letters": {

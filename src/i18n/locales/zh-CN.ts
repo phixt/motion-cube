@@ -245,6 +245,12 @@ export const zhCN: Record<string, string> = {
   "help.opKeys": "按键：按当前按键配置执行魔方动作（可在「设置」中修改）",
   "help.opFormula": "公式输入框：标准记法（支持 M/E/S、r/u 双层、x/y/z、交换子），点“应用”",
   "help.opSpeed": "速度滑块：动画播放速度",
+  "help.blind.title": "盲拧彳亍法 · 3D 编码模型",
+  "help.blind.axis": "默认朝向：黄顶红前（上=黄、前=红、右=蓝、左=绿、后=橙、下=白）",
+  "help.blind.buffer": "缓冲块：棱 UF + 角 UFR（图中 ✕ 标记，共 5 个贴纸位）",
+  "help.blind.cycle": "彳亍法 = 三循环：每次缓冲块与另两个同型块（角/棱）三循环交换",
+  "help.blind.letter": "编码：每个贴纸位一个字母（棱、角分套编码）。角块字母按块命名、每块顺时针从顶面开始（底面从底面上看也顺时针），末位 WMN/XYZ。拖拽旋转查看各面",
+  "help.blind.tip": "字母 ↔ 块/贴纸位对应见 data/blind-code-map.json",
   "help.editorOps": "动画编辑器说明",
   "help.editorPlaceholder": "待编辑器实现后补充",
 

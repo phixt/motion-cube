@@ -21,7 +21,7 @@
  *
  * 运行：node scripts/build-blind-code-map.ts（Node 原生 strip-types，勿用 tsx）
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 // ---------- 源码面数据（reference/chichu.html faceData，静态网格） ----------
@@ -61,7 +61,6 @@ const RAW: Record<string, string[][]> = {
 
 // 面轴（黄顶红前规范；与 src/cube/stickering.ts FACE_NORMALS 同构但色序为黄顶红前）
 type Axis = "x" | "y" | "z";
-type Coord = { n: number; pos: boolean }; // 法向轴 +1.5（pos）/-1.5
 const FACE_AXIS: Record<string, { n: Axis; pos: boolean }> = {
   U: { n: "y", pos: true },
   D: { n: "y", pos: false },
@@ -112,6 +111,7 @@ type Sticker = {
   letter: string;
   buffer: boolean;
   center: boolean;
+  engineId: string; // 黄顶红前贴纸位 → engine 54 布局 StickerId（位置直映）
 };
 
 const cells: Sticker[] = [];
@@ -159,6 +159,7 @@ for (const face of Object.keys(FACE_AXIS)) {
           letter: "",
           buffer: false,
           center: true,
+          engineId: toEngineId({ x: w.x, y: w.y, z: w.z }) ?? "",
         });
         continue;
       }
@@ -172,6 +173,7 @@ for (const face of Object.keys(FACE_AXIS)) {
         letter: buffer ? "" : text || "",
         buffer,
         center: false,
+        engineId: toEngineId({ x: w.x, y: w.y, z: w.z }) ?? "",
       });
     }
   }
@@ -223,10 +225,9 @@ console.log(`字母全集(${letterSet.length}): ${letterSet.join(" ")}`);
 //   黄=−y、红=−x、蓝=−z、绿=+z、橙=+x、白=+y
 //   ⇒ Rg(x,y,z) = (−z, −y, −x)（检：+y→−y ✓黄、+z→−x ✓红、+x→−z ✓蓝、
 //   −x→+z ✓绿、−z→+x ✓橙、−y→+y ✓白；det=1 真旋转）
-// 反向（白顶绿前 → 黄顶红前）：逆 = (−z? 对合 (x,y,z)→(−z,−y,−x) 自逆：(−z,−y,−x)→(x,y,z) ✓）
-function rg(p: { x: number; y: number; z: number }): { x: number; y: number; z: number } {
-  return { x: -p.z, y: -p.y, z: -p.x };
-}
+// 反向（白顶绿前 → 黄顶红前）：逆 = 对合 (x,y,z)→(−z,−y,−x) 自逆 ✓（状态级换算，未在 cells 使用——
+// cells 的 engineId 走位置直映：黄顶红前与白顶绿前面轴几何一致（+y=U、+z=F…），颜色语义不同不影响
+// 贴纸位置索引）。
 // 目标 StickerId 用 stickering.stickerIdFromWorld 同算法（面轴 ±1.5 判定）
 function toEngineId(p: { x: number; y: number; z: number }): string | null {
   const ax = Math.abs(p.x), ay = Math.abs(p.y), az = Math.abs(p.z);
