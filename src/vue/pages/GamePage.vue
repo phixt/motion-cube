@@ -252,8 +252,10 @@ const closeSolve = (): void => {
 };
 
 /** 演示：从当前打乱态开始，逐步播放解法（不重放打乱）。
- *  若解被指定底（solveResult.setupAlg 非空），先对玩家施加整块旋转（把魔方转到该底朝向，
- *  视觉旋转到对应底），再按解播放 —— 单色底「旋转到对应底 + 按该底解」语义落地。 */
+ *  若解被指定底（solveResult.setupAlg 非空）：先播 setupAlg（动态：把「所选底色中心当前所在
+ *  面位」整体旋转到 D，视觉转到对应底）→ 播 moves → 末尾播 endAlg（动态收尾：把还原终点
+ *  整块旋转到所选底朝向 solved）——「全程所选底视角、解完停在所选底」语义落地（2026-08-22
+ *  实证：baseFaceSetupAlg 表 F↔x'/B↔x 方向修复 + solve 动态 setup/endAlg；verify 34/34）。 */
 const demoSolve = async (): Promise<void> => {
   const s = session;
   if (!s || !solveResult.value || demoRunning.value) return;
@@ -275,11 +277,19 @@ const demoSolve = async (): Promise<void> => {
     });
     return true;
   };
+  // 解法底视角保持（方案 A）：开头播 setupAlg 把魔方整块旋转到所选底朝向（视觉）；
+  // 中段播 moves（该底视角坐标解，还原到标准 solved）；末尾播 endAlg（setupAlg 的逆整块
+  // 旋转）把标准 solved 转回所选底朝向收尾——全程保持所选底视角、解完也停在该底朝向，
+  // 消除「整块旋转即被解回标准朝向」的「底不生效 / 底变成对面」视觉遗留。
   const setup = solveResult.value.setupAlg;
   if (setup) {
     for (const mv of setup.split(" ")) if (!(await play(mv))) return;
   }
   for (const mv of movesToShow) if (!(await play(mv))) return;
+  const endAlg = solveResult.value.endAlg;
+  if (endAlg) {
+    for (const mv of endAlg.split(" ")) if (!(await play(mv))) return;
+  }
   demoRunning.value = false;
   scrambleAlg.value = "";
   status.value = t("solve.done");

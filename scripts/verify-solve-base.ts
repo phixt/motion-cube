@@ -70,6 +70,7 @@ const m1g = solve(scrambleState, "cfop", "global");
 ok("A1 默认==global moves 深等", JSON.stringify(m1.moves) === JSON.stringify(m1g.moves));
 ok("A1 base==global", m1.base === "global" && m1g.base === "global");
 ok("A1 setupAlg 空", m1.setupAlg === "" && m1g.setupAlg === "");
+ok("A1 endAlg 空", m1.endAlg === "" && m1g.endAlg === "");
 ok("A1 还原", isUniform(applyAlg(scrambleState, m1.moves)));
 
 // A2 六色底全还原
@@ -108,6 +109,31 @@ for (const f of FACES) {
   const res = solve(scrambleState, "cfop", f);
   const bad = res.moves.filter((mv) => !isFaceMove(mv));
   ok(`A5 底 ${f} moves 全合法`, bad.length === 0, bad.length ? `bad=${bad.join(",")}` : undefined);
+}
+
+// A6 演示收尾视角（实证正确语义）：演示序列 setupAlg→moves→(endAlg) 之后，玩家停在
+//「所选底色在 D 面位」的某朝向 solved —— 断言 T=applyAlg(applyAlg(st,setup),moves) 六面单色
+// 且 D 面位中心色==所选底（=T 在「所选底朝向族」内）。验证数据（2026-08-22）：六底×两视角
+// T 的 D 面位中心=所选色全成立。注：SCR（固定种子）含整块/中层步会搅动中心，故「标准 solved
+// 经 setup」的静态 target 不是可比对象（A6 早版本误用该 target 而误报 FAIL）。
+const FACE_IDX: Record<string, number> = { U: 0, R: 1, F: 2, D: 3, L: 4, B: 5 };
+for (const [label, st] of [["标准 D 底态", scrambleState], ["红底实态", redState]] as const) {
+  for (const f of FACES) {
+    const res = solve(st, "cfop", f);
+    if (!res.setupAlg) continue; // D/global 无整块旋转
+    const T = applyAlg(applyAlg(st, res.setupAlg), res.moves);
+    ok(
+      `A6 ${label} 底 ${f} 收尾停在所选底朝向`,
+      isUniform(T) && T[3 * 9 + 4] === FACE_IDX[f],
+      `setup=${JSON.stringify(res.setupAlg)} end=${JSON.stringify(res.endAlg)} D面位中心=${T[3 * 9 + 4]} 期望=${FACE_IDX[f]}`,
+    );
+  }
+}
+// A6b roux 收尾抽查（红底实态 U 底）
+{
+  const res = solve(redState, "roux", "U");
+  const T = applyAlg(applyAlg(redState, res.setupAlg), res.moves);
+  ok("A6b roux 红底实态 U 底收尾停在所选底朝向", isUniform(T) && T[3 * 9 + 4] === FACE_IDX.U);
 }
 
 if (fail.length) {

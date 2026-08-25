@@ -229,7 +229,11 @@ export function presetGrayState(preset: GrayPreset, base: Face): GrayState {
   return { mutable: presetGrayStickers(preset, base), immutable: [] };
 }
 
-/** 让底色面朝下的整体旋转（游戏起始朝向；D 已在下，无需转动） */
+/** 把「base 色当前所在面位」整体旋转到 D 面位的整块旋转（游戏起始朝向；D 已在下、无需转动）。
+ *  实证（applyAlg(solved, baseFaceSetupAlg(f)) 的 D 面位中心色 == f 的 home 色，2026-08-22
+ *  探针验证）：U→"x2"（U↔D）、R→"z"（R 层绕 z 顺时针→D）、L→"z'"、F→"x'"（F 色转到 D）；
+ *  **注意方向曾反**：旧表 F="x" 实测把 B 色转到 D、B="x'" 把 F 色转到 D（「所选底的对面」）。
+ *  整块旋转步的坐标方向以 engine quarterMat(axis, -n*π/2)=绕 +axis 顺时针为 x/x' 语义基准。 */
 export function baseFaceSetupAlg(base: Face): string {
   switch (base) {
     case "D":
@@ -237,9 +241,9 @@ export function baseFaceSetupAlg(base: Face): string {
     case "U":
       return "x2";
     case "F":
-      return "x";
-    case "B":
       return "x'";
+    case "B":
+      return "x";
     case "R":
       return "z";
     case "L":
