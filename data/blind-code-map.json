@@ -1,0 +1,653 @@
+{
+  "schema": "blind-code-map",
+  "version": 1,
+  "orientation": "黄顶红前（U=黄 +y、F=红 +z、R=蓝 +x、L=绿 −x、B=橙 −z、D=白 −y）",
+  "convention": "彳亍法：三循环 —— 缓冲块(UF棱/UFR角) + 两个同型块；角块编码每块顺时针从顶面开始（底面从底上看也顺时针），整体左下→左上→右上；末位 WMN/XYZ",
+  "buffer": {
+    "edge": "UF",
+    "corner": "UFR",
+    "positions": [
+      "UF·U",
+      "UFR·U",
+      "UF·F",
+      "UFR·F",
+      "UFR·R"
+    ]
+  },
+  "rotation_to_engine": "Ry(+90°)（黄顶红前 → 白顶绿前 engine 54；反向 Ry(−90°)）",
+  "cells": [
+    {
+      "face": "U",
+      "row": 0,
+      "col": 0,
+      "block": "UBL",
+      "stickerOnBlock": "U",
+      "letter": "D",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "U",
+      "row": 0,
+      "col": 1,
+      "block": "UB",
+      "stickerOnBlock": "U",
+      "letter": "E",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "U",
+      "row": 0,
+      "col": 2,
+      "block": "UBR",
+      "stickerOnBlock": "U",
+      "letter": "G",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "U",
+      "row": 1,
+      "col": 0,
+      "block": "UL",
+      "stickerOnBlock": "U",
+      "letter": "C",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "U",
+      "row": 1,
+      "col": 1,
+      "block": "U",
+      "stickerOnBlock": "U",
+      "letter": "",
+      "buffer": false,
+      "center": true
+    },
+    {
+      "face": "U",
+      "row": 1,
+      "col": 2,
+      "block": "UR",
+      "stickerOnBlock": "U",
+      "letter": "G",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "U",
+      "row": 2,
+      "col": 0,
+      "block": "UFL",
+      "stickerOnBlock": "U",
+      "letter": "A",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "U",
+      "row": 2,
+      "col": 1,
+      "block": "UF",
+      "stickerOnBlock": "U",
+      "letter": "",
+      "buffer": true,
+      "center": false
+    },
+    {
+      "face": "U",
+      "row": 2,
+      "col": 2,
+      "block": "UFR",
+      "stickerOnBlock": "U",
+      "letter": "",
+      "buffer": true,
+      "center": false
+    },
+    {
+      "face": "D",
+      "row": 0,
+      "col": 0,
+      "block": "DFL",
+      "stickerOnBlock": "D",
+      "letter": "W",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "D",
+      "row": 0,
+      "col": 1,
+      "block": "DF",
+      "stickerOnBlock": "D",
+      "letter": "I",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "D",
+      "row": 0,
+      "col": 2,
+      "block": "DFR",
+      "stickerOnBlock": "D",
+      "letter": "X",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "D",
+      "row": 1,
+      "col": 0,
+      "block": "DL",
+      "stickerOnBlock": "D",
+      "letter": "K",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "D",
+      "row": 1,
+      "col": 1,
+      "block": "D",
+      "stickerOnBlock": "D",
+      "letter": "",
+      "buffer": false,
+      "center": true
+    },
+    {
+      "face": "D",
+      "row": 1,
+      "col": 2,
+      "block": "DR",
+      "stickerOnBlock": "D",
+      "letter": "O",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "D",
+      "row": 2,
+      "col": 0,
+      "block": "DBL",
+      "stickerOnBlock": "D",
+      "letter": "O",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "D",
+      "row": 2,
+      "col": 1,
+      "block": "DB",
+      "stickerOnBlock": "D",
+      "letter": "M",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "D",
+      "row": 2,
+      "col": 2,
+      "block": "DBR",
+      "stickerOnBlock": "D",
+      "letter": "R",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "F",
+      "row": 0,
+      "col": 0,
+      "block": "UFL",
+      "stickerOnBlock": "F",
+      "letter": "B",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "F",
+      "row": 0,
+      "col": 1,
+      "block": "UF",
+      "stickerOnBlock": "F",
+      "letter": "",
+      "buffer": true,
+      "center": false
+    },
+    {
+      "face": "F",
+      "row": 0,
+      "col": 2,
+      "block": "UFR",
+      "stickerOnBlock": "F",
+      "letter": "",
+      "buffer": true,
+      "center": false
+    },
+    {
+      "face": "F",
+      "row": 1,
+      "col": 0,
+      "block": "FL",
+      "stickerOnBlock": "F",
+      "letter": "S",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "F",
+      "row": 1,
+      "col": 1,
+      "block": "F",
+      "stickerOnBlock": "F",
+      "letter": "",
+      "buffer": false,
+      "center": true
+    },
+    {
+      "face": "F",
+      "row": 1,
+      "col": 2,
+      "block": "FR",
+      "stickerOnBlock": "F",
+      "letter": "Q",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "F",
+      "row": 2,
+      "col": 0,
+      "block": "DFL",
+      "stickerOnBlock": "F",
+      "letter": "N",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "F",
+      "row": 2,
+      "col": 1,
+      "block": "DF",
+      "stickerOnBlock": "F",
+      "letter": "J",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "F",
+      "row": 2,
+      "col": 2,
+      "block": "DFR",
+      "stickerOnBlock": "F",
+      "letter": "Y",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "B",
+      "row": 0,
+      "col": 0,
+      "block": "UBR",
+      "stickerOnBlock": "B",
+      "letter": "H",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "B",
+      "row": 0,
+      "col": 1,
+      "block": "UB",
+      "stickerOnBlock": "B",
+      "letter": "F",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "B",
+      "row": 0,
+      "col": 2,
+      "block": "UBL",
+      "stickerOnBlock": "B",
+      "letter": "F",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "B",
+      "row": 1,
+      "col": 0,
+      "block": "BR",
+      "stickerOnBlock": "B",
+      "letter": "Y",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "B",
+      "row": 1,
+      "col": 1,
+      "block": "B",
+      "stickerOnBlock": "B",
+      "letter": "",
+      "buffer": false,
+      "center": true
+    },
+    {
+      "face": "B",
+      "row": 1,
+      "col": 2,
+      "block": "BL",
+      "stickerOnBlock": "B",
+      "letter": "W",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "B",
+      "row": 2,
+      "col": 0,
+      "block": "DBR",
+      "stickerOnBlock": "B",
+      "letter": "T",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "B",
+      "row": 2,
+      "col": 1,
+      "block": "DB",
+      "stickerOnBlock": "B",
+      "letter": "N",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "B",
+      "row": 2,
+      "col": 2,
+      "block": "DBL",
+      "stickerOnBlock": "B",
+      "letter": "P",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "R",
+      "row": 0,
+      "col": 0,
+      "block": "UFR",
+      "stickerOnBlock": "R",
+      "letter": "",
+      "buffer": true,
+      "center": false
+    },
+    {
+      "face": "R",
+      "row": 0,
+      "col": 1,
+      "block": "UR",
+      "stickerOnBlock": "R",
+      "letter": "H",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "R",
+      "row": 0,
+      "col": 2,
+      "block": "UBR",
+      "stickerOnBlock": "R",
+      "letter": "I",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "R",
+      "row": 1,
+      "col": 0,
+      "block": "FR",
+      "stickerOnBlock": "R",
+      "letter": "R",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "R",
+      "row": 1,
+      "col": 1,
+      "block": "R",
+      "stickerOnBlock": "R",
+      "letter": "",
+      "buffer": false,
+      "center": true
+    },
+    {
+      "face": "R",
+      "row": 1,
+      "col": 2,
+      "block": "BR",
+      "stickerOnBlock": "R",
+      "letter": "Z",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "R",
+      "row": 2,
+      "col": 0,
+      "block": "DFR",
+      "stickerOnBlock": "R",
+      "letter": "Z",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "R",
+      "row": 2,
+      "col": 1,
+      "block": "DR",
+      "stickerOnBlock": "R",
+      "letter": "P",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "R",
+      "row": 2,
+      "col": 2,
+      "block": "DBR",
+      "stickerOnBlock": "R",
+      "letter": "S",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "L",
+      "row": 0,
+      "col": 0,
+      "block": "UBL",
+      "stickerOnBlock": "L",
+      "letter": "E",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "L",
+      "row": 0,
+      "col": 1,
+      "block": "UL",
+      "stickerOnBlock": "L",
+      "letter": "D",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "L",
+      "row": 0,
+      "col": 2,
+      "block": "UFL",
+      "stickerOnBlock": "L",
+      "letter": "C",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "L",
+      "row": 1,
+      "col": 0,
+      "block": "BL",
+      "stickerOnBlock": "L",
+      "letter": "X",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "L",
+      "row": 1,
+      "col": 1,
+      "block": "L",
+      "stickerOnBlock": "L",
+      "letter": "",
+      "buffer": false,
+      "center": true
+    },
+    {
+      "face": "L",
+      "row": 1,
+      "col": 2,
+      "block": "FL",
+      "stickerOnBlock": "L",
+      "letter": "T",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "L",
+      "row": 2,
+      "col": 0,
+      "block": "DBL",
+      "stickerOnBlock": "L",
+      "letter": "Q",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "L",
+      "row": 2,
+      "col": 1,
+      "block": "DL",
+      "stickerOnBlock": "L",
+      "letter": "L",
+      "buffer": false,
+      "center": false
+    },
+    {
+      "face": "L",
+      "row": 2,
+      "col": 2,
+      "block": "DFL",
+      "stickerOnBlock": "L",
+      "letter": "M",
+      "buffer": false,
+      "center": false
+    }
+  ],
+  "letters": {
+    "D": [
+      "UBL·U",
+      "UL·L"
+    ],
+    "E": [
+      "UB·U",
+      "UBL·L"
+    ],
+    "G": [
+      "UBR·U",
+      "UR·U"
+    ],
+    "C": [
+      "UL·U",
+      "UFL·L"
+    ],
+    "A": [
+      "UFL·U"
+    ],
+    "W": [
+      "DFL·D",
+      "BL·B"
+    ],
+    "I": [
+      "DF·D",
+      "UBR·R"
+    ],
+    "X": [
+      "DFR·D",
+      "BL·L"
+    ],
+    "K": [
+      "DL·D"
+    ],
+    "O": [
+      "DR·D",
+      "DBL·D"
+    ],
+    "M": [
+      "DB·D",
+      "DFL·L"
+    ],
+    "R": [
+      "DBR·D",
+      "FR·R"
+    ],
+    "B": [
+      "UFL·F"
+    ],
+    "S": [
+      "FL·F",
+      "DBR·R"
+    ],
+    "Q": [
+      "FR·F",
+      "DBL·L"
+    ],
+    "N": [
+      "DFL·F",
+      "DB·B"
+    ],
+    "J": [
+      "DF·F"
+    ],
+    "Y": [
+      "DFR·F",
+      "BR·B"
+    ],
+    "H": [
+      "UBR·B",
+      "UR·R"
+    ],
+    "F": [
+      "UB·B",
+      "UBL·B"
+    ],
+    "T": [
+      "DBR·B",
+      "FL·L"
+    ],
+    "P": [
+      "DBL·B",
+      "DR·R"
+    ],
+    "Z": [
+      "BR·R",
+      "DFR·R"
+    ],
+    "L": [
+      "DL·L"
+    ]
+  }
+}
