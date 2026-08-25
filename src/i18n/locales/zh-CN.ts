@@ -120,6 +120,8 @@ export const zhCN: Record<string, string> = {
   "solve.baseLabel": "解法底",
   "solve.baseGlobal": "跟随全局底",
   "solve.baseReset": "重置为全局底",
+  "solve.rotate": "旋转到底",
+  "solve.rotateHint": "{color} 当前在 {face} → 转到 D",
   "solve.optGroup.cfop": "CFOP 选项",
   "solve.optGroup.roux": "Roux 选项",
   "solve.opt.zbll": "一步顶层 (ZBLL)",

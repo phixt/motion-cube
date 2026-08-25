@@ -87,7 +87,10 @@ const copyScramble = async (): Promise<void> => {
 
 const copySolve = async (): Promise<void> => {
   if (!solveResult.value || !solveResult.value.moves.length) return;
-  status.value = (await copyText(solveResult.value.moves.join(" "))) ? t("hud.copied") : t("hud.copyFail");
+  // 「解法以所选底为基础」：复制公式带整块旋转前缀（= 标准魔方上先旋转到底再执行的完整公式）
+  const setup = solveResult.value.setupAlg;
+  const full = (setup ? setup + " " : "") + solveResult.value.moves.join(" ");
+  status.value = (await copyText(full)) ? t("hud.copied") : t("hud.copyFail");
 };
 
 // 解法演示：从当前打乱态逐步施加解法（不重放打乱）
@@ -373,6 +376,12 @@ const demoSolve = async (): Promise<void> => {
         </span>
       </div>
       <ul class="solve-stages">
+        <li v-if="solveResult.setupAlg" class="solve-stage solve-stage-rotate">
+          <span class="stage-short">{{ t("solve.rotate") }}（{{ solveResult.base }}）</span>
+          <span class="stage-moves">{{ solveResult.setupAlg }}</span>
+          <span class="stage-note" v-if="solveResult.rotateFrom">{{ t("solve.rotateHint", { color: solveResult.base, face: solveResult.rotateFrom }) }}</span>
+          <span class="stage-count">{{ solveResult.setupAlg.split(" ").length }}</span>
+        </li>
         <li v-for="(s, i) in solveResult.stages" :key="i" class="solve-stage">
           <span class="stage-short">{{ s.short }}</span>
           <span class="stage-algs" v-if="s.algs && s.algs.length">{{ s.algs.join(" · ") }}</span>
@@ -568,6 +577,20 @@ const demoSolve = async (): Promise<void> => {
   gap: 8px;
   padding: 3px 0;
   border-bottom: 1px solid var(--stroke-divider, rgba(128, 128, 128, 0.2));
+}
+
+/* 解法底旋转步骤：单列在公式开头（解法以所选底为基础） */
+.solve-stage-rotate {
+  color: var(--accent-base, #2266ff);
+  border-bottom: 1px dashed var(--stroke-divider, rgba(128, 128, 128, 0.2));
+}
+.solve-stage-rotate .stage-short {
+  color: var(--accent-base, #2266ff);
+}
+.solve-stage-rotate .stage-note {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-style: italic;
 }
 
 .stage-short {

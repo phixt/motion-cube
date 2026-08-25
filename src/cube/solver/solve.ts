@@ -77,6 +77,10 @@ export type SolveResult = {
   /** 把魔方整块旋转到解法底的整块旋转 alg（base 为 "global"/"D" 时为空串）；
    *  调用方在演示/执行解前对玩家施加，让玩家处于解法底朝向，moves 即在该视角播放。 */
   setupAlg: string;
+  /** base 色中心**当前实际所在的面位**（非标准视角下 ≠ base 面位，此时 setupAlg 的旋转字母
+   *  与 base 名不同——面板据此显示「{base} 当前在 {face} → 转到 D」，消除「写的是 R 但旋转
+   *  的是 L」的直觉错位；base 色已在 D 面位或 global/D 时 null）。 */
+  rotateFrom: Face | null;
   /** 演示收尾整块旋转（动态，实证 2026-08-22）：把「真实还原终点 T」整块旋转到「所选底朝向
    *  solved」——T=applyAlg(applyAlg(state, setupAlg), moves)（真实视角、物理贴纸未 relabel，
    *  经 moves 还原后恒停在「所选底色在 D 面位」的某朝向 solved）。标准全局底视角下 T 已=
@@ -163,11 +167,13 @@ export function solve(state: State, method?: SolveMethodKey, baseFace?: Face | "
   // baseFaceSetupAlg(base)——非标准全局底视角（如红底实态 state 已带整块旋转前缀）下 base
   // 色可能不在其 home 面位，固定语法会转错（把"对面的面"转到 D = 用户观察到的「对面」）。
   // 面位 p → D 的整块旋转 = baseFaceSetupAlg(FACE_BY_INDEX[p])（修方向后 p 面位→D 正确）。
+  let rotateFrom: Face | null = null;
   const setupAlg = ((): string => {
     if (!baseFace || baseFace === "global" || baseFace === "D") return "";
     const want = FACE_INDEX[baseFace];
     let p = -1;
     for (let f = 0; f < 6; f++) if (state[f * 9 + 4] === want) { p = f; break; }
+    if (p !== -1 && p !== 3) rotateFrom = FACE_BY_INDEX[p] as Face;
     return p === 3 || p === -1 ? "" : baseFaceSetupAlg(FACE_BY_INDEX[p]);
   })();
   const input = setupAlg ? relabelByCenter(applyAlg(state, setupAlg)) : state;
@@ -206,6 +212,7 @@ export function solve(state: State, method?: SolveMethodKey, baseFace?: Face | "
     rotated: !isSolved(end),
     base: baseFace && baseFace !== "global" ? baseFace : "global",
     setupAlg,
+    rotateFrom,
     endAlg: finishRotBetween(T, target),
   };
 }

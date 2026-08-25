@@ -122,6 +122,8 @@ export const en: Record<string, string> = {
   "solve.baseLabel": "Solve base",
   "solve.baseGlobal": "Follow global base",
   "solve.baseReset": "Reset to global base",
+  "solve.rotate": "Rotate to base",
+  "solve.rotateHint": "{color} is on {face} → rotate to D",
   "solve.optGroup.cfop": "CFOP options",
   "solve.optGroup.roux": "Roux options",
   "solve.opt.zbll": "1-look LL (ZBLL)",
