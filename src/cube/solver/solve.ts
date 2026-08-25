@@ -7,7 +7,7 @@
  */
 import { applyAlg, isSolved, isUniform, normalizeOrientation, transformMove } from "./engine.ts";
 import type { State } from "./engine.ts";
-import type { Face } from "../stickering.ts";
+import { baseFaceSetupAlg, type Face } from "../stickering.ts";
 import { CFOP, prepare as cfopPrepare, type SolveStage } from "./cfop.ts";
 import { ROUX, prepare as rouxPrepare } from "./roux.ts";
 import { prepare as zblPrepare } from "./zbl.ts";
@@ -70,27 +70,55 @@ export type SolveResult = {
   rotated: boolean;
   /** 解法底：跟随全局底（"global"）或显式选定的面（多色底 / 6 色底） */
   base: Face | "global";
+  /** 把魔方整块旋转到解法底的整块旋转 alg（base 为 "global"/"D" 时为空串）；
+   *  调用方在演示/执行解前对玩家施加，让玩家处于解法底朝向，moves 即在该视角播放。 */
+  setupAlg: string;
+};
+
+/**
+ * 中心色重标注（relabel）：把「整块旋转后」的状态（中心随转、未归 home）重映射为
+ * 「中心归 home」——位置不变、仅改颜色标签：每个贴纸的颜色映射为其「中心所在面位」
+ * 的 home 色。求解器坐标中性 + 阶段解依赖「中心归 home」坐标前提，故整块旋转底时
+ * 必须先把中心拨回 home 才能解；relabel 后解出的坐标操作序列位置不变，在真实贴纸
+ * （已整块旋转到对应底的视角）上可直接执行。
+ * 布局约定：State=Uint8Array(54)，面序 U/R/F/D/L/B，面位 f 中心索引 f*9+4，
+ * 面位 f 的 home 色（solvedState）恰为 f。
+ */
+const relabelByCenter = (s: State): State => {
+  const colorToFace = new Uint8Array(6).fill(255);
+  for (let f = 0; f < 6; f++) {
+    const c = s[f * 9 + 4];
+    if (c < 6) colorToFace[c] = f;
+  }
+  const out = new Uint8Array(54);
+  for (let i = 0; i < 54; i++) out[i] = colorToFace[s[i]] !== 255 ? colorToFace[s[i]] : s[i];
+  return out;
 };
 
 /**
  * @param state 当前魔方
  * @param method 'cfop' | 'cfop-adv' | 'roux' | 'roux-adv'
- * @param baseFace 解法底：undefined / "global" = 跟随全局底（默认）；显式 Face = 指定解法底
- *   （多色底 / 6 色底）。求解器坐标中性——同一坐标解对任意底同构（cross/F2L 按 D 面位
- *   坐标、与颜色无关；isUniform 判定对整块旋转不变 ⇒ moves 对任何底都还原），
- *   因此 baseFace 仅记录为视角标注（SolveResult.base），为未来色底求解器预留接入点；
- *   不做整块旋转（会破坏求解器「中心归 home」前提——探针实证 CFOP 对整块旋转后的
- *   状态解不到 uniform）。默认情形下演示起始状态已把全局底颜色转到 D 面位（六色底），
- *   求解视角即与全局底一致——「默认跟随全局底」语义由此成立。
- * @returns {method,label,stages,moves,stageOf,ms,rotated,base}
+ * @param baseFace 解法底：
+ *   - undefined / "global"：跟随全局底。演示起始状态已把全局底颜色转到 D 面位（六色底），
+ *     求解视角即与全局底一致，无需额外处理，setupAlg=""
+ *   - 显式 Face B：单色底——魔方旋转到 B 底朝向（B 色面到 D 面位）后按该底解。两层解耦：
+ *     本函数对输入态做等效整块旋转（applyAlg(state, baseFaceSetupAlg(B))）+ relabelByCenter
+ *     （中心归 home、位置不变），解出的坐标 moves 可在真实贴纸（已旋转到 B 底）上直接执行；
+ *     SolveResult.setupAlg = baseFaceSetupAlg(B)，由调用方在演示前对玩家施加（视觉整块旋转）。
+ *     验证：applyAlg(applyAlg(state, setupAlg), moves) 六面单色（isUniform 对整块旋转不变）。
+ * 坐标中性结论：同底坐标解对任意底色同构（cross/F2L 按 D 面位坐标），默认全局底与显式
+ * "D" 的 moves 深等。
+ * @returns {method,label,stages,moves,stageOf,ms,rotated,base,setupAlg}
  */
 export function solve(state: State, method?: SolveMethodKey, baseFace?: Face | "global"): SolveResult {
   const key = method ?? "cfop";
   const m = SOLVER_METHODS[key];
   const t0 = now();
   m.prepare();
-  const norm = normalizeOrientation(state);
-  const targetDown = baseFace && baseFace !== "global" ? baseFace : null;
+  // 显式单色底（非 global 且非 D）：整块旋转到底 + 中心色重标注；否则直接用输入态
+  const setupAlg = baseFace && baseFace !== "global" && baseFace !== "D" ? baseFaceSetupAlg(baseFace) : "";
+  const input = setupAlg ? relabelByCenter(applyAlg(state, setupAlg)) : state;
+  const norm = normalizeOrientation(input);
   const mapBack = norm.alg.length ? (mv: string) => transformMove(mv, norm.inverse) : (mv: string) => mv;
   const res = m.run(norm.state);
 
@@ -104,12 +132,13 @@ export function solve(state: State, method?: SolveMethodKey, baseFace?: Face | "
     stages.push(stage);
   }
 
-  const end = applyAlg(state, moves);
+  const end = applyAlg(input, moves);
   if (!isUniform(end)) throw new Error("内部错误：求解结果未还原");
   return {
     method: m.key, label: m.label, short: m.short, blurb: m.blurb,
     stages, moves, stageOf, ms: Math.max(0, now() - t0),
     rotated: !isSolved(end),
-    base: targetDown ?? "global",
+    base: baseFace && baseFace !== "global" ? baseFace : "global",
+    setupAlg,
   };
 }

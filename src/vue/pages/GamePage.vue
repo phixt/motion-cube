@@ -24,15 +24,21 @@ const moveLogEl = ref<HTMLElement | null>(null);
 const algText = ref("");
 const playing = ref(false);
 const status = ref("");
-const speed = ref(1);
-/** 打乱专用倍速（默认 3x，独立滑条）。临时方案：高可中断渲染重建后并入统一播放速度控制。 */
-const scrambleSpeed = ref(3);
+/** 每步实际秒数（s/步，统一基准 1000ms@1.00s/步，与 cubing tempoScale=1 动画时长对齐）。
+ *  演示播放与打乱共用同一 s/步 语义（消灭 420ms 与 1000ms 两套基准的旧遗留）。 */
+const speed = ref(1.0);
+const scrambleSpeed = ref(0.33); // 默认 ≈ 3x（1000ms/3）
 const moves = ref<string[]>([]);
 
 const solveMethod = ref<methodOpts.SolverBase>("cfop");
 const solveOptions = ref<methodOpts.SolverOptions>(methodOpts.loadSolverOptions());
-/** 解法底（多色底 / 6 色底）：默认 "global" = 跟随全局底色设置；可选任一显式底 */
-const solveBase = ref<methodOpts.SolveBaseChoice>(methodOpts.loadSolveBase());
+/** 解法底（多色底 / 6 色底，多选面集合）：默认放全局底色上；可加选其它色；空数组=跟随
+ *  全局底（重置语义）。消费：doSolve 对集合中每底分别求解并取最短。 */
+const solveBase = ref<methodOpts.SolveBaseChoice>([]);
+{
+  const loaded = methodOpts.loadSolveBases();
+  solveBase.value = loaded.length ? loaded : [loadSettings().baseFace];
+}
 /** 二级选项面板展开态（点方法按钮展开/再点收起；高级不常驻） */
 const optionsOpen = ref(false);
 const currentOptionGroup = computed(() =>
@@ -46,7 +52,7 @@ const selectMethod = (m: methodOpts.SolverBase): void => {
   }
 };
 watch(solveOptions, (v) => methodOpts.saveSolverOptions(v), { deep: true });
-watch(solveBase, (v) => methodOpts.saveSolveBase(v));
+watch(solveBase, (v) => methodOpts.saveSolveBases(v), { deep: true });
 const solving = ref(false);
 const solveResult = ref<SolveResult | null>(null);
 const solveError = ref("");
@@ -151,7 +157,8 @@ const reset = (): void => {
 };
 const toggleGray = (): void => session?.gray.togglePanel();
 
-watch(speed, (v) => session?.setSpeed(v));
+// speed = 每步秒数（s/步）；cubing tempoScale = 1/s（基准 1000ms@1.00s/步）
+watch(speed, (v) => session?.setSpeed(1 / (v || 1)));
 
 // 每步达成后自动保存快照（复用编辑器/tauri 持久）
 watch(
@@ -169,9 +176,9 @@ const clearProgress = (): void => {
 };
 
 /** 生成随机打乱（20 步，与 WCA 同风格）并逐步播放。
- *  打乱速度用独立滑条 scrambleSpeed（默认 3x），且步间隔与 cubing 动画时长同步
- *  （delay = 1000ms / 倍速 —— 动画播完再下一步，避免跳变截断）。临时方案：
- *  高可中断渲染重建后并入统一播放速度控制。解法演示仍由 speed 滑条控制（demoSolve）。 */
+ *  打乱速度用独立滑条 scrambleSpeed（s/步，默认 0.33s ≈ 3x；上限 3.0s、下限 0.20s ≈ 5x）。
+ *  步间隔 = s/步 × 1000ms —— 与 cubing 动画时长（tempoScale=1 时 1000ms）同基准，动画播完
+ *  再下一步，避免跳变截断。与演示播放统一「s/步」语义（消灭旧 420ms/1000ms 双基准遗留）。 */
 const scrambleCube = async (): Promise<void> => {
   if (!session || demoRunning.value) return;
   cancelDemo();
@@ -181,9 +188,9 @@ const scrambleCube = async (): Promise<void> => {
   session.player.pause();
   demoRunning.value = true;
   const myToken = demoToken;
-  // 打乱动画实时速度 = 打乱滑条；步间隔 = 动画基准 1000ms / 倍速（播完再下一步）
-  session.player.setSpeed(scrambleSpeed.value);
-  const delay = Math.max(60, 1000 / scrambleSpeed.value);
+  // 打乱动画实时速度 = 1/s（cubing tempoScale）；步间隔 = s/步 × 1000ms（播完再下一步）
+  session.player.setSpeed(1 / scrambleSpeed.value);
+  const delay = Math.max(60, scrambleSpeed.value * 1000);
   for (const mv of scr.split(" ")) {
     if (demoToken !== myToken) return;
     session.player.applyMove(mv);
@@ -195,7 +202,7 @@ const scrambleCube = async (): Promise<void> => {
   if (demoToken !== myToken) return;
   demoRunning.value = false;
   session.player.pause(); // 停在打乱态
-  session.player.setSpeed(speed.value); // 恢复演示滑条速度（防打乱倍速残留）
+  session.player.setSpeed(1 / speed.value); // 恢复演示滑条速度（防打乱倍速残留）
 };
 
 /** 当前真实魔方状态：已解 + 底色整体旋转（六色底开关关 = 固定 D）+ 玩家步 */
@@ -217,14 +224,18 @@ const doSolve = (): void => {
   // 让状态栏/按钮先刷新，再跑同步求解（预热未完成时首解会建表 ~几百 ms）
   void nextTick(() => {
     try {
-      const res = solveCube(
-        currentState(),
-        methodOpts.resolveSolverMethod(solveMethod.value, solveOptions.value),
-        // 解法底：默认跟随全局底（不额外转，起始状态已把全局底转到 D）；显式底时整块旋转求解
-        solveBase.value === "global" ? undefined : solveBase.value,
-      );
-      solveResult.value = res;
-      status.value = res.moves.length ? t("solve.total", { n: res.moves.length }) : t("solve.empty");
+      // 解法底（多色底/6 色底，多选集合）：对每底分别求解并取最短；空数组兜底=全局底
+      const bases = solveBase.value.length ? solveBase.value : [loadSettings().baseFace];
+      const method = methodOpts.resolveSolverMethod(solveMethod.value, solveOptions.value);
+      let best: SolveResult | null = null;
+      for (const b of bases) {
+        const res = solveCube(currentState(), method, b);
+        if (!best || res.moves.length < best.moves.length) best = res;
+      }
+      /* bases 恒非空（默认放全局底色上，面板最少保留一个底） */
+      const chosen = best as SolveResult;
+      solveResult.value = chosen;
+      status.value = chosen.moves.length ? t("solve.total", { n: chosen.moves.length }) : t("solve.empty");
     } catch (e) {
       solveError.value = (e as Error).message;
       status.value = t("solve.fail", { error: solveError.value });
@@ -240,26 +251,35 @@ const closeSolve = (): void => {
   solveError.value = "";
 };
 
-/** 演示：从当前打乱态开始，逐步播放解法（不重放打乱） */
+/** 演示：从当前打乱态开始，逐步播放解法（不重放打乱）。
+ *  若解被指定底（solveResult.setupAlg 非空），先对玩家施加整块旋转（把魔方转到该底朝向，
+ *  视觉旋转到对应底），再按解播放 —— 单色底「旋转到对应底 + 按该底解」语义落地。 */
 const demoSolve = async (): Promise<void> => {
-  if (!session || !solveResult.value || demoRunning.value) return;
+  const s = session;
+  if (!s || !solveResult.value || demoRunning.value) return;
   const movesToShow = solveResult.value.moves;
   if (!movesToShow.length) return;
   cancelDemo();
   demoRunning.value = true;
   const myToken = demoToken;
-  session.player.pause();
-  session.player.setSpeed(speed.value); // 演示用演示滑条速度（打乱后防残留）
-  const delay = Math.max(60, 420 / speed.value);
-  for (const mv of movesToShow) {
-    if (demoToken !== myToken) return;
-    session.player.applyMove(mv);
+  s.player.pause();
+  // s/步 统一基准：cubing tempoScale = 1/s；步间隔 = s/步 × 1000ms（动画播完再下一步）
+  s.player.setSpeed(1 / speed.value); // 演示用演示滑条速度（打乱后防残留）
+  const delay = Math.max(60, speed.value * 1000);
+  const play = async (mv: string): Promise<boolean> => {
+    if (demoToken !== myToken) return false;
+    s.player.applyMove(mv);
     await new Promise<void>((r) => {
       sleepResolve = r;
       setTimeout(() => { if (sleepResolve === r) sleepResolve = null; r(); }, delay);
     });
+    return true;
+  };
+  const setup = solveResult.value.setupAlg;
+  if (setup) {
+    for (const mv of setup.split(" ")) if (!(await play(mv))) return;
   }
-  if (demoToken !== myToken) return;
+  for (const mv of movesToShow) if (!(await play(mv))) return;
   demoRunning.value = false;
   scrambleAlg.value = "";
   status.value = t("solve.done");
@@ -285,12 +305,12 @@ const demoSolve = async (): Promise<void> => {
       </div>
       <div class="hud-row hud-row-2">
         <span class="speed-group">
-          <WinTextBlock class="speed-label" :Text="`${t('hud.speed')} ${speed.toFixed(1)}x`" FontSize="13" />
-          <WinSlider id="speed" class="hud-speed" v-model:Value="speed" :Minimum="0.1" :Maximum="3" StepFrequency="0.1" />
+          <WinTextBlock class="speed-label" :Text="`${t('hud.speed')} ${speed.toFixed(2)} s/步`" FontSize="13" />
+          <WinSlider id="speed" class="hud-speed" v-model:Value="speed" :Minimum="0.2" :Maximum="3" StepFrequency="0.1" />
         </span>
         <span class="speed-group">
-          <WinTextBlock class="speed-label" :Text="`${t('hud.scrambleSpeed')} ${scrambleSpeed.toFixed(1)}x`" FontSize="13" />
-          <WinSlider id="scramble-speed" class="hud-speed" v-model:Value="scrambleSpeed" :Minimum="0.1" :Maximum="3" StepFrequency="0.1" />
+          <WinTextBlock class="speed-label" :Text="`${t('hud.scrambleSpeed')} ${scrambleSpeed.toFixed(2)} s/步`" FontSize="13" />
+          <WinSlider id="scramble-speed" class="hud-speed" v-model:Value="scrambleSpeed" :Minimum="0.2" :Maximum="3" StepFrequency="0.1" />
         </span>
         <span id="solve-method" class="solve-method">
           <WinButton id="btn-method-cfop" :class="['method-btn', { active: solveMethod === 'cfop' }]" :Content="t('solve.methodCfop')" @Click="selectMethod('cfop')" />

@@ -121,6 +121,7 @@ export const en: Record<string, string> = {
   "solve.fail": "Solve failed",
   "solve.baseLabel": "Solve base",
   "solve.baseGlobal": "Follow global base",
+  "solve.baseReset": "Reset to global base",
   "solve.optGroup.cfop": "CFOP options",
   "solve.optGroup.roux": "Roux options",
   "solve.opt.zbll": "1-look LL (ZBLL)",

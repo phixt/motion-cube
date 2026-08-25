@@ -6,44 +6,44 @@
 
 ## 当前状态
 
-- 版本 **0.3.6**（package.json 与 src-tauri/tauri.conf.json 同步）
+- 版本 **0.3.7**（package.json 与 src-tauri/tauri.conf.json 同步）
 - 求解器：CFOP / CFOP+（一步 ZBLL + 回退）/ Roux（LSE 4a+6E2C）三方法全绿
   （typecheck + smoke-solver + smoke-solver-edge + verify-data）
-- 解法底选择：CFOP/Roux 方法面板「解法底」区——global（跟随全局底，默认）+ 六色底
-  （U/R/F/D/L/B）；坐标中性（跨/F2L 按 D 面位坐标、与颜色无关），显式底不改解法
-  输出（SolveResult.base 记录视角 + 未来色底求解器预留）
+- 解法底选择：CFOP/Roux 方法面板「解法底」区——**多选面集合**（默认选中全局底颜色；
+  可加选/取消其它色，最少保留一个；「重置为全局底」回归）。选单色底 → 求解先整块旋转
+  （baseFaceSetupAlg 把该色转到 D 面位）+ 中心色 relabel（贴纸颜色标签按面位 home 色
+  重映射，位置不变——不破坏求解器「中心归 home」前提），对集合内每底分别求解取最短；
+  SolveResult 带 setupAlg（演示前先播放整块旋转）+ base 记录视角
 - 一步 ZBLL 覆盖 52.5%（M2 变体闭包，1944 轨道，prepare 0.5s）；未覆盖回退 OLL+PLL
 - ZBLS 305 条落库接入 solve 链（F2L×3→ZBLS→一步 ZBLL，显示排除 F2L）
 - 技术栈：Vite 8 + Vue 3.5 + cubing.js（TwistyPlayer + cubing/alg）+ three.js（手模型）
 
 ## 活跃待办
 
-### 游戏页：速度体系统一 + 多色底（优先，0.3.7 候选；做完全部后评估 bump）
+### 游戏页：速度体系统一 + 多色底（✅ 已完成，0.3.7 已 bump）
 
-- ⬜ **速度体系统一 + 打乱倍速上限 5x**：两滑条当前 `0.1–3` 倍率但**基准不一致**——
-  打乱 `delay = max(60, 1000/scrambleSpeed)`（1000ms/步 @1x，与 cubing 动画基准对齐），
-  播放 `delay = max(60, 420/speed)`（**420ms/步 @1x**）→ 同标 1x 播放比打乱快 2.4 倍。
-  解法：统一为「实际 s/步」显示与同一基准（1000ms/步 @1.00s/步，cubing tempoScale=1
-  语义）；滑条标签改 `s/步`（如 0.20–3.00 s/步，默认 1.00 s/步），打乱滑条下限 = 5x
-  等效（0.20s/步）；两滑条（或合并一个）用同一基准换算，消灭「同倍率不同速」遗留。
-  （GamePage.vue L186 打乱 delay / L253 播放 delay 为换算点；L289/L293 滑条为 UI 点）
+- ✅ **速度体系统一 + 打乱倍速上限 5x**：两滑条统一为「实际 s/步」显示、同一基准
+  （1000ms/步 @1.00s/步，cubing tempoScale=1 语义）+ 滑条范围 0.20–3.00 s/步
+  （下限 0.20s/步 = 原 5x 等效）；`speed`/`scrambleSpeed` 改存秒/步：
+  打乱 `delay = max(60, scrambleSpeed*1000)`、播放 `delay = max(60, speed*1000)`，
+  `setSpeed(1/秒)`（tempoScale 换算），播完恢复演示速度——「同倍率不同速」遗留消灭。
 
-- ⬜ **单色底真正生效（当前实现不对）**：现在 `solve(..., baseFace)` 是坐标中性「仅记录
-  视角」（SolveResult.base），选单色底**不旋转魔方、仍按原始底解**——用户要求选单色底
-  → 魔方**旋转到对应底**（B 色面到 D 面位）+ 求解按该底视角。正解路线（明日验证）：
-  **渲染层 = 整块旋转（视觉观感）**，**求解层 = 色相重映射（把 B 色当 D 色的贴纸
-  relabel，不破坏求解器「中心归 home」坐标前提）**，两层解耦；之前探针「CFOP 对整块
-  旋转态解不到 uniform」疑似探针旋转方法有误（待用色映射路线重实证）。
-  （涉及：solve.ts 第三参语义重构 + GamePage solveBase 接线 + RenderCube/cubing 视角
-  整块旋转；现有 verify-solve-base.ts A2/A4/A5 断言需按新语义改写）
+- ✅ **单色底真正生效**：`solve(state, method?, baseFace)` 三层语义——`setupAlg =
+  baseFaceSetupAlg(base)`（非 D 底整块旋转把该色转到 D 面位）+ 中心色 relabel
+  （`relabelByCenter`：贴纸颜色标签按其所在面位 home 色重映射，位置不变）+
+  归一化求解。**实证推翻旧探针**：engine MOVES 支持整块旋转步（x/x2/y/z/z'…），
+  色映射路线下「setupAlg 旋转后 + moves」对任意底还原（旧探针整块旋转后未重标注
+  中心色，方法有误）。演示先播放 setupAlg 整块旋转再播 moves（视觉旋转到对应底）。
 
-- ⬜ **多色底多选**：「跟随原始底/global」chip 去掉；默认选中**原始底**（全局底的颜色）；
-  可再点选其他颜色（多选集合，多色底）；再点取消当前底（**最少保留一个**）；「重置」
-  回归全局底。求解对集合中每个底分别执行取最短（先逐底分别解，多色底综合优化暂缓）。
+- ✅ **多色底多选**：`SolveBaseChoice = Face[]`（localStorage `motion-cube.solveBase`）；
+  面板去「跟随原始底」chip；默认选中全局底色；点选 toggle 加入/移除（**最少保留
+  一个**，取消唯一被拒）；「重置为全局底」。求解对集合内每底分别执行取最短
+  （多选综合优化暂缓）。
 
-- ⬜ **验证工具更新**：verify-solve-base.ts 按「旋转+色映射」新语义重写（A2 六色底旋转
-  还原实证）；shot-solve-base.mjs 断言改为多选 chip 交互（默认原始底选中/加选/取消/
-  重置）。版本不更（0.3.6 保持），做完全部验收后再评估 bump。
+- ✅ **验证工具更新**：verify-solve-base.ts 新语义重写（A1 默认==global 深等、A2 六色
+  底旋转还原实证、A3 D==默认、A4 红底实态任意显式底还原、A4b roux 抽查、A5 moves
+  合法性）——**26/26 PASS**；shot-solve-base.mjs 多选 chip 交互断言（默认原始底选中/
+  加选/取消/取消唯一被拒/重置回归）——**15/15 PASS**（截图 solve-base-1/2/3.png）。
 
 ### 求解器 / 公式库
 - ⬜ **EOLR 一步表命中率 ~0**：lse-eolr 46 case 建表仅收全 EO 22 条；精确指纹匹配
@@ -233,9 +233,18 @@
 - **0.3.5**（08-20）：打乱 3 倍速播放；Roux LSE 改造（4a→6E2C、EOLR 一步表）；
   6 色底双模式（跟随设置底/固定 D）；cfop-adv 中性发现（反例入
   `data/samples/cfop-adv-zbll-case.json`）
-- **0.3.6 本轮**（08-21）：解法底选择——方法面板「解法底」区（跟随全局底(默认)/六色底
+- **0.3.6**（08-21）：解法底选择 v1——方法面板「解法底」区（跟随全局底(默认)/六色底
   U/R/F/D/L/B），localStorage `motion-cube.solveBase` 持久化；坐标中性结论：显式底不改
-  moves、仅记录视角（SolveResult.base）；验证 verify-solve-base 11/11 + UI 7 chip 全绿
+  moves、仅记录视角；验证 verify-solve-base 11/11 + UI 7 chip 全绿
+- **0.3.7 本轮**（08-22）：①速度体系统一——两滑条改「实际 s/步」显示、同一基准
+  （1000ms/步 @1.00s/步，tempoScale=1/秒），打乱下限 0.20s/步（=5x 等效），消灭「同倍率
+  不同速」遗留；②单色底真正生效——solve 三层：`baseFaceSetupAlg` 整块旋转（B 色转 D 面位）
+  + `relabelByCenter` 中心色重映射（贴纸颜色按面位 home 色重名，位置不变，不破坏求解器
+  「中心归 home」）+ 归一求解；演示先播 setupAlg 再播 moves（视觉旋转到对应底）；实证推翻
+  旧探针（整块旋转后未重标注中心色致误判）；③多色底多选——`SolveBaseChoice = Face[]`
+  （localStorage `motion-cube.solveBase`），去「跟随原始底」chip、默认选中全局底色、
+  可加选/取消（最少一个，取消唯一被拒）、「重置为全局底」；集合内逐底求解取最短。
+  验证：typecheck 绿 + verify-solve-base 26/26 + shot-solve-base 15/15（截图画三张）
 - **更早（08-06~08-13，归档）**：Vue/WinUI 迁移、动画编辑器全量迭代、拍概念、
   标灰面板、首页视差、tauri 桌面版、安全审查等，详见 git log
 

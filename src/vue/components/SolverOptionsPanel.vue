@@ -27,9 +27,9 @@ const FACE_COLORS: Record<Face, string> = {
 const props = defineProps<{
   group: SolverOptionGroup;
   modelValue: SolverOptions;
-  /** 解法底：跟随全局底（"global"，默认）或显式任一底面（多色底 / 6 色底） */
+  /** 解法底：多选面集合（多色底）；空数组 = 跟随全局底色设置 */
   solveBase?: SolveBaseChoice;
-  /** 全局底色（settings.baseFace，"global" chip 的色点显示其当前色） */
+  /** 全局底色（settings.baseFace；重置按钮回归此色） */
   globalBase?: Face;
 }>();
 
@@ -46,36 +46,39 @@ const toggle = (id: string, on: boolean): void => {
   emit("update:modelValue", { ...selected.value, [id]: on });
 };
 
-const setBase = (b: SolveBaseChoice): void => {
-  emit("update:solveBase", b);
+/** 当前选中底集合（默认空 = 跟随全局底） */
+const bases = computed<Face[]>(() => props.solveBase ?? []);
+
+/** 点选/取消某个底：多选集合；最少保留一个底（最后一个取消被拒绝） */
+const toggleBase = (f: Face): void => {
+  const cur = bases.value;
+  const has = cur.includes(f);
+  if (has && cur.length === 1) return;
+  emit("update:solveBase", has ? cur.filter((x) => x !== f) : [...cur, f]);
+};
+
+/** 重置：回归全局底（默认放全局底色上） */
+const resetBase = (): void => {
+  emit("update:solveBase", [props.globalBase ?? "D"]);
 };
 </script>
 
 <template>
   <div class="solver-options-panel">
-    <!-- 解法底（多色底 / 6 色底）：默认跟随全局底，或显式任选一色 -->
+    <!-- 解法底（多色底 / 6 色底，多选）：默认放全局底色上，可加选其它色、再点取消（最少保留一个）；重置回归全局底 -->
     <div class="base-section">
-      <WinTextBlock class="opt-group-title" :Text="t('solve.baseLabel')" FontSize="12" />
+      <div class="base-head">
+        <WinTextBlock class="opt-group-title" :Text="t('solve.baseLabel')" FontSize="12" />
+        <button type="button" class="base-reset" @click="resetBase">{{ t("solve.baseReset") }}</button>
+      </div>
       <div class="base-row">
-        <button
-          type="button"
-          class="base-chip"
-          :class="{ on: (solveBase ?? 'global') === 'global' }"
-          @click="setBase('global')"
-        >
-          <span
-            class="base-dot"
-            :style="{ background: globalBase ? FACE_COLORS[globalBase] : FACE_COLORS.D }"
-          ></span>
-          <span class="base-name">{{ t("solve.baseGlobal") }}</span>
-        </button>
         <button
           v-for="f in BASE_FACES"
           :key="f"
           type="button"
           class="base-chip"
-          :class="{ on: solveBase === f }"
-          @click="setBase(f)"
+          :class="{ on: bases.includes(f) }"
+          @click="toggleBase(f)"
         >
           <span class="base-dot" :style="{ background: FACE_COLORS[f] }"></span>
           <span class="base-name">{{ f }}</span>
@@ -170,6 +173,29 @@ const setBase = (b: SolveBaseChoice): void => {
   margin-bottom: 6px;
   padding-bottom: 6px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+.base-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.base-head .opt-group-title {
+  margin-bottom: 0;
+}
+.base-reset {
+  border: none;
+  background: transparent;
+  color: var(--win-accent, #2266ff);
+  font-size: 11px;
+  line-height: 1;
+  padding: 1px 4px;
+  cursor: pointer;
+  border-radius: 4px;
+  user-select: none;
+}
+.base-reset:hover {
+  background: rgba(34, 102, 255, 0.1);
 }
 .base-row {
   display: flex;
