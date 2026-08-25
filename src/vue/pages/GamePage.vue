@@ -316,11 +316,11 @@ const demoSolve = async (): Promise<void> => {
       <div class="hud-row hud-row-2">
         <span class="speed-group">
           <WinTextBlock class="speed-label" :Text="`${t('hud.speed')} ${speed.toFixed(2)} s/步`" FontSize="13" />
-          <WinSlider id="speed" class="hud-speed" v-model:Value="speed" :Minimum="0.2" :Maximum="3" StepFrequency="0.1" />
+          <WinSlider id="speed" class="hud-speed" v-model:Value="speed" :Minimum="0.05" :Maximum="2" :Width="92" StepFrequency="0.05" />
         </span>
         <span class="speed-group">
           <WinTextBlock class="speed-label" :Text="`${t('hud.scrambleSpeed')} ${scrambleSpeed.toFixed(2)} s/步`" FontSize="13" />
-          <WinSlider id="scramble-speed" class="hud-speed" v-model:Value="scrambleSpeed" :Minimum="0.2" :Maximum="3" StepFrequency="0.1" />
+          <WinSlider id="scramble-speed" class="hud-speed" v-model:Value="scrambleSpeed" :Minimum="0.05" :Maximum="0.5" :Width="92" StepFrequency="0.05" />
         </span>
         <span id="solve-method" class="solve-method">
           <WinButton id="btn-method-cfop" :class="['method-btn', { active: solveMethod === 'cfop' }]" :Content="t('solve.methodCfop')" @Click="selectMethod('cfop')" />
@@ -452,10 +452,12 @@ const demoSolve = async (): Promise<void> => {
   display: flex;
   align-items: center;
   gap: 8px;
+  row-gap: 10px;
   flex-wrap: wrap;
 }
 .hud-row-2 {
   gap: 18px;
+  row-gap: 10px;
   padding-top: 2px;
 }
 
@@ -465,9 +467,10 @@ const demoSolve = async (): Promise<void> => {
   font-family: ui-monospace, Consolas, monospace;
 }
 
-/* 速度组：label+滑条 整组不拆行（flex-wrap 换行时保持成对，防文字与滑条分离/遮挡） */
+/* 速度组：label+滑条 整组不拆行且不缩放（flex:none 防换行时被挤压变形/与邻组重叠） */
 .speed-group {
   display: inline-flex;
+  flex: none;
   align-items: center;
   gap: 8px;
   white-space: nowrap;
@@ -478,8 +481,10 @@ const demoSolve = async (): Promise<void> => {
   white-space: nowrap;
 }
 
+/* WinSlider 内部 .win-slider 宽由 Width prop 控制（缺省 200px 会溢出 110px 容器盖到右侧，
+ * 此处 Width="92" 与容器宽一致，防蓝条 track 溢出重叠相邻 label/滑条） */
 .hud-speed {
-  width: 110px;
+  width: 92px;
 }
 
 .hud-status {

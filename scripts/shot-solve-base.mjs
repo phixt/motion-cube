@@ -1,6 +1,6 @@
 // 解法底多选 UI + 统一 s/步 速度视觉验证（dev 5174 /game）：
 //  0) HUD 两个滑条显示 s/步（#speed / #scramble-speed），同一 s/步 基准；
-//     打乱最快 5x 等效 = 滑条下限 0.20s/步；上限 3.00s/步
+//     播放滑条范围 0.05–2.00 s/步、打乱滑条范围 0.05–0.50 s/步（默认 1.00 / 0.33）
 //  1) 开 CFOP 面板：.base-section 在、.base-chip 恰 6 个（无「跟随原始底」chip）、
 //     含复位 .base-reset；默认放全局底上（.on 恰 1 个且为 D —— 当前全局底）
 //  2) 点 L(红) chip → .on=2（D+L，多选）；localStorage motion-cube.solveBase 数组含 D、L
@@ -44,7 +44,7 @@ await page.evaluate(() => localStorage.removeItem("motion-cube.solveBase"));
 await sleep(1800);
 
 // 0. 速度滑条：WinSlider 是自定义 div 滑条（min/max 为 props，不落 DOM 属性）——
-//    断言滑条元素存在 + HUD label 为「s/步」单位且当前值在统一基准范围 0.2–3.0
+//    断言滑条元素存在 + HUD label 为「s/步」单位，播放值 ∈ [0.05,2]、打乱值 ∈ [0.05,0.5]
 const sliders = await page.evaluate(() => ({
   speed: !!document.getElementById("speed"),
   scramble: !!document.getElementById("scramble-speed"),
@@ -54,7 +54,8 @@ check("打乱滑条 #scramble-speed 存在", sliders.scramble);
 const labelTxt = await page.evaluate(() => document.body.innerText);
 const sPerStep = [...labelTxt.matchAll(/(\d+\.\d{2})\s*s\/步/g)].map((m) => Number(m[1]));
 check("HUD 两处显示 s/步 数值", sPerStep.length >= 2, `values=${JSON.stringify(sPerStep)}`);
-check("两滑条值同基准范围 0.2–3.0 s/步", sPerStep.length >= 2 && sPerStep.every((v) => v >= 0.2 && v <= 3));
+check("播放滑条范围 0.05–2.0 s/步", sPerStep.length >= 1 && sPerStep[0] >= 0.05 && sPerStep[0] <= 2, `播放=${sPerStep[0]}`);
+check("打乱滑条范围 0.05–0.5 s/步", sPerStep.length >= 2 && sPerStep[1] >= 0.05 && sPerStep[1] <= 0.5, `打乱=${sPerStep[1]}`);
 // 打乱最快 5x 等效 = 0.20 s/步：默认打乱 0.33 s/步 ∈ [0.2,3]，其 label 数值已在上断言覆盖
 
 // 1. 开面板

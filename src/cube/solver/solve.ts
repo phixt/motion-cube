@@ -111,7 +111,11 @@ const WHOLE_ROT24: string[] = (() => {
   const out: string[] = [];
   for (const f of FACES) {
     const setup = baseFaceSetupAlg(f);
-    for (const spin of ["", "z", "z2", "z'"]) out.push(spin === "" ? setup : setup + " " + spin);
+    for (const spin of ["", "z", "z2", "z'"]) {
+      // 关键：f=D 时 setup="",拼接必须无前导空格（直接产出 "" / "z" / "z2" / "z'"）——
+      // 旧实现产出 " z"，调用方 split(" ") 得到空串步，MOVES[""] 不存在而崩溃。
+      out.push(setup ? (spin ? setup + " " + spin : setup) : spin);
+    }
   }
   return out;
 })();
@@ -187,7 +191,15 @@ export function solve(state: State, method?: SolveMethodKey, baseFace?: Face | "
   // solved）。标准全局底视角下 T==target ⇒ endAlg="（无需收尾）；非标准全局底视角（红底实态）
   // 下 T 与 target 差一个整块旋转 ⇒ endAlg 动态补出。实证 2026-08-22：六底×两视角全对齐。
   const T = setupAlg ? applyAlg(applyAlg(state, setupAlg), moves) : end;
-  const target = setupAlg ? applyAlg(solvedState(), setupAlg) : end;
+  // target = 「base 色在 D 面位」的 solved 朝向。必须用 base 色 home 位的**固定**旋转
+  // baseFaceSetupAlg(baseFace) 构造，而非动态 setupAlg：
+  //   动态 setupAlg 基于「state 视角下面 base 色当前所在面位」（非标准全局底视角下 ≠ home 位），
+  //   用它构造 target 会让 target 变成「当前视角朝向」而不是「base 色在 D」，endAlg 于是把终点
+  //   转到别的底视角 → 用户观察到的「对面/别的色在底面」「所选底成侧面」（实证：S8 全局L 视角
+  //   选 [U,L,R]、best=U 时旧代码 endAlg=" z" 把白在D 终点转去红在D）。标准全局底视野下动态
+  //   ==home 固定（base 色恰在 home 位），差异被掩盖（verify A1-A6 基于标准/红底实态全过）。
+  //   "global"/undefined：终点 T 已处于全局视角 solved，target=end（finish 返回 ""）。
+  const target = baseFace && baseFace !== "global" ? applyAlg(solvedState(), baseFaceSetupAlg(baseFace)) : end;
   return {
     method: m.key, label: m.label, short: m.short, blurb: m.blurb,
     stages, moves, stageOf, ms: Math.max(0, now() - t0),

@@ -56,6 +56,22 @@
   实证：`verify-solve-base.ts` 提升至 **34/34**（新增 A6/A6b 收尾视角断言）；typecheck 绿。
   注：verify 固定打乱含整块/中层步会搅动中心，A6 采用「T 六面单色且 D 面位中心=所选底」
   语义断言（「标准 solved 经 setup」的静态 target 非可比对象，早版本据此误报 FAIL）。
+   - ✅ **2026-08-22 多选 UI 语义第二轮排查修复（用户实测「多选非对面两底仍得对面底 /
+     cfop 下一次打乱用另一底但没旋转、所选底成侧面」）**：
+     ① `WHOLE_ROT24` 构造**去前导空格**（f=D 时 setup="" 拼接产出 `" z"`→调用方 split(" ")
+     得到空串步，`MOVES[""]` 崩溃）；② `solve.ts` target 改用 **base 色 home 位固定旋转
+     `baseFaceSetupAlg(baseFace)`** 而非动态 setupAlg——动态 setup 基于「state 视角下面 base
+     色当前所在面位」（非标准全局底视角下≠home 位），构造出的 target 是「当前视角朝向」而非
+     「base 色在 D」，endAlg 于是把终点转去别的底视角 = 用户观察的「对面色/别的色在底面」；
+     标准全局底视野（base 色恰在 home 位）下动态==固定，早期 verify 全过掩盖了差异。
+     实证：新增 `scripts/probe-solve-base-ui.ts` **情景矩阵测试序列 22/22**（S1-S9 单轮 + S10
+     两轮连续；S3/S4 非对面两底、S6/S7/S8 全局底≠D 含 p=3、S9 六色底关、S10 用户「下一次
+     打乱」；各×cfop/roux；断言终态六面单色且 D 位色∈所选）。修复后 S8（全局 L + [U,L,R]）
+     从「endAlg=× 崩溃」→「end=x2 z2 终态 D=U」；S10 轮2 best=R 终态 D=R∈所选。verify-solve-base
+     仍 34/34、typecheck 绿。
+   - ⚠ **速度滑条待统一（用户确认临时，不急）**：播放中改速度→动画按新速度走但会「停顿补满
+     原始时长」；打乱过程改速度无效（scrambleCube 的 delay/setSpeed 在循环外固定）。归「渲染
+     替换重建高可中断队列」时一并重构（已入 todo 技术债方向，本轮不动）。
 
 ### 求解器 / 公式库
 - ⬜ **EOLR 一步表命中率 ~0**：lse-eolr 46 case 建表仅收全 EO 22 条；精确指纹匹配
