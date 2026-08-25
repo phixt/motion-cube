@@ -380,7 +380,7 @@ const demoSolve = async (): Promise<void> => {
           <span class="stage-short">{{ t("solve.rotate") }}（{{ solveResult.base }}）</span>
           <span class="stage-moves">{{ solveResult.setupAlg }}</span>
           <span class="stage-note" v-if="solveResult.rotateFrom">{{ t("solve.rotateHint", { color: solveResult.base, face: solveResult.rotateFrom }) }}</span>
-          <span class="stage-count">{{ solveResult.setupAlg.split(" ").length }}</span>
+          <span class="stage-count">({{ solveResult.setupAlg.split(" ").length }})</span>
         </li>
         <li v-for="(s, i) in solveResult.stages" :key="i" class="solve-stage">
           <span class="stage-short">{{ s.short }}</span>
