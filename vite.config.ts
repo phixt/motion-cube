@@ -10,7 +10,9 @@ export default defineConfig({
       // 忽略编辑器原子写临时目录（.<name>.<pid>.<uuid>.tmpdir\）——目录段名以 .tmpdir 结尾，
       // chokidar 对这类目录建 watch 时 Windows 上 EBUSY，导致 dev 每次编辑崩溃。
       // 模式须为 "*" .tmpdir（段名后缀），不是 ".tmpdir" 段。
-      ignored: ["**/*.tmpdir/**", "**/*.tmp"],
+      // reference/** 整体忽略：只读参考目录 + 子代理 _work 产物区（Excel COM 诊断 log 被
+      // 锁时 EBUSY——vite watch 崩溃根因，2026-08-25）。
+      ignored: ["**/*.tmpdir/**", "**/*.tmp", "**/reference/**"],
     },
   },
   build: {

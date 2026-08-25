@@ -150,7 +150,7 @@
     54 state）+ `src/cube/render/RenderCube.ts`（three 视图：root.scale=1/3 对齐 cubing
     尺度、26 块黑体+至多 3 张贴纸@dir*1.5、C1 动画队列 step(dt) easeOut、可中断丢弃、
     undo 历史栈、setState 重涂槽位色）+ `scripts/verify-render-cube.ts`（自检 10/10 全绿）
-  - ✅ 接驳宿主与拖转（待提交）：`src/cube/render/RenderCubeHost.ts`（Scene +
+  - ✅ 接驳宿主与拖转（已提交 + 真机验证）：`src/cube/render/RenderCubeHost.ts`（Scene +
     PerspectiveCamera(cubing 对齐 lat20/lon30/dist6.5)+WebGLRenderer+自驱 rAF+B1 拖转
     状态机：拾面 pending→useB 判轴→layer 拖角 ±1.05π→endPointer 角度+速度惯性取整→
     dragMove(from,to,dur,mi) 吸附 commit、净零 mi=null 不提交、orbit/wheel dist∈[5.2,18]/
@@ -159,7 +159,13 @@
     isAnimating）+ `src/vue/pages/RenderDemoPage.vue`（`#/render-demo` 调试验证：打乱连播/
     撤销/适配视角/演示公式/自转）+ `scripts/render-shot.mjs`（puppeteer 截图验证：
     初始视角对齐 cubing、拖中心→U 顺时针 mi=U 提交、连播中断；输出 spike-shots/
-    render-*.png）+ verify-render-cube 扩 H/I/J/K 拖转断言（19/19）
+    render-*.png）+ verify-render-cube 扩 H/I/J/K 拖转断言（19/19）。
+    **真机验证（2026-08-25）**：render-shot 全链路 DONE（初始视角对齐 cubing→拖中心
+    提交 mi=U→打乱连播 queue=7→撤销→editor-cubing 对照，5 截图 spike-shots/）；
+    probe-render-dispose 往返 #/render-demo↔#/editor ×3 断言 `.rstage canvas==1` 且无
+    body 直接子 canvas —— **8/8 ALL PASS**（dispose 完整化、无残留 canvas、无双实例，
+    root cause 修复确认）。**vite EBUSY 根因修复**：vite.config server.watch.ignored 加
+    `"**/reference/**"`（子代理 _work 产物 Excel COM 诊断 log 被锁 → watch EBUSY 崩）。
   - ⚠ **碰壁记录（2026-08-21）**：游戏页切 render 后端后真机崩溃已回退（提交
     947e9fd）。**root cause**：RenderCubeHost.dispose 从未移除自己的 canvas（全屏
     不透明黑底，clear 0x0b0e18）→ HMR/卸载后残留黑底 canvas + 重建后端双实例叠加
@@ -169,9 +175,12 @@
     提交**。**重做清单**：dispose 完整化（remove canvas/forceContextLoss/停 rAF）、
     单实例保证（残留 canvas 检测）、真机前置验证、相机/拖转真机手感。游戏页已回
     cubing 后端（session backend 默认）。
-  - ⬜ 接驳余项：CubePlayer 内部切换 RenderCube 后端（容器挂载/宿主场景渲染循环/相机）+
-    播放条语义（play/pause/setMoves/jumpToEnd 等价）+ EditorPage 自建宿主循环
-    （替换 cubing vantages）+ 最终视觉对比（dev 5174 + 截图）
+  - ✅ 播放条语义（render 轨，CubePlayer 双轨已实现）：play=从头连播 {seq,i,playing}/
+    pause=清 playing/setMoves=setState 直达末态（jumpToEnd 等价）/reset 复位/undo/setSpeed
+  - ⬜ 接驳余项（未做）：① CubePlayer 内部默认切换 RenderCube 后端（现默认 'cubing'）+
+    ② EditorPage 自建宿主循环（Scene+PerspectiveCamera+WebGLRenderer+rAF 替换 cubing
+    vantages——最大工程，真机崩溃教训，must 真机验证后再提交）+ ③ 最终视觉对比
+    （dev 5174 + 截图）
 - ⬜ **阶段 2 语法层**：默认保留 `cubing/alg`（纯 TS 无 DOM，唯一消费方
   `src/notation/alg.ts`）；solver 与 3D 显示已解耦（engine 零 cubing 依赖）
 - 风险：GrayOverlay/HandRigView 靠 cubing 场景重建回调自愈 + 按需渲染；坐标/色彩
