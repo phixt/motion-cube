@@ -31,3 +31,11 @@ jobs:
 
       - name: Verify data
         run: npx tsx scripts/verify-data.ts
+
+      - name: Solver + render + coverage smoke (native Node, strip-types)
+        # node scripts/*.ts 直跑（Node 22 strip-types，无 tsx/esbuild 依赖，Linux 可跑）
+        run: |
+          node scripts/smoke-solver.ts
+          node scripts/smoke-solver-edge.ts
+          node scripts/verify-render-cube.ts
+          node scripts/verify-zbll-coverage.ts

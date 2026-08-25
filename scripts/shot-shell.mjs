@@ -40,7 +40,7 @@ page.on("response", (r) => {
 const base = process.env.SPIKE_URL ?? "http://localhost:5173";
 
 const ROUTES = [
-  { route: "start", expect: ".start-actions" },
+  { route: "start", expect: ".start-page" },
   { route: "game", expect: "twisty-player, #hud", waitMs: 2500 },
   { route: "library", expect: ".lib-form, #lib-status", waitMs: 800 },
   { route: "editor", expect: "#editor-view", waitMs: 800 },

@@ -211,6 +211,14 @@ const rulerEnabled = computed({
   },
 });
 
+const sixColorBase = computed({
+  get: () => settings.value.sixColorBase,
+  set: (v: boolean) => {
+    settings.value.sixColorBase = v;
+    saveSettings(settings.value);
+  },
+});
+
 onBeforeUnmount(stopCapture);
 </script>
 
@@ -307,6 +315,10 @@ onBeforeUnmount(stopCapture);
       </button>
     </div>
     <WinButton class="random-base" :Content="t('keymap.randomBase')" @Click="randomBase" />
+    <div class="settings-box six-color-box">
+      <WinTextBlock class="cooldown-label" :Text="t('keymap.sixColorBase')" FontSize="14" />
+      <WinToggleSwitch v-model:IsOn="sixColorBase" :OnContent="t('hand.rulerOn')" :OffContent="t('hand.rulerOff')" />
+    </div>
     <WinTextBlock class="page-note" :Text="t('keymap.baseNote')" />
 
     <WinTextBlock class="page-title base-title" :Text="t('keymap.rulerTitle')" FontSize="20" FontWeight="SemiBold" />

@@ -15,6 +15,7 @@ const pages = {
   LibraryPage: () => import("./pages/LibraryPage.vue"),
   EditorPage: () => import("./pages/EditorPage.vue"),
   HandCalibPage: () => import("./pages/HandCalibPage.vue"),
+  RenderDemoPage: () => import("./pages/RenderDemoPage.vue"), // R1 阶段1 渲染宿主调试验证页（不进侧栏）
 };
 
 export const APP_ROUTES: { name: Route; titleKey: string; icon: string }[] = [
@@ -38,6 +39,7 @@ const router = createRouter({
     { path: "/library", name: "library", component: pages.LibraryPage },
     { path: "/editor", name: "editor", component: pages.EditorPage },
     { path: "/hand", name: "hand", component: pages.HandCalibPage },
+    { path: "/render-demo", name: "render-demo", component: pages.RenderDemoPage },
     { path: "/:pathMatch(.*)*", redirect: "/start" },
   ],
 });

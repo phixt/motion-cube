@@ -42,7 +42,11 @@ export function createGameSession(
   hooks: GameSessionHooks,
 ): GameSession {
   const settings = loadSettings();
-  const player = new CubePlayer(stage, { cameraDistance: 6.5, baseFace: settings.baseFace });
+  const activeBase = settings.sixColorBase ? settings.baseFace : "D";
+  // 回退（2026-08-20）：游戏页恢复 cubing 后端——render 后端在真机浏览器崩溃
+  // （headless/swiftshader 验证通过但真机 GPU 环境失败），R1 render 轨整体待重做
+  // （重做前必须先经真机验证，详见 docs/todo.md 技术债区）。
+  const player = new CubePlayer(stage, { cameraDistance: 6.5, baseFace: activeBase });
 
   // ---- 标灰：状态 + 3D 覆盖层 + 面板 ----
   const grayState: { state: GrayState } = { state: createGrayState() };
@@ -58,11 +62,11 @@ export function createGameSession(
       overlay.requestApply(s);
       grayPanelApi.refresh();
     },
-    getBase: () => settings.baseFace,
+    getBase: () => activeBase,
     getKind: () => "mutable",
     getPositions: () => overlay.currentPositions(),
     applyPreset: (p: GrayPreset | "clear") => {
-      grayState.state = p === "clear" ? createGrayState() : presetGrayState(p, settings.baseFace);
+      grayState.state = p === "clear" ? createGrayState() : presetGrayState(p, activeBase);
       overlay.requestApply(grayState.state);
       grayPanelApi.refresh();
     },
@@ -143,7 +147,10 @@ export function createGameSession(
   keymap.setMoveCooldown(settings.moveCooldownMs);
   keymap.attach();
 
-  window.__motionCube = { player, keymap };
+  // 调试后门：仅 dev 挂载（生产不向全局暴露内部对象；见 todo 技术债「调试后门加 DEV 守卫」）
+  if (import.meta.env.DEV) {
+    window.__motionCube = { player, keymap };
+  }
 
   return {
     player,

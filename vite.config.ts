@@ -6,6 +6,12 @@ export default defineConfig({
   plugins: [vue()],
   server: {
     port: 5173,
+    watch: {
+      // 忽略编辑器原子写临时目录（.<name>.<pid>.<uuid>.tmpdir\）——目录段名以 .tmpdir 结尾，
+      // chokidar 对这类目录建 watch 时 Windows 上 EBUSY，导致 dev 每次编辑崩溃。
+      // 模式须为 "*" .tmpdir（段名后缀），不是 ".tmpdir" 段。
+      ignored: ["**/*.tmpdir/**", "**/*.tmp"],
+    },
   },
   build: {
     rollupOptions: {

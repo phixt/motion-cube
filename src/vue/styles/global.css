@@ -18,6 +18,30 @@ html.theme-light {
   --btn-hover-bg: #e5e5e5;
 }
 
+/* motion-cube：首页伪 3D 魔方低饱和色板（默认/浅色）+ 远景几何色。
+   魔方无边框 stickerless 风格，--cube-gap 为极细格线（不透明，避免露洞）。 */
+:root {
+  --cube-gap: #cfcbc3;
+  --cube-face-front: #f2f1ec;
+  --cube-face-back: #e2d190;
+  --cube-face-right: #d69a8c;
+  --cube-face-left: #e0b286;
+  --cube-face-top: #8fa6d8;
+  --cube-face-bottom: #97bb9a;
+  --geo-color: rgba(120, 135, 200, 0.22);
+}
+
+html.theme-dark {
+  --cube-gap: #2a2a30;
+  --cube-face-front: #d6d6cf;
+  --cube-face-back: #b2a054;
+  --cube-face-right: #a26d66;
+  --cube-face-left: #b98c5d;
+  --cube-face-top: #5e7096;
+  --cube-face-bottom: #5e7d66;
+  --geo-color: rgba(150, 170, 225, 0.14);
+}
+
 body .icon,
 body .icon-btn,
 body .ptr-icon-wrapper,

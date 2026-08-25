@@ -13,7 +13,7 @@ function check(name, fn) {
   }
 }
 
-// 覆盖 docs/base.md 与 docs/forumlaExample.md 的代表性记法
+// 代表性记法（覆盖 WCA/SiGN、交换子/共轭、分组、组合动作等）
 const cases = [
   "R U R' U R U2' R'",
   "M2 E S'",

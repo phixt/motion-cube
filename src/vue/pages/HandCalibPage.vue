@@ -71,11 +71,33 @@ const setStatus = (s: string): void => {
   statusText.value = s;
 };
 
-const refresh = (): void => {
+let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+let refreshRaf = 0;
+/** 真正执行重建：双视图 setConfig（全量重建 3D 几何 + 相机适配 + 标尺重画） */
+const doRefresh = (): void => {
   calib?.setConfig(cfg.value);
   calibSide?.setConfig(cfg.value);
   const pinkyLen = cfg.value.fingers.pinky.reduce((s, seg) => s + seg.length, 0);
   scaleReadout.value = t("hand.scaleNote", { n: (pinkyLen * cfg.value.handScale).toFixed(2) });
+};
+/**
+ * 输入防抖合并重建（150ms + rAF）：连续键入/拖动期间只记最新值，停顿 150ms 后在下一
+ * 动画帧里重建一次——避免每个 @input 事件都同步全量重建（标定页原先每键重建两个 3D 视图）。
+ */
+const refresh = (): void => {
+  if (refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => {
+    refreshTimer = null;
+    if (refreshRaf) cancelAnimationFrame(refreshRaf);
+    refreshRaf = requestAnimationFrame(doRefresh);
+  }, 150);
+};
+/** 立即重建（重置/首次挂载用，跳过防抖） */
+const refreshNow = (): void => {
+  if (refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = null;
+  if (refreshRaf) cancelAnimationFrame(refreshRaf);
+  doRefresh();
 };
 
 const segHeaderLabels = (finger: FingerName): string =>
@@ -152,7 +174,7 @@ const save = (): void => {
 const reset = (): void => {
   cfg.value = structuredClone(DEFAULT_HAND_CONFIG);
   syncInputs();
-  refresh();
+  refreshNow();
   setStatus(t("hand.resetOk"));
 };
 
@@ -164,13 +186,17 @@ onMounted(() => {
   calibSide.setRulerChangeHandler(onRulerAngleChange);
   (globalThis as { __motionCubeHandCalib?: unknown }).__motionCubeHandCalib = { calib, calibSide };
   syncInputs();
-  refresh();
+  refreshNow();
   applyRuler();
   window.addEventListener("keydown", onKeyDown);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", onKeyDown);
+  if (refreshTimer !== null) clearTimeout(refreshTimer);
+  refreshTimer = null;
+  if (refreshRaf) cancelAnimationFrame(refreshRaf);
+  refreshRaf = 0;
   calib?.dispose();
   calibSide?.dispose();
   calib = null;
