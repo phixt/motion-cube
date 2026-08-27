@@ -94,6 +94,24 @@
   6E2C（L10P/4E2C 子状态）
 - ⬜ 新集合爬取：复用 `scripts/gen-cuberoot-algs.mjs` 管线，加进 SETS 即自动清洗/校验
 
+### 盲拧彳亍法（2026-08-25 新增，research/render-interruptible 分支）
+- ✅ **数据层建库**：`data/blind-code-map.json` + `scripts/build-blind-code-map.ts`——
+  54 贴纸位结构化 {面,row,col,块名,贴纸位,字母,缓冲?,中心?,engineId}，**坐标系=彳亍法
+  默认朝向黄顶红前**（U=黄/F=红/R=蓝/L=绿/B=橙/D=白）；缓冲=棱 UF + 角 UFR（✕ 共 5 贴纸位，
+  程序校验精确落位）；字母全集 24（A..Z 缺 U/V，含 WMN/XYZ 收尾），letters 索引=字母↔块·贴纸位；
+  兼容：engineId（位置直映 engine 54）+ 状态级整块旋转 Rg(x,y,z)=(−z,−y,−x) 换算（注释）。校验 PASS。
+  实证：chichu.html 6 面网格为「从面外侧看」布局（以 ✕=缓冲位校准：U 面 row2=前、R 面 col0=前），
+  与 stickering 内部代数约定方向不同——建库独立采用并从外看语义。
+- ✅ **说明页 3D 编码展示**：`src/cube/blind/BlindCodeCube.ts`（单三阶 + 6 面 canvas 字母纹理，
+  chichu 风格：✕=缓冲、中心留空、字母正立）+ `HelpPage.vue`「盲拧彳亍法 3D 编码模型」区块
+  （400px 容器，onMounted/onBeforeUnmount 生命周期）；交互拖转/滚轮缩放 5.2–18/空闲 2.6s 自转/
+  双击重置；dispose 完整（停 rAF+forceContextLoss+canvas.remove，真机残留教训）。i18n zh-CN/en
+  help.blind.* 6 键。**真机 5/5 PASS**（canvas==1、文案、无残留 body canvas、拖转无错）+ 目测
+  字母网格清晰；截图 spike-shots/help-blind-1/-2-rotated.png。提交 e1b4ace。
+- ⬜ 下一步（未接）：**公式表接入**——子代理正在解析 v2011/一九四三 两 xls 的 BIFF8 公式
+  （三循环 A B A' B'），接「case 编码 ↔ 公式」后，说明页可加「点字母 → 演示缓冲与该两组字母的
+  三循环交换动画」
+
 ### 动画编辑器
 - ⬜ **搜索优化**：模糊搜索（子串/编辑距离/拼音）、标签过滤、分类过滤
 - ⬜ **左右手同时显示**：数据层大改（Pose 手型维度/双实例 + HandRigView 双实例 +
