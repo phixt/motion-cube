@@ -584,6 +584,11 @@ function renderSelected(keepInputs = false): void {
         if (el) el.value = arr[j] !== undefined ? String(Math.round(arr[j])) : "";
       });
     }
+    const cmc = displayPose?.thumbCMC;
+    for (const key of CMC_KEYS) {
+      const el = document.getElementById(`kf-cmc-${key}`) as HTMLInputElement | null;
+      if (el) el.value = cmc ? String(Math.round(cmc[key])) : "";
+    }
   }
   if (kfDeleteEl.value) kfDeleteEl.value.disabled = !kf;
 }
@@ -626,6 +631,10 @@ function renderPreview(): void {
           const el = document.getElementById(`kf-bend-${name}-${j}`) as HTMLInputElement | null;
           if (el && active !== el) el.value = arr[j] !== undefined ? String(Math.round(arr[j])) : "";
         });
+      }
+      for (const key of CMC_KEYS) {
+        const el = document.getElementById(`kf-cmc-${key}`) as HTMLInputElement | null;
+        sync(el, String(Math.round(pose.thumbCMC[key])));
       }
     }
   }
@@ -907,6 +916,41 @@ const onBendInput = (e: Event, name: FingerName, j: number): void => {
         arr[j] = v;
         return { ...pose, bends: { ...pose.bends, [name]: arr } };
       }),
+    true,
+  );
+  if (autoKf.value && selectedFrame.value !== target) {
+    selectedFrame.value = target;
+    renderAll();
+  }
+};
+
+/** 拇指 CMC 三轴取值范围（与 handRigStore.normalizeHandRigConfig 一致） */
+const CMC_RANGE: Record<keyof Pose["thumbCMC"], [number, number]> = {
+  abduction: [-90, 90],
+  elevation: [-45, 90],
+  rotation: [-180, 180],
+};
+const CMC_KEYS = ["abduction", "elevation", "rotation"] as const;
+
+/** 拇指 CMC 三轴（展收/抬离/对掌，度）：目标帧更新，autoKf 空白帧自动建帧 */
+const onThumbCmcInput = (e: Event, key: (typeof CMC_KEYS)[number]): void => {
+  if (!tech.value) return;
+  const target = previewFrame.value; // 编辑目标 = 播放头帧
+  const hasKf = tech.value.keyframes.some((k) => k.frame === target);
+  if (!hasKf && !autoKf.value) {
+    statusText.value = t("editor.poseNeedKf");
+    return;
+  }
+  const v = Number((e.target as HTMLInputElement).value);
+  if (!Number.isFinite(v)) return;
+  const [lo, hi] = CMC_RANGE[key];
+  const clamped = Math.min(hi, Math.max(lo, v));
+  commit(
+    (t2) =>
+      ensureAutoKfPose(t2, target, (pose) => ({
+        ...pose,
+        thumbCMC: { ...pose.thumbCMC, [key]: clamped },
+      })),
     true,
   );
   if (autoKf.value && selectedFrame.value !== target) {
@@ -1452,6 +1496,21 @@ onBeforeUnmount(() => {
               <label class="pose-axis">
                 {{ t("editor.posRz") }}
                 <input id="kf-pose-rz" ref="kfPoseRzEl" type="number" step="1" class="native-input num-input" @input="onPoseRotInput" />
+              </label>
+            </div>
+            <div class="pose-edit-row">
+              <WinTextBlock class="editor-label" :Text="t('editor.thumbCmc')" FontSize="12" />
+              <label class="pose-axis">
+                {{ t("hand.cmcAbduction") }}
+                <input id="kf-cmc-abduction" type="number" step="1" min="-90" max="90" class="native-input num-input" @input="onThumbCmcInput($event, 'abduction')" />
+              </label>
+              <label class="pose-axis">
+                {{ t("hand.cmcElevation") }}
+                <input id="kf-cmc-elevation" type="number" step="1" min="-45" max="90" class="native-input num-input" @input="onThumbCmcInput($event, 'elevation')" />
+              </label>
+              <label class="pose-axis">
+                {{ t("hand.cmcRotation") }}
+                <input id="kf-cmc-rotation" type="number" step="1" min="-180" max="180" class="native-input num-input" @input="onThumbCmcInput($event, 'rotation')" />
               </label>
             </div>
             <div class="finger-joints">

@@ -20,9 +20,11 @@ export type JointDef = {
   bend: number;
   /** 屈伸范围（默认 90–180） */
   range?: { min: number; max: number };
-  /** 展收（度）——目前仅拇指 CMC 使用 */
+  /** 掌平面展收（度，向拇指侧张开）——目前仅拇指 CMC使用 */
   abduction?: number;
-  /** 对掌旋转（度）——目前仅拇指 CMC 使用 */
+  /** 抬离掌面（度，向指背侧抬起）——目前仅拇指 CMC 使用 */
+  elevation?: number;
+  /** 对掌自转（度，绕拇指自身长轴，指腹转向掌/指侧）——目前仅拇指 CMC 使用 */
   rotation?: number;
 };
 
@@ -72,12 +74,24 @@ export type Pose = {
   };
   /** 各指关节 bend（顺序与 rig.fingers[name].joints 一致） */
   bends: Record<FingerName, number[]>;
-  /** 拇指 CMC 的额外自由度（展收/对掌旋转） */
-  thumbCMC: { abduction: number; rotation: number };
+  /**
+   * 拇指 CMC 三自由度（解剖语义，见 DEFAULT_THUMB_CMC）：
+   * abduction 掌平面展收 / elevation 抬离掌面 / rotation 对掌自转
+   */
+  thumbCMC: { abduction: number; elevation: number; rotation: number };
   contacts: Contact[];
-};
+}
 
 export const DEFAULT_BEND_RANGE = { min: 90, max: 180 };
+
+/**
+ * 拇指 CMC 自然外翻（度，2026-09-02 重校）：
+ * - abduction 42：掌平面内离开食指方向（俯视可见的虎口张开）；
+ * - elevation 20：抬离掌面朝指背侧（左视图拇指与掌面约 20° 夹角）；
+ * - rotation 45：绕拇指长轴自转，指腹从朝掌面转向掌/指侧（对掌预备位）。
+ * 渲染分解：rotation.x = -elevation，rotation.y = ±abduction，rotation.z = ∓rotation（按手型镜像）。
+ */
+export const DEFAULT_THUMB_CMC = { abduction: 42, elevation: 20, rotation: 45 };
 
 export function identityTransform(): Transform {
   return { position: { x: 0, y: 0, z: 0 }, quaternion: { w: 1, x: 0, y: 0, z: 0 } };
@@ -125,9 +139,9 @@ export function createDefaultRig(handType: HandType = "right"): HandRig {
           { length: 0.53, width: 0.21 },
         ],
         joints: [
-          // 自然外翻：对掌 rotation 30°（掌面向外展开，正交视图可见、与食指不重叠），
-          // 展收 abduction 42°（抬离掌面，侧视与掌面约 21°）
-          { name: "CMC", bend: 160, range: { min: 60, max: 180 }, abduction: 42, rotation: 30 },
+          // 自然外翻：展收/抬离/对掌取 DEFAULT_THUMB_CMC（2026-09-02 重校，
+          // 旧版 abduction 映射到绕长轴自转、视觉上不产生抬离，已修正为三轴分解）
+          { name: "CMC", bend: 160, range: { min: 60, max: 180 }, ...DEFAULT_THUMB_CMC },
           { name: "MCP", bend: 160 },
           { name: "IP", bend: 165 },
         ],
@@ -146,12 +160,14 @@ export function createDefaultPose(rig: HandRig): Pose {
   for (const name of FINGER_ORDER) {
     bends[name] = rig.fingers[name].joints.map((j) => j.bend);
   }
+  const cmc = rig.fingers.thumb.joints[0];
   return {
     palm: { transform: identityTransform(), thumbBase: identityTransform() },
     bends,
     thumbCMC: {
-      abduction: rig.fingers.thumb.joints[0].abduction ?? 0,
-      rotation: rig.fingers.thumb.joints[0].rotation ?? 0,
+      abduction: cmc.abduction ?? 0,
+      elevation: cmc.elevation ?? 0,
+      rotation: cmc.rotation ?? 0,
     },
     contacts: [],
   };

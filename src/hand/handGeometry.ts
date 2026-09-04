@@ -26,6 +26,22 @@ export const PAD = 0x4ade80;
 export const BACK = 0xf59e0b;
 export const OUTLINE = 0x2b2b33;
 
+// —— 几何常量（数据单位，构建时 × handScale；集中命名，避免散落魔法数）——
+/** 手掌圆角盒体的圆角半径（≈0.5 段粗，与指根衔接不显棱角） */
+export const PALM_CORNER_RADIUS = 0.08;
+/** 手掌盒体沿指背方向（+Y）的微调：掌背与指根平齐、掌腹略沉 */
+export const PALM_Y_OFFSET = -0.02;
+/** 指段圆柱横向细分数（拇指等粗段取 12 保证圆润轮廓） */
+const CYL_SEGMENTS = 12;
+/** 指腹（绿）/指背（橙）标记球半径 */
+export const MARK_RADIUS = 0.04;
+/** 标记球 / 接触点中心到段表面的径向间隙（几何标记与接触点共用同一偏移） */
+export const MARK_GAP = 0.05;
+/** 末段（指尖端）相对段宽的收窄比例：远节指骨天然略细 */
+const TIP_TAPER = 0.88;
+/** 大鱼际椭球的基底半径（实际尺寸 = scale 全径，0.5 只是球体基准） */
+const THENAR_BASE_RADIUS = 0.5;
+
 /** 把 sRGB 十六进制色直接写入线性存储（用于线性输出渲染器，如 cubing 的 TwistyPlayer） */
 function srgbColor(hex: number): Color {
   return new Color().setRGB(
@@ -80,16 +96,16 @@ export function buildHandGeometry(
       cfg.palm.height * H,
       cfg.palm.length * H,
       3,
-      0.08 * H,
+      PALM_CORNER_RADIUS * H,
     ),
     skin,
   );
-  palmMesh.position.set(0, -0.02 * H, (cfg.palm.mcpZ - cfg.palm.length / 2) * H);
+  palmMesh.position.set(0, PALM_Y_OFFSET * H, (cfg.palm.mcpZ - cfg.palm.length / 2) * H);
   root.add(palmMesh);
   addOutline(palmMesh);
 
   // 大鱼际（thenar eminence）：拇指根处椭球凸块，略超出拇指侧掌缘，形成"根部隆起"
-  const thenarMesh = new Mesh(new SphereGeometry(0.5, 20, 16), skin);
+  const thenarMesh = new Mesh(new SphereGeometry(THENAR_BASE_RADIUS, 20, 16), skin);
   thenarMesh.scale.set(
     cfg.thenar.width * H,
     cfg.thenar.height * H,
@@ -113,7 +129,8 @@ export function buildHandGeometry(
     fingers[name] = nodes;
   }
 
-  // 拇指：thumbRoot(thumbBase) → thumbDof(CMC 展收/对掌) → 拇指链
+  // 拇指：thumbRoot(thumbBase) → thumbDof(CMC 三轴：抬离/展收/对掌) → 拇指链
+  // thumbDof 欧拉轴语义见 HandRigView.applyPose（XYZ 序 = 对掌自转最内层、抬离最外层）
   const thumbRoot = new Group();
   const thumbDof = new Group();
   thumbRoot.add(thumbDof);
@@ -151,18 +168,23 @@ function buildFingerChain(
     if (seg) {
       const len = seg.length * H;
       const radius = (seg.width / 2) * H;
-      const mesh = new Mesh(new CylinderGeometry(radius, radius, len, 10), skin);
+      const isTip = j === def.segments.length - 1;
+      const mesh = new Mesh(
+        new CylinderGeometry(isTip ? radius * TIP_TAPER : radius, radius, len, CYL_SEGMENTS),
+        skin,
+      );
       mesh.rotation.x = Math.PI / 2; // 圆柱 Y 轴 → 指方向 Z
       mesh.position.z = len / 2;
       joint.add(mesh);
       addOutline?.(mesh);
       if (withMarks) {
         // 腹（绿，-Y）/ 背（橙，+Y）标记
-        const p = new Mesh(new SphereGeometry(0.04 * H, 8, 8), pad);
-        p.position.set(0, -(radius + 0.05 * H), len / 2);
+        const off = radius + MARK_GAP * H;
+        const p = new Mesh(new SphereGeometry(MARK_RADIUS * H, 8, 8), pad);
+        p.position.set(0, -off, len / 2);
         joint.add(p);
-        const b = new Mesh(new SphereGeometry(0.04 * H, 8, 8), back);
-        b.position.set(0, radius + 0.05 * H, len / 2);
+        const b = new Mesh(new SphereGeometry(MARK_RADIUS * H, 8, 8), back);
+        b.position.set(0, off, len / 2);
         joint.add(b);
       }
       const next = new Group();
@@ -173,4 +195,9 @@ function buildFingerChain(
     }
   }
   return { root, joints, segments };
+}
+
+/** 段表面到腹/背/侧接触点的径向偏移（几何标记与 HandRigView 接触点共用） */
+export function segmentSurfaceOffset(seg: SegmentNode, H: number): number {
+  return seg.radius + MARK_GAP * H;
 }

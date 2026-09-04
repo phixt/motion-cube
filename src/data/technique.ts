@@ -216,7 +216,12 @@ function parsePose(v: unknown): Pose {
       thumbBase: parseTransform(palm.thumbBase, "palm.thumbBase"),
     },
     bends: bendsOut,
-    thumbCMC: { abduction: thumbCMC.abduction, rotation: thumbCMC.rotation },
+    // elevation（抬离掌面）为 v3 新增字段：旧数据缺省按 0（平贴掌面）处理
+    thumbCMC: {
+      abduction: thumbCMC.abduction,
+      elevation: isFiniteNum(thumbCMC.elevation) ? thumbCMC.elevation : 0,
+      rotation: thumbCMC.rotation,
+    },
     contacts: parseContacts(o.contacts),
   };
 }

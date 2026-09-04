@@ -4,12 +4,19 @@
  * 「固化」= 保存到 localStorage，编辑器 / 游戏在构造 HandRigView 时读取同一配置。
  * 默认值 = createDefaultRig（人体测量数据校准）+ 目测迭代的渲染参数（2026-08-06）。
  */
-import { createDefaultRig, FINGER_ORDER, type FingerName, type HandRig, type HandType } from "./HandRig";
+import {
+  createDefaultRig,
+  DEFAULT_THUMB_CMC,
+  FINGER_ORDER,
+  type FingerName,
+  type HandRig,
+  type HandType,
+} from "./HandRig";
 
 export type SegmentCalib = { length: number; width: number };
 
 export type HandRigConfig = {
-  version: 2;
+  version: 3;
   /** 整体放大系数：数据单位 → 渲染倍数（1.33 单位小指 → ≈2.1 块边长） */
   handScale: number;
   /** 指根间距：四指根 X 的乘数（默认 1） */
@@ -22,6 +29,8 @@ export type HandRigConfig = {
   thumbCorner: { x: number; y: number; z: number };
   /** 大鱼际（thenar eminence）凸块：椭球尺寸与位置（相对手掌中心，数据单位） */
   thenar: { width: number; height: number; length: number; x: number; y: number; z: number };
+  /** 拇指 CMC 自然外翻（度）：掌平面展收 / 抬离掌面 / 对掌自转（默认值语义见 DEFAULT_THUMB_CMC） */
+  thumbCmc: { abduction: number; elevation: number; rotation: number };
   /** 标尺角度（度，0=水平，90=竖直；标定视图可 Ctrl+拖拽旋转，与其他数值一同固化） */
   rulerAngle: number;
   /** 各指段（拇指 2 段，其余 3 段）：长度 / 粗细（数据单位，1 = 块边长） */
@@ -38,7 +47,7 @@ function defaultFingers(): Record<FingerName, SegmentCalib[]> {
 }
 
 export const DEFAULT_HAND_CONFIG: HandRigConfig = {
-  version: 2,
+  version: 3,
   handScale: 2.1 / 1.33,
   fingerSpacing: 1,
   palm: { width: 1.35, height: 0.45, length: 1.55, mcpZ: 0.4 },
@@ -52,6 +61,7 @@ export const DEFAULT_HAND_CONFIG: HandRigConfig = {
   thumbCorner: { x: 0.55, y: -0.05, z: -0.45 },
   // 大鱼际：拇指根处椭球凸块，尺寸覆盖掌根拇指侧并与圆角手掌融合
   thenar: { width: 0.9, height: 0.42, length: 1.05, x: 0.48, y: -0.03, z: -0.45 },
+  thumbCmc: { ...DEFAULT_THUMB_CMC },
   rulerAngle: 0,
   fingers: defaultFingers(),
 };
@@ -67,7 +77,8 @@ const clampNum = (v: unknown, min: number, max: number, fallback: number): numbe
 export function normalizeHandRigConfig(input: unknown): HandRigConfig | null {
   if (!input || typeof input !== "object") return null;
   const obj = input as Record<string, unknown>;
-  const version = obj.version === 2 ? 2 : obj.version === 1 ? 1 : 0;
+  // v1→v2：拇指根迁移到掌根锚点 + 大鱼际；v2→v3：新增 thumbCmc（缺省回默认，无破坏）
+  const version = obj.version === 3 || obj.version === 2 || obj.version === 1 ? obj.version : 0;
   if (version === 0 || typeof obj.fingers !== "object" || obj.fingers === null) return null;
   const f = obj.fingers as Record<string, unknown>;
   const fingers = {} as Record<FingerName, SegmentCalib[]>;
@@ -92,10 +103,11 @@ export function normalizeHandRigConfig(input: unknown): HandRigConfig | null {
   const base = (n: string) => (bases[n] ?? {}) as Record<string, unknown>;
   const tc = (obj.thumbCorner ?? {}) as Record<string, unknown>;
   const th = (obj.thenar ?? {}) as Record<string, unknown>;
+  const cmc = (obj.thumbCmc ?? {}) as Record<string, unknown>;
   // version 1（拇指根仍在掌前缘角落的旧语义）→ 迁移到掌根锚点 + 大鱼际默认值
   const legacy = version === 1;
   return {
-    version: 2,
+    version: 3,
     handScale: clampNum(obj.handScale, 0.3, 5, DEFAULT_HAND_CONFIG.handScale),
     fingerSpacing: clampNum(obj.fingerSpacing, 0.3, 2, DEFAULT_HAND_CONFIG.fingerSpacing),
     palm: {
@@ -127,6 +139,11 @@ export function normalizeHandRigConfig(input: unknown): HandRigConfig | null {
           y: clampNum(th.y, -1, 1, DEFAULT_HAND_CONFIG.thenar.y),
           z: clampNum(th.z, -2, 3, DEFAULT_HAND_CONFIG.thenar.z),
         },
+    thumbCmc: {
+      abduction: clampNum(cmc.abduction, -90, 90, DEFAULT_HAND_CONFIG.thumbCmc.abduction),
+      elevation: clampNum(cmc.elevation, -45, 90, DEFAULT_HAND_CONFIG.thumbCmc.elevation),
+      rotation: clampNum(cmc.rotation, -180, 180, DEFAULT_HAND_CONFIG.thumbCmc.rotation),
+    },
     rulerAngle: clampNum(obj.rulerAngle, 0, 360, DEFAULT_HAND_CONFIG.rulerAngle),
     fingers,
   };
@@ -146,7 +163,7 @@ export function saveHandRigConfig(cfg: HandRigConfig): void {
   localStorage.setItem(STORE_KEY, JSON.stringify(cfg));
 }
 
-/** 按标定配置构建手骨架（关节表/默认 bend 取 createDefaultRig） */
+/** 按标定配置构建手骨架（关节表取 createDefaultRig；CMC 外翻角取配置 thumbCmc） */
 export function createRigFromConfig(cfg: HandRigConfig, handType: HandType = "right"): HandRig {
   const base = createDefaultRig(handType);
   const fingers = { ...base.fingers } as HandRig["fingers"];
@@ -161,5 +178,11 @@ export function createRigFromConfig(cfg: HandRigConfig, handType: HandType = "ri
       })),
     };
   }
+  fingers.thumb = {
+    ...fingers.thumb,
+    joints: fingers.thumb.joints.map((j, i) =>
+      i === 0 ? { ...j, ...cfg.thumbCmc } : j,
+    ),
+  };
   return { ...base, fingers };
 }

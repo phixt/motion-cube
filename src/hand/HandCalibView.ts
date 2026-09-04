@@ -262,10 +262,13 @@ export class HandCalibView {
     }
     const rig = createRigFromConfig(this.cfg, "right");
     const built = buildHandGeometry(this.cfg, rig, 1, false, false, this.view === "left");
-    // 拇指应用自然外翻（CMC 默认展收/对掌），手指保持伸直（测量用途）
+    // 拇指应用自然外翻（CMC 三轴：抬离/展收/对掌，轴语义同 HandRigView.applyPose），手指保持伸直（测量用途）
     const cmc = rig.fingers.thumb.joints[0];
-    built.thumbDof.rotation.z = degToRad(cmc.abduction ?? 0);
-    built.thumbDof.rotation.y = degToRad((cmc.rotation ?? 0) * 1); // 标定用右手（sideSign=1）
+    built.thumbDof.rotation.set(
+      degToRad(-(cmc.elevation ?? 0)),
+      degToRad(cmc.abduction ?? 0),
+      degToRad(-(cmc.rotation ?? 0)), // 标定用右手（sideSign=1）
+    );
     this.rootGroup.add(built.root);
     this.scene.updateMatrixWorld(true);
     this.handBox = new Box3().setFromObject(built.root);
