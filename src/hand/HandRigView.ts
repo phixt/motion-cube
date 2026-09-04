@@ -4,8 +4,8 @@
  * 与魔方同场景：注入 cubing.js TwistyPlayer 的 three.js 场景（同 GrayOverlay 模式）。
  * 坐标：魔方单位（1 = 块边长），整个组按 CUBE_UNIT_WORLD 缩放到 cubing 世界尺度。
  * 几何参数来自手部标定配置（handRigStore）：在标定页「固化」后此处自动生效。
- * 拇指特例：2 段 3 关节（CMC/MCP/IP），CMC 展收/对掌旋转在 thumbDof 上；
- * 拇指根默认放在手掌拇指侧角落（thumbBase 为其相对偏移）。
+ * 拇指特例：2 段 3 关节（CMC/MCP/IP），CMC 三轴（展收/抬离/对掌）在 thumbDof 上；
+ * 拇指根默认放在手掌拇指侧掌根（thumbBase 为其相对偏移）。
  */
 import {
   Color,
@@ -25,7 +25,7 @@ import {
   type HandType,
   type Pose,
 } from "./HandRig";
-import { buildHandGeometry, type FingerNodes } from "./handGeometry";
+import { buildHandGeometry, segmentSurfaceOffset, type FingerNodes } from "./handGeometry";
 import { createRigFromConfig, loadHandRigConfig, type HandRigConfig } from "./handRigStore";
 
 /** 1 魔方单位（块边长）≈ cubing 世界单位（sticker 面内间距 ±0.33 ↔ 规范 ±1 推出） */
@@ -147,9 +147,15 @@ export class HandRigView {
       tb.position.z + tc.z * H,
     );
     this.thumbRoot.quaternion.set(tb.quaternion.x, tb.quaternion.y, tb.quaternion.z, tb.quaternion.w);
-    // CMC 展收/对掌旋转（均按手型镜像，保证左右手拇指朝向对称一致）
-    this.thumbDof.rotation.z = degToRad(pose.thumbCMC.abduction * this.sideSign);
-    this.thumbDof.rotation.y = degToRad(pose.thumbCMC.rotation * this.sideSign);
+    // CMC 三轴（欧拉 XYZ 序：对掌自转最内层 → 掌内展收 → 抬离最外层；按手型镜像保证对称）：
+    // rotation.x = -elevation  抬离掌面，向指背 +Y（Y 轴镜像不变，双手同号）
+    // rotation.y = +abduction  掌平面内展收，向拇指侧 +X（x 已镜像，角度取反）
+    // rotation.z = -rotation   对掌自转，指腹从朝掌面转向掌/指侧（镜像取反）
+    this.thumbDof.rotation.set(
+      degToRad(-pose.thumbCMC.elevation),
+      degToRad(pose.thumbCMC.abduction * this.sideSign),
+      degToRad(-pose.thumbCMC.rotation * this.sideSign),
+    );
 
     for (const name of FINGER_ORDER) {
       const nodes = this.fingers[name];
@@ -178,7 +184,6 @@ export class HandRigView {
       this.contactPool.push(marker);
     }
   }
-
   private buildRig(): void {
     for (const child of this.group.children) child.removeFromParent();
     this.contactPool.forEach((m) => m.removeFromParent());
@@ -196,7 +201,7 @@ export class HandRigView {
 
 /** 接触点在该段局部坐标：z = t×len，按侧偏移（腹 -Y / 背 +Y / 拇指侧 / 小指侧） */
 function contactLocalPoint(c: Contact, seg: FingerNodes["segments"][number], sideSign: number, H: number): Vector3 {
-  const off = seg.radius + 0.05 * H;
+  const off = segmentSurfaceOffset(seg, H);
   const x =
     c.side === "thumbSide" ? sideSign * off : c.side === "pinkySide" ? -sideSign * off : 0;
   const y = c.side === "pad" ? -off : c.side === "back" ? off : 0;

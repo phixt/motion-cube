@@ -152,6 +152,7 @@ export function interpolatePose(a: Pose, b: Pose, t: number): Pose {
     bends,
     thumbCMC: {
       abduction: lerp(a.thumbCMC.abduction, b.thumbCMC.abduction, u),
+      elevation: lerp(a.thumbCMC.elevation, b.thumbCMC.elevation, u),
       rotation: lerp(a.thumbCMC.rotation, b.thumbCMC.rotation, u),
     },
     contacts: [],

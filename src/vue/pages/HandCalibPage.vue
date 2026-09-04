@@ -114,6 +114,19 @@ const inlineFields: { id: string; label: string; get: () => number; set: (v: num
   { id: "hand-scale", label: "", get: () => cfg.value.handScale, set: (v) => (cfg.value.handScale = v), min: 0.3 },
 ];
 
+/** 拇指区字段：CMC 外翻三轴（度，整数位）+ 大鱼际椭球（数据单位，两位小数） */
+const thumbFields: { id: string; label: string; get: () => number; set: (v: number) => void; min: number; fix: number }[] = [
+  { id: "cmc-abduction", label: t("hand.cmcAbduction"), get: () => cfg.value.thumbCmc.abduction, set: (v) => (cfg.value.thumbCmc.abduction = v), min: -90, fix: 0 },
+  { id: "cmc-elevation", label: t("hand.cmcElevation"), get: () => cfg.value.thumbCmc.elevation, set: (v) => (cfg.value.thumbCmc.elevation = v), min: -45, fix: 0 },
+  { id: "cmc-rotation", label: t("hand.cmcRotation"), get: () => cfg.value.thumbCmc.rotation, set: (v) => (cfg.value.thumbCmc.rotation = v), min: -180, fix: 0 },
+  { id: "thenar-width", label: `${t("hand.thenar")}${t("hand.thenarWidth")}`, get: () => cfg.value.thenar.width, set: (v) => (cfg.value.thenar.width = v), min: 0.1, fix: 2 },
+  { id: "thenar-height", label: `${t("hand.thenar")}${t("hand.thenarHeight")}`, get: () => cfg.value.thenar.height, set: (v) => (cfg.value.thenar.height = v), min: 0.05, fix: 2 },
+  { id: "thenar-length", label: `${t("hand.thenar")}${t("hand.thenarLength")}`, get: () => cfg.value.thenar.length, set: (v) => (cfg.value.thenar.length = v), min: 0.1, fix: 2 },
+  { id: "thenar-x", label: `${t("hand.thenar")} X`, get: () => cfg.value.thenar.x, set: (v) => (cfg.value.thenar.x = v), min: -2, fix: 2 },
+  { id: "thenar-y", label: `${t("hand.thenar")} Y`, get: () => cfg.value.thenar.y, set: (v) => (cfg.value.thenar.y = v), min: -1, fix: 2 },
+  { id: "thenar-z", label: `${t("hand.thenar")} Z`, get: () => cfg.value.thenar.z, set: (v) => (cfg.value.thenar.z = v), min: -2, fix: 2 },
+];
+
 /** id → setter 注册表：模板用统一 @input 处理器分发（避免事件表达式返回值被丢弃） */
 const fieldSetters = new Map<string, (v: number) => void>();
 for (const name of FINGER_ORDER) {
@@ -129,6 +142,12 @@ for (const name of FINGER_ORDER) {
   }
 }
 for (const f of inlineFields) {
+  fieldSetters.set(f.id, (v) => {
+    f.set(v);
+    refresh();
+  });
+}
+for (const f of thumbFields) {
   fieldSetters.set(f.id, (v) => {
     f.set(v);
     refresh();
@@ -161,6 +180,10 @@ const syncInputs = (): void => {
   for (const f of inlineFields) {
     const input = document.getElementById(f.id) as HTMLInputElement | null;
     if (input) input.value = f.get().toFixed(2);
+  }
+  for (const f of thumbFields) {
+    const input = document.getElementById(f.id) as HTMLInputElement | null;
+    if (input) input.value = f.get().toFixed(f.fix);
   }
   const ra = document.getElementById("ruler-angle") as HTMLInputElement | null;
   if (ra) ra.value = cfg.value.rulerAngle.toFixed(0);
@@ -296,6 +319,18 @@ onBeforeUnmount(() => {
               <input :id="f.id" type="number" step="0.01" :min="String(f.min)" class="native-num" @input="onFieldInput" />
             </label>
           </div>
+        </section>
+
+        <!-- 拇指（CMC 外翻 + 大鱼际） -->
+        <section class="hand-section">
+          <WinTextBlock class="hand-h3" :Text="t('hand.thumb')" FontSize="16" FontWeight="SemiBold" />
+          <div class="hand-inline">
+            <label v-for="f in thumbFields" :key="f.id" class="hand-inline-item">
+              {{ f.label }}
+              <input :id="f.id" type="number" :step="f.fix === 0 ? '1' : '0.01'" :min="String(f.min)" class="native-num" @input="onFieldInput" />
+            </label>
+          </div>
+          <WinTextBlock class="page-note" :Text="t('hand.cmcHint')" FontSize="12" />
         </section>
 
         <!-- 整体 -->

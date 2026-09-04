@@ -1,6 +1,6 @@
 # 手法动画编辑器 · 参数模型
 
-> 更新：2026-08-20（对齐当前代码模型；删除未实现的参数描述）
+> 更新：2026-09-04（拇指 CMC 三轴重校；handRig 配置 v3）
 > 本文件为编辑器/游戏共用数据模型的骨架；类型定义以源码为准，下表为便于理解的摘要。
 
 ## 约定
@@ -19,9 +19,9 @@
 |---|---|
 | `handType` | `"left" | "right"`——决定靠拇指侧方向定义（渲染镜像） |
 | `fingers[].segments[]` | 每指段定义：`{ length, width }`（魔方单位）；拇指 2 段，其余 3 段 |
-| `fingers[].joints[]` | 每指关节定义：`{ name, bend, range?, abduction?, rotation? }`；通用指 MCP/PIP/DIP，拇指 CMC/MCP/IP |
+| `fingers[].joints[]` | 每指关节定义：`{ name, bend, range?, abduction?, elevation?, rotation? }`；通用指 MCP/PIP/DIP，拇指 CMC/MCP/IP |
 | `joint.range` | 屈伸范围（默认 90–180）；仅拇指 CMC 覆盖为 60–180 |
-| `joint.abduction / rotation` | 展收 / 对掌旋转（度）；**仅拇指 CMC 使用** |
+| `joint.abduction / elevation / rotation` | 拇指 CMC 三轴（度）：掌平面展收 / 抬离掌面 / 对掌自转；**仅拇指 CMC 使用** |
 
 默认骨架按人体测量数据折算（见下方「手部比例」）。
 
@@ -32,7 +32,7 @@
 | `palm.transform` | 手掌位置 + 四元数朝向 |
 | `palm.thumbBase` | 拇指根相对手掌的位姿（拇指基底自由度所在） |
 | `bends[finger]` | 各指关节 bend 值数组（顺序与骨架 joints 一致） |
-| `thumbCMC` | 拇指 CMC 额外自由度：`{ abduction, rotation }`（度） |
+| `thumbCMC` | 拇指 CMC 三自由度：`{ abduction, elevation, rotation }`（度；旧数据缺 elevation 按 0 解析） |
 | `contacts[]` | 接触列表（见下） |
 
 ## 接触（`Contact`）
@@ -81,6 +81,7 @@
 | `bases[]` | 四指根相对手掌中心 `{ x, y }`（右手 +X 为拇指侧，左手渲染 X 取反） |
 | `thumbCorner` | 拇指根锚点（掌根/腕侧，`{ x, y, z }`，x 按手型取反） |
 | `thenar` | 大鱼际凸块椭球 `{ width, height, length, x, y, z }` |
+| `thumbCmc` | 拇指 CMC 自然外翻 `{ abduction, elevation, rotation }`（度；v3 新增，写入骨架 CMC 默认值） |
 | `rulerAngle` | 标尺角度（度，0=水平，90=竖直） |
 | `fingers[]` | 各指段长/粗细（可标定覆写默认骨架） |
 
@@ -110,6 +111,12 @@
 手掌：宽 1.35 × 厚 0.45 × 长 1.55（MCP 线 z=0.4）；整体放大 `handScale = 2.1/1.33`
 （小指渲染 ≈ 2.1 块边长，中指 ≈ 2.8 恰好横跨一个魔方面；2026-08-06 目测由 3.1 回调）。
 
+拇指 CMC 自然外翻（2026-09-04 重校为三轴，见 `DEFAULT_THUMB_CMC`）：
+展收 42°（掌平面内离开食指）+ 抬离 20°（向指背侧抬起，左视图与掌面约 20°）+
+对掌自转 45°（指腹转向掌/指侧）。旧版仅两轴且 `abduction` 映射到绕长轴自转
+（视觉上不产生抬离，注释声称的"侧视 21°"从未实现），已修正为
+`rotation.x = -elevation / rotation.y = ±abduction / rotation.z = ∓rotation`（按手型镜像）。
+
 数据来源：
 
 - 各指总长比：acbjournal 2024（51 名 18–30 岁青年，指节之和 mm：
@@ -124,4 +131,5 @@
   掌宽/掌长 ≈ 0.74）；目测回调到紧凑尺寸
 
 存储：`motion-cube.handRig`（localStorage，结构见 `src/hand/handRigStore.ts`，
-含规范化与越界截断；`createDefaultRig()` 保持纯默认，测试断言按默认值）。
+配置版本 v3（v1 拇指根语义迁移、v2→v3 新增 `thumbCmc`，均自动规范化与越界截断；
+`createDefaultRig()` 保持纯默认，测试断言按默认值）。
