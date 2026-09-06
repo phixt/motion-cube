@@ -1,12 +1,14 @@
 # 项目 TODO 与进度（motion-cube）
 
-> 更新：2026-08-20　✅ 已完成 ｜ 🚧 进行中 ｜ ⬜ 待办
+> 更新：2026-09-06　✅ 已完成 ｜ 🚧 进行中 ｜ ⬜ 待办
 > 唯一进度/待办文档（合并自 progress.md、rubik-anime-lab-migration.md；旧文档
 > base/start/formula/docs_old/migration-vue-winui-plan 已归档删除；params.md 保留）。
 
 ## 当前状态
 
-- 版本 **0.3.7**（package.json 与 src-tauri/tauri.conf.json 同步）
+- 版本 **0.3.8**（package.json 与 src-tauri/tauri.conf.json 同步）
+- 基座整备（2026-09-06）：手部拇指重校、新应用图标、EBUSY 修复已并入 main；
+  盲拧彳亍法与求解器进阶研究封存分支，详见下节「基座整备」
 - 求解器：CFOP / CFOP+（一步 ZBLL + 回退）/ Roux（LSE 4a+6E2C）三方法全绿
   （typecheck + smoke-solver + smoke-solver-edge + verify-data）
 - 解法底选择：CFOP/Roux 方法面板「解法底」区——**多选面集合**（默认选中全局底颜色；
@@ -19,6 +21,25 @@
 - 技术栈：Vite 8 + Vue 3.5 + cubing.js（TwistyPlayer + cubing/alg）+ three.js（手模型）
 
 ## 活跃待办
+
+### 基座整备（2026-09-06，分支合并 + 不确定功能回退）
+
+- ✅ **并入基座（main）**：① EBUSY 根因修复（vite watch ignore `reference/`）+
+  dispose 残留探针（39b858a→cab5627）；② 手部拇指 CMC 三轴重校 + 手部几何固定值
+  合理化（327cbbd→dc096a8，0.3.8，用户确认效果满意）；③ 新应用图标替换 gomoku
+  占位 + `tools/icon-lab` 生成工具入库（78a2548）。
+- 🗄 **封存分支（不并入，随时 cherry-pick 找回）**：
+  - `feat/hand-thumb-normalize` = 盲拧彳亍法档案：数据层建库（6b716d7）+ 说明页
+    3D 展示（e1b4ace）+ todo 记录（806dfd1）——公式表接入未完成，待接完再评估合入。
+  - `research/solver-advanced` = 求解器进阶研究档案：EOLR 一步表命中 ~0 实证 →
+    维持 4a 搜索+6E2C；降群/ZZ 方向参考；彳亍公式 xls 整串重叠率 v2011 8.1% /
+    一九四三 4.7%——结论参考价值有限，仅此少量保留，探针与完整记录在分支。
+- ⬜ **回退意向·暂缓（用户判定效果不佳，按「main 内容先不回退」暂缓执行）**：
+  ① zbll（cfop-adv 一步 ZBLL：覆盖 52.5%、命中均步 ≈ CFOP 无实际收益）；② 桥式
+  高级（roux-adv，EOLR 路线研究半途而废）。回退方式 = 方法面板移除 cfop-adv /
+  roux-adv 选项（底层公式库保留休眠），基座确认后执行。
+- ⬜ **手部遗留**：硬编码微调数字 `PALM_Y_OFFSET = -0.02`（掌腹略沉，直接归零
+  观感不好）待另行处理——拇指重校后遗留的唯一几何魔法数字。
 
 ### 游戏页：速度体系统一 + 多色底（✅ 已完成，0.3.7 已 bump）
 
@@ -104,7 +125,7 @@
 
 ### 桌面版（tauri）
 - ⬜ **双标题栏**：decorations:false + 自绘标题栏（data-tauri-drag-region + 窗口按钮）
-- ⬜ **icons 占位替换**：现复制自 gomoku，发布前替换
+- ✅ **icons 占位替换**：icon-lab 生成新图标已替换 gomoku 占位（2026-09-06 入库，生成工具 `tools/icon-lab/`）
 - ⬜ **严格隐藏逻辑**：对象级显隐（魔方/左右手）与点选/命中交互规则统一
 - ⬜ **playtest 并入 CI**：networkidle0 卡点解决后再并入 ci.yml
 
