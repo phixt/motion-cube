@@ -1,6 +1,6 @@
 # 项目 TODO 与进度（motion-cube）
 
-> 更新：2026-09-06　✅ 已完成 ｜ 🚧 进行中 ｜ ⬜ 待办
+> 更新：2026-09-08　✅ 已完成 ｜ 🚧 进行中 ｜ ⬜ 待办
 > 唯一进度/待办文档（合并自 progress.md、rubik-anime-lab-migration.md；旧文档
 > base/start/formula/docs_old/migration-vue-winui-plan 已归档删除；params.md 保留）。
 
@@ -40,6 +40,30 @@
   roux-adv 选项（底层公式库保留休眠），基座确认后执行。
 - ⬜ **手部遗留**：硬编码微调数字 `PALM_Y_OFFSET = -0.02`（掌腹略沉，直接归零
   观感不好）待另行处理——拇指重校后遗留的唯一几何魔法数字。
+
+### 盲拧参考换新 + ZBLL/ZBLS 数据侦查（2026-09-08，本轮轻量，未深入）
+
+- ✅ **任务1 · 盲拧参考换新**：删除旧彳亍法参考（`reference/` 下 `一九四三...xls`、
+  `chichu v2011.xls`、`chichu.html`、`This.exe` 及分析副本 `_work/`）；从
+  `E:\phx_lumin\Downloads\3-Style (V5)等1个文件.zip` 解压**中文版** xlsx 入库
+  `reference/3-style-v5/三盲三循环818-魔方根.xlsx`（818 条三循环，13 表：
+  介绍/编码/分类/双拼/棱/角/笔记/奇置换/翻棱/转角/统计/棱组/角组，buffer UF/UFR，
+  作者 CubeRoot）。英文版同源（11 表、无双拼）未入库；notes-new-refs.md 已重写。
+  ⬜ 深度解析 + 重新形式化接入公式库——**下一轮**。
+- ✅ **任务2 · Alg-Trainers 可达性侦查（未爬全量，仅定可行性）**：网站
+  mihlefeld.github.io/Alg-Trainers 为 GitHub Pages（仓库 mihlefeld/Alg-Trainers，
+  公开、GPL-3.0）；**原始数据即仓库内 JSON**，无需爬网页：
+  - `3x3-ZBLL-Trainer/algs_info.json` = **472 条**（T/U/L/Pi/Sune/Antisune 各 72 +
+    H 40；每条含 name/group/algset + `a[]` 多算法 + `s` 打乱）——**与现有库一致**
+    （472 + 21 PLL = 493 口径成立，ZBLL 简单核对即通过）。
+  - `3x3-ZBLS-Trainer/algs_info.json` = **302 条**（FR1–45 分组，`1-1`..`45-2` 命名）
+    ——**少于现有库 305 条**（`data/samples/cuberoot-algs.json` zbls=305），差 3 待核。
+  - 已落盘 `reference/mihlefeld-alg-trainers/`（6 个 JSON：ZBLL/ZBLS 各
+    algs_info/algsets_info/groups_info）——下轮直接消费。
+- ⬜ **下一轮**：① 3-Style V5 深度解析 + 公式库重新形式化；② 决定 ZBLL/ZBLS 数据源
+  （现有 cuberoot 305 vs mihlefeld 302）并**重启 ZBLL 覆盖率验证**——开分支
+  `feat/zbll-import-verify`（原始数据已备，从 `scripts/coverage-zbll.mts` /
+  `scripts/verify-zbll-coverage.ts` 现行口径（926/1944 轨）继续）。
 
 ### 游戏页：速度体系统一 + 多色底（✅ 已完成，0.3.7 已 bump）
 

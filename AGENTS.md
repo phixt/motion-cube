@@ -33,3 +33,7 @@
   验证：`node scripts/smoke-solver.ts` / `scripts/smoke-solver-edge.ts`（tsx）、
   `scripts/playtest-solver.mjs`。
 - playtest：`node scripts/playtest-ui.mjs`（先起 dev server，SPIKE_URL 指向非 5173 端口）。
+- **reference/（gitignore，全程不入库，仅本地参考）**：`3-style-v5/三盲三循环818-魔方根.xlsx`
+  （3-Style V5 盲拧三循环 818 条，中文版，已替旧彳亍法档）、`mihlefeld-alg-trainers/`
+  （Alg-Trainers 仓库原始 JSON：3x3-ZBLL 472 条 / 3x3-ZBLS 302 条，含 a[] 算法+s 打乱）、
+  `new-refs/notes-new-refs.md`（参考说明）。旧彳亍参考（1943/chichu/This.exe/_work）已删。
