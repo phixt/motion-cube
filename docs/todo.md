@@ -65,6 +65,42 @@
   `feat/zbll-import-verify`（原始数据已备，从 `scripts/coverage-zbll.mts` /
   `scripts/verify-zbll-coverage.ts` 现行口径（926/1944 轨）继续）。
 
+### 差异侦查二轮：ZBLS 302/305 差额核因 + 覆盖率脚本审读（2026-09-08，未跑/未重写）
+
+- ✅ **理论差额出处（网上 302 vs 305）**：
+  - 302 有明确公式：**36×8 + 2×4 + 3×2 = 302**（[mf8 ZBLS情况分类](http://www.mf8-china.com/archiver/?tid-119016.html)/
+    [B站专栏](https://www.bilibili.com/read/cv9828138/))——36 种「棱角不同在槽」F2L 各 8 个 ZBLS；
+    5 种「棱角都在槽内」F2L 中，中棱色相正确 2 种各 4 个、错误 3 种各 2 个。
+  - [Speedsolving Wiki 自身矛盾](https://www.speedsolving.com/wiki/index.php?title=ZB_method)：
+    ZB method 页写 ZBLS=**305**（并 472+21 PLL），而 ZBLS 词条写 **302**（且注明
+    「125 条去重算法，共 302 case 要学」）。
+  - 305 的另一来源即 [CubeRoot 官网 ZB 页](https://cuberoot.me/zh/wca/prediction/333/method-zb)
+    （现有库 zbls=305 的出处）。
+- ✅ **数据对账（轻量，未做槽位归一化）**：直接把 cuberoot 305 的 setup 态与
+  mihlefeld 302 的 `s` 态做「AUF + 24 旋转 + LR 镜像」不变量匹配→仅 **96/305** 命中
+  （反向 206 mi-only）——**两库表示基准不同**（命名体系、朝向/参考系、可能槽位口径），
+  轻量字符串/状态对账**无法实锤差 3**。
+  - 结构吻合线索：cuberoot 特殊组 17（C4/D8/F2/O3）vs mihlefeld 尾部 14
+    （FR37 2/FR38 4/FR39 4/FR40 2/FR45 2），差 3 = cuberoot **O 组**（I/V/D 三条，
+    「对棱已朝向、六步 OLL"F R U R' U' F'" 类」极简 case）→ **O 组=差额是强假设**，
+    实锤需把 cuberoot setup 态**归一到 FR+白顶基准**再比（下一轮正式步骤）。
+- ✅ **已实锤的等价样例（格式统一可行性证据，8 组状态级对应）**：如
+  cr `A+/EO`（setup `R U R' U'`，alg `U R U' R'`）↔ mihlefeld `FR 1 / 1-1`
+  （s `R U R'`，a `[U R U' R']`）；cr `A-/EO` ↔ `FR 2 / 2-1`；cr `B+/EO` ↔
+  `FR 4 / 4-1` 等。格式差异明显：命名体系 vs 分组编号、cuberoot 带
+  `mirrorCaseId`+按朝向分组 algs vs mihlefeld 平铺 `a[]`+`s`。
+- ✅ **ZBLL 简单核对**：两侧均 **472**（T/U/L/Pi/Sune/Antisune 各 72、H 40）——
+  计数级一致（493 含 PLL 口径成立）；state 级对账 230/472（同为基准不同所致）。
+- ✅ **覆盖率脚本审读（未运行、未重写，仅记录「奇怪」点）**：
+  - [coverage-zbll.mts](scripts/coverage-zbll.mts)：M2 镜像的 **move 级** 4 变体闭包，分母 **1944**；
+  - [verify-zbll-coverage.ts](scripts/verify-zbll-coverage.ts)：**贴纸级** mirrorState family，
+    分母 **1872 非 PLL**，断言 TOTAL=**926**（49.5%）；per-set TRUE 表
+    T/U/L/Pi/Sune/AS=288、**H=144**（无理论注记）；
+  - 当前状态两处记载不一致：todo 「一步 ZBLL 覆盖 **52.5%**（M2 闭包, 1944）」vs
+    verify 断言 **926**（≈49.5% of 1872 / 47.6% of 1944）——三处口径互有出入。
+  - ⬜ 重写前需冻结定义：canon/镜像口径（move 级 M2 vs 贴纸级）、分母（1944 vs 1872）、
+    是否含 PLL、per-set 理论轨道数来源。**本轮不动。**
+
 ### 游戏页：速度体系统一 + 多色底（✅ 已完成，0.3.7 已 bump）
 
 - ✅ **速度体系统一 + 打乱倍速上限 5x**：两滑条统一为「实际 s/步」显示、同一基准
