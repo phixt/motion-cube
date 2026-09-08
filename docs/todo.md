@@ -416,3 +416,27 @@
 - 提交：不 amend、不擅自 push；功能/修复提交时评估 bump
 - 验证命令：`npm run typecheck` / `npm run build` / `node scripts/smoke-solver.ts` /
   `node scripts/smoke-solver-edge.ts` / `node scripts/playtest-ui.mjs`（SPIKE_URL 指向非 5173）
+## 第四轮（2026-09-08 晚，中途暂停快照——明日从这里继续）
+
+**已完成并验证：**
+- O 组 3 条（id 6081/6082/6083）已从 `data/samples/cuberoot-algs.json` 剔除（zbls 305→302），
+  留档 `docs/archived/zbls-ogroup-3-cases.json` + 引用修改说明 `.md`。
+- 表基线回归通过：剔除前后 `prepare()` 均 `tableSize=268 / genCount=1696`（行为零变化实证）。
+- 新验证脚本 `scripts/verify-zbls-rounds.ts`（npx tsx 运行，约 2600+ 轮）：
+  - A 域合法性 302/302 ✓（全部恰 1 槽未解，角+棱口径）
+  - B 求解命中 1080/1080 ✓（setup×4 AUF → solveZbls 命中+实测）
+  - C 表基线 ✓；D ZBLL/PLL 端到端 **493/493 全部解回** ✓（alg×AUF 前缀×收尾×中心漂移归位）
+  - E 数据完整性 ✓（302 条、id 无重复、mirror 无悬空、归档=3）
+
+**验证中发现的两个新问题（明日收尾）：**
+1. 「棱 home 角乱」32 条：有效 ZBLS 但 zbls.ts 建表按棱判 missingSlot 进不了表
+   （既有局限，与本轮剔除无关；gen 过滤已改角+棱口径避免误杀）。
+2. **疑似真 bug**：`zbls.ts` 的 `Y_TO_FR` 方向旧注释称 y 使缺槽 FR→FL→BL→BR，
+   但探针实测共轭 y·setup·y' 把 FR 缺槽送到 BR——方向记反，意味着实战中缺槽
+   非 FR 时 ZBLS 从未命中（一直静默回退）。已改为 {FR:0, FL:1, BL:2, BR:3}，
+   **但 F 段回归尚未跑通**：初版 F 段用「共轭构造」测，被证明构造与归一口径
+   不同阶（y'·(y·S·y')=S·y'，LL 并非纯 AUF 旋转），已改写为「组 1-3 候选逆施加
+   到已解态」构造别槽态（与数据自身语义同阶），**待跑**。
+   ⚠ 若明日 F 段仍全脱靶：先回滚 Y_TO_FR 改动（git revert 该 hunk），把「非 FR
+   槽 ZBLS 不命中」记为已证实局限再另行设计修法；F 段全过则保留修复并跑
+   `npx tsx scripts/smoke-solver.ts` 回归。

@@ -9,12 +9,19 @@
 // 决议（2026-09-08 用户）：ZBLS 必然控棱，运行中不会出现「全槽已解」回退情形，
 // 后续分析一律刨除这 3 条 → 有效 ZBLS 全集 = 302（与 mihlefeld 302 计数一致）。
 //
+// 落地（2026-09-08 第四轮）：O 组 3 条已从 cuberoot-algs.json 数据层剔除（zbls 305→302），
+// 原样留档 docs/archived/zbls-ogroup-3-cases.json。本脚本现在是**回归检查**：
+// 期望输出分布 = {FR:302}、当前库内全槽已解形 = 0、归档内 = 3。
+//
 // 若想继续深对齐「FR 形 209 条」（两库仅 96/302 状态级重合），那需要逐
 // compiler 的 case 枚举表，属于深水区，本脚本不提供（按用户原则暂停）。
 import { readFileSync } from "node:fs";
 import { applyAlg, cubieSolvedAt, parseAlg, pos, solvedState } from "../src/cube/solver/engine.ts";
 
 const cr = JSON.parse(readFileSync("data/samples/cuberoot-algs.json", "utf8"));
+const arc = JSON.parse(readFileSync("docs/archived/zbls-ogroup-3-cases.json", "utf8")) as {
+  cases: Array<{ name: string; subgroup: string; setup: string; id: number }>;
+};
 const mi = JSON.parse(readFileSync("reference/mihlefeld-alg-trainers/3x3-ZBLS-Trainer-algs_info.json", "utf8"));
 const crCases = cr.sets.zbls.cases as Array<{ name: string; subgroup: string; setup: string; id: number }>;
 const solve = solvedState();
@@ -42,13 +49,15 @@ for (const c of crCases) {
   dist.set(shape, (dist.get(shape) ?? 0) + 1);
   if (shape === "ALL-SOLVED") extra.push({ subgroup: c.subgroup, name: c.name, id: c.id, setup: c.setup });
 }
-console.log("== cuberoot 305：槽位形状分布 ==");
+console.log("== cuberoot zbls（剔除后现状，期望 302 条）：槽位形状分布 ==");
 for (const [k, v] of [...dist.entries()].sort()) console.log(`  ${k}: ${v}`);
 console.log(`  解析失败: ${fail}`);
 
-// ---- 差的 3 条（全槽已解）----
-console.log("\n== 差的 3 条（O 组，全槽已解形）==");
+// ---- 归档的 3 条（全槽已解型，已从数据层剔除）----
+console.log(`\n== 当前库内残留的全槽已解形 = ${extra.length}（期望 0）==`);
 for (const e of extra) console.log(`  [${e.subgroup}] ${e.name}  id=${e.id}  setup=${e.setup}`);
+console.log(`== 留档（docs/archived/zbls-ogroup-3-cases.json）内 = ${arc.cases.length} 条（期望 3）==`);
+for (const e of arc.cases) console.log(`  [${e.subgroup}] ${e.name}  id=${e.id}  setup=${e.setup}`);
 
 // ---- mihlefeld 302 里不存在全槽已解形（呼应）----
 let miAllSolved = 0;
@@ -59,4 +68,4 @@ for (const v of Object.values(mi) as any[]) {
   if (shapeOf(st) === "ALL-SOLVED") miAllSolved++;
 }
 console.log(`\n== mihlefeld 302：全槽已解形条数 = ${miAllSolved}（应为 0，即这 3 条确实不在 302 内）==`);
-console.log(`== 决议结论：后续分析刨除 O 组 ${extra.length} 条 → 有效 ZBLS 全集 = 302 ==`);
+console.log(`== 结论：O 组 ${arc.cases.length} 条已剔离数据层（留档可溯）→ 有效 ZBLS 全集 = 302，与 mihlefeld 一致 ==`);
