@@ -107,11 +107,13 @@ export const DEFAULT_HAND_CONFIG: HandRigConfig = {
     ring: { x: -0.17, y: 0.1 },
     pinky: { x: -0.52, y: 0.06 },
   },
-  // 拇指根：锚在大鱼际纵脊前段（0.4.0 二轮——脊从掌根延伸至此，拇指自脊上与四指平行伸出）
-  thumbCorner: { x: 0.92, y: -0.08, z: 0.12 },
+  // 拇指根：锚在大鱼际纵脊前段（0.4.0 二轮——脊从掌根延伸至此，拇指自脊上与四指平行伸出；
+  // 三轮收敛：x 0.92→0.82 收紧默认间距至指干将触未触，脊缩小后整体不再外凸）
+  thumbCorner: { x: 0.82, y: -0.08, z: 0.12 },
   // 大鱼际纵脊：width=外突量 / height=竖向鼓起 / length=前伸比例（1.05≈达掌指缘）；
-  // x/z 自 0.4.0 二轮起几何不再消费（脊位由掌形推导），字段保留兼容
-  thenar: { width: 0.9, height: 0.42, length: 1.05, x: 0, y: -0.03, z: 0 },
+  // 三轮收敛：width 0.9→0.55（外凸 0.55→0.33，真机反馈太突出）；x/z 自 0.4.0 二轮起
+  // 几何不再消费（脊位由掌形推导），字段保留兼容
+  thenar: { width: 0.55, height: 0.42, length: 1.05, x: 0, y: -0.03, z: 0 },
   thumbCmc: { ...DEFAULT_THUMB_CMC },
   rulerAngle: 0,
   fingers: defaultFingers(),
