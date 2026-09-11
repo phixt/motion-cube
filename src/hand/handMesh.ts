@@ -283,7 +283,7 @@ function buildFingerChain(
       );
       rings.push(ringPoints(F, wHalf * shape.tipTaper, tHalf * shape.tipTaper, nPad, nBack, 0, len));
       const tipRing = rings[rings.length - 1];
-      const apex: Vec3 = [0, 0, len + len * 0.22];
+      const apex: Vec3 = [0, 0, len + len * 0.18];
       geo = mergeGeometries([loftGeometry(rings, false, false), fanGeometry(tipRing, apex, true)]);
     } else {
       rings.push(ringPoints(F, wHalf * 0.9, tHalf * 0.9, nPad, nBack, 0, len));

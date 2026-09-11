@@ -41,7 +41,7 @@
 - ⬜ **手部遗留**：硬编码微调数字 `PALM_Y_OFFSET = -0.02`（掌腹略沉，直接归零
   观感不好）——并入手部 low-poly 重构一并解决（见下节）。
 
-### 手部模型 low-poly 重构（2026-09-11 立项 ⬜，执行时新开支线 feat/hand-lowpoly）
+### 手部模型 low-poly 重构（2026-09-11 立项 🚧，分支 feat/hand-lowpoly）
 
 - **目标**：low-poly 风格但形体精度高于现行模型（指节剖面/掌弓/指蹼/关节隆起/
   拇指隆起形态）；内部几何实现大刀阔斧不保留，只守兼容面：
@@ -57,6 +57,20 @@
   A/B 对照校准 + 全量验证 + 真机 + bump 0.4.0。旧 handGeometry 暂留分支做
   A/B 对照，合并前清理。
 - **心态**：相当程度破坏、可能回档——分支独立演进，main 不动，废弃即整支丢弃。
+- **进度（2026-09-11 本轮，阶段 0-4 全部落地）**：① v4 数据层（shape 造型 10 参数
+  + v1–v4 迁移，verify-data 补迁移/越界断言）；② `handMesh.ts` 截面放样生成器
+  （超椭圆剖面指段 + 关节球兜底弯折 + 掌梯形放样（横弓/纵凹/梯形）+ 大鱼际刻面
+  椭球 + 指蹼；逐面顶点色伪受光，双渲染器口径一致）+ `verify-hand-mesh` 自检
+  （镜像/绕向/极值/顶点色）；③ 换芯集成——HandRigView/HandCalibView 切新生成器
+  （公开 API 与接触锚点兼容，腹背接触偏移改按剖面厚度）+ 标定页「造型」面板
+  （10 参数）+ `#/hand-lab` 新旧 A/B 对照调试页 + i18n zh/en。验证：typecheck /
+  build / verify-data / verify-hand-mesh / playtest-ui 全绿；截图
+  `spike-shots/hand-lab-1/-2-rotated.png` + `hand-calib-lowpoly.png`——A/B 对照
+  指节隆起/段腰收窄/掌横弓/刻面明暗全面优于旧基线；默认 tipTaper 0.6→0.66
+  （俯视指尖过尖微调）。版本 bump **0.4.0**。
+- ⬜ 待办：用户**真机确认**手感/观感（渲染类改动真机前置教训）→ 合并 main；
+  合并前决策：删除 handGeometry.ts 冻结基线与 #/hand-lab（或保留 A/B 一轮）；
+  CI verify 块补 `npx tsx scripts/verify-hand-mesh.ts`。
 
 ### 路线图重排（2026-09-11 用户裁定）
 
