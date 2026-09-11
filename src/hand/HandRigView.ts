@@ -25,7 +25,7 @@ import {
   type HandType,
   type Pose,
 } from "./HandRig";
-import { buildHandGeometry, segmentSurfaceOffset, type FingerNodes } from "./handGeometry";
+import { buildHandMesh, meshSurfaceOffset, type FingerNodes } from "./handMesh";
 import { createRigFromConfig, loadHandRigConfig, type HandRigConfig } from "./handRigStore";
 
 /** 1 魔方单位（块边长）≈ cubing 世界单位（sticker 面内间距 ±0.33 ↔ 规范 ±1 推出） */
@@ -190,7 +190,11 @@ export class HandRigView {
     this.contactPool.length = 0;
 
     // cubing 场景渲染器为线性输出（outputColorSpace = linearSRGBColorSpace）
-    const built = buildHandGeometry(this.config, this.rig, this.sideSign, true, true);
+    // 0.4.0 low-poly 重构：handMesh 截面放样生成器（API 与旧 buildHandGeometry 同构）
+    const built = buildHandMesh(this.config, this.rig, this.sideSign, {
+      withMarks: true,
+      linearOutput: true,
+    });
     this.root = built.root;
     this.fingers = built.fingers;
     this.thumbRoot = built.thumbRoot;
@@ -199,11 +203,12 @@ export class HandRigView {
   }
 }
 
-/** 接触点在该段局部坐标：z = t×len，按侧偏移（腹 -Y / 背 +Y / 拇指侧 / 小指侧） */
+/** 接触点在该段局部坐标：z = t×len，按侧偏移（腹 -Y / 背 +Y 用厚度；拇指/小指侧用宽度） */
 function contactLocalPoint(c: Contact, seg: FingerNodes["segments"][number], sideSign: number, H: number): Vector3 {
-  const off = segmentSurfaceOffset(seg, H);
+  const offX = meshSurfaceOffset(seg, "x", H);
+  const offY = meshSurfaceOffset(seg, "y", H);
   const x =
-    c.side === "thumbSide" ? sideSign * off : c.side === "pinkySide" ? -sideSign * off : 0;
-  const y = c.side === "pad" ? -off : c.side === "back" ? off : 0;
+    c.side === "thumbSide" ? sideSign * offX : c.side === "pinkySide" ? -sideSign * offX : 0;
+  const y = c.side === "pad" ? -offY : c.side === "back" ? offY : 0;
   return new Vector3(x, y, c.t * seg.len);
 }

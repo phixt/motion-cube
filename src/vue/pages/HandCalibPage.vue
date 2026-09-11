@@ -127,6 +127,20 @@ const thumbFields: { id: string; label: string; get: () => number; set: (v: numb
   { id: "thenar-z", label: `${t("hand.thenar")} Z`, get: () => cfg.value.thenar.z, set: (v) => (cfg.value.thenar.z = v), min: -2, fix: 2 },
 ];
 
+/** low-poly 造型字段（v4 shape，阶段1 粗粒度全局参数） */
+const shapeFields: { id: string; label: string; get: () => number; set: (v: number) => void; min: number; fix: number }[] = [
+  { id: "shape-facets", label: t("hand.shapeFacets"), get: () => cfg.value.shape.facets, set: (v) => (cfg.value.shape.facets = v), min: 4, fix: 0 },
+  { id: "shape-bulge", label: t("hand.shapeBulge"), get: () => cfg.value.shape.knuckleBulge, set: (v) => (cfg.value.shape.knuckleBulge = v), min: 1, fix: 2 },
+  { id: "shape-shaft", label: t("hand.shapeShaft"), get: () => cfg.value.shape.shaftTaper, set: (v) => (cfg.value.shape.shaftTaper = v), min: 0.6, fix: 2 },
+  { id: "shape-tip", label: t("hand.shapeTip"), get: () => cfg.value.shape.tipTaper, set: (v) => (cfg.value.shape.tipTaper = v), min: 0.3, fix: 2 },
+  { id: "shape-padflat", label: t("hand.shapePadFlat"), get: () => cfg.value.shape.padFlat, set: (v) => (cfg.value.shape.padFlat = v), min: 0, fix: 2 },
+  { id: "shape-arch", label: t("hand.shapeArch"), get: () => cfg.value.shape.arch, set: (v) => (cfg.value.shape.arch = v), min: 0, fix: 2 },
+  { id: "shape-palmtaper", label: t("hand.shapePalmTaper"), get: () => cfg.value.shape.palmTaper, set: (v) => (cfg.value.shape.palmTaper = v), min: 0.5, fix: 2 },
+  { id: "shape-palmcup", label: t("hand.shapePalmCup"), get: () => cfg.value.shape.palmCup, set: (v) => (cfg.value.shape.palmCup = v), min: 0, fix: 2 },
+  { id: "shape-web", label: t("hand.shapeWeb"), get: () => cfg.value.shape.web, set: (v) => (cfg.value.shape.web = v), min: 0, fix: 2 },
+  { id: "shape-jitter", label: t("hand.shapeJitter"), get: () => cfg.value.shape.facetJitter, set: (v) => (cfg.value.shape.facetJitter = v), min: 0, fix: 2 },
+];
+
 /** id → setter 注册表：模板用统一 @input 处理器分发（避免事件表达式返回值被丢弃） */
 const fieldSetters = new Map<string, (v: number) => void>();
 for (const name of FINGER_ORDER) {
@@ -148,6 +162,12 @@ for (const f of inlineFields) {
   });
 }
 for (const f of thumbFields) {
+  fieldSetters.set(f.id, (v) => {
+    f.set(v);
+    refresh();
+  });
+}
+for (const f of shapeFields) {
   fieldSetters.set(f.id, (v) => {
     f.set(v);
     refresh();
@@ -182,6 +202,10 @@ const syncInputs = (): void => {
     if (input) input.value = f.get().toFixed(2);
   }
   for (const f of thumbFields) {
+    const input = document.getElementById(f.id) as HTMLInputElement | null;
+    if (input) input.value = f.get().toFixed(f.fix);
+  }
+  for (const f of shapeFields) {
     const input = document.getElementById(f.id) as HTMLInputElement | null;
     if (input) input.value = f.get().toFixed(f.fix);
   }
@@ -331,6 +355,18 @@ onBeforeUnmount(() => {
             </label>
           </div>
           <WinTextBlock class="page-note" :Text="t('hand.cmcHint')" FontSize="12" />
+        </section>
+
+        <!-- 造型（low-poly v4 shape） -->
+        <section class="hand-section">
+          <WinTextBlock class="hand-h3" :Text="t('hand.shape')" FontSize="16" FontWeight="SemiBold" />
+          <div class="hand-inline">
+            <label v-for="f in shapeFields" :key="f.id" class="hand-inline-item">
+              {{ f.label }}
+              <input :id="f.id" type="number" :step="f.fix === 0 ? '1' : '0.01'" :min="String(f.min)" class="native-num" @input="onFieldInput" />
+            </label>
+          </div>
+          <WinTextBlock class="page-note" :Text="t('hand.viewHint')" FontSize="12" />
         </section>
 
         <!-- 整体 -->

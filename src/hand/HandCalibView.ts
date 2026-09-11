@@ -17,7 +17,7 @@ import {
   type Object3D,
 } from "three";
 import { createRigFromConfig, type HandRigConfig } from "./handRigStore";
-import { buildHandGeometry } from "./handGeometry";
+import { buildHandMesh } from "./handMesh";
 import { CUBE_UNIT_WORLD } from "./HandRigView";
 
 // 标尺范围（单位：块边长；场景坐标 = 块边长 × EDGE）
@@ -261,7 +261,12 @@ export class HandCalibView {
       this.rootGroup.remove(child);
     }
     const rig = createRigFromConfig(this.cfg, "right");
-    const built = buildHandGeometry(this.cfg, rig, 1, false, false, this.view === "left");
+    // 0.4.0 low-poly 重构：handMesh 截面放样生成器（测量视图关标记；左视开描边）
+    const built = buildHandMesh(this.cfg, rig, 1, {
+      withMarks: false,
+      linearOutput: false,
+      withOutline: this.view === "left",
+    });
     // 拇指应用自然外翻（CMC 三轴：抬离/展收/对掌，轴语义同 HandRigView.applyPose），手指保持伸直（测量用途）
     const cmc = rig.fingers.thumb.joints[0];
     built.thumbDof.rotation.set(
