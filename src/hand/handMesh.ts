@@ -223,6 +223,58 @@ function loftGeometry(rings: Vec3[][], capStart: boolean, capEnd: boolean): Buff
   return mergeGeometries(parts);
 }
 
+/**
+ * 指蹼 U 形谷棱柱（真机验收 2026-09-11：旧菱形填充呈怪凸起，改「拆解 V 逼近 U」）：
+ * XY 截面 = U 谷线（两侧高、谷底低，θ π→2π 下半圆弧采样）+ 底边，沿 Z 从 z0（没入
+ * 掌面）到 z1；谷面条带外法线朝谷口，前端帽外法线 +Z。端头由指根关节球遮盖。
+ */
+function webGussetGeometry(
+  xL: number,
+  xR: number,
+  yTop: number,
+  yBottom: number,
+  R: number,
+  z0: number,
+  z1: number,
+  arcSegs: number,
+): BufferGeometry {
+  const cx = (xL + xR) / 2;
+  const arc = (th0: number, th1: number): Vec3[] => {
+    const pts: Vec3[] = [];
+    for (let k = 0; k <= arcSegs; k++) {
+      const th = th0 + ((th1 - th0) * k) / arcSegs;
+      pts.push([cx + R * Math.cos(th), yTop + R * Math.sin(th), 0]);
+    }
+    return pts;
+  };
+  const curveLR = arc(Math.PI, 2 * Math.PI); // 左→右经谷底
+  const ring0 = curveLR.map((p) => [p[0], p[1], z0] as Vec3);
+  const ring1 = curveLR.map((p) => [p[0], p[1], z1] as Vec3);
+  // 谷面条带（法线朝谷口）
+  const wall: number[] = [];
+  for (let k = 0; k < ring0.length - 1; k++) {
+    wall.push(...ring0[k], ...ring1[k], ...ring1[k + 1]);
+    wall.push(...ring0[k], ...ring1[k + 1], ...ring0[k + 1]);
+  }
+  // 前帽：轮廓 = 底边左→右 + 谷线右→左（CCW），扇形三角化
+  const cap: number[] = [];
+  const outline: Vec3[] = [
+    [xL, yBottom, z1],
+    [xR, yBottom, z1],
+    ...arc(2 * Math.PI, Math.PI).map((p) => [p[0], p[1], z1] as Vec3),
+  ];
+  const c: Vec3 = [0, 0, z1];
+  for (const p of outline) {
+    c[0] += p[0] / outline.length;
+    c[1] += p[1] / outline.length;
+  }
+  for (let k = 0; k < outline.length; k++) {
+    const k2 = (k + 1) % outline.length;
+    cap.push(...c, ...outline[k], ...outline[k2]);
+  }
+  return mergeGeometries([positionsToGeometry(wall), positionsToGeometry(cap)]);
+}
+
 /** 掌指横弓 / 指根随动：中部（中指 x≈0）向背侧弓起（掌心凹），边缘归零 */
 function archBell(xn: number): number {
   const t = Math.max(-1, Math.min(1, xn));
@@ -389,23 +441,39 @@ export function buildHandMesh(
   root.add(thenar);
   addOutline(thenar);
 
-  // 指蹼：相邻四指根间菱形填充（中指侧最高，向两侧递减），y 随横弓
+  // 指蹼：相邻四指根间 U 形谷（谷底低、两侧高，端头没入指根关节球），y 随横弓
   const FOUR = ["index", "middle", "ring", "pinky"] as const;
   const grad = [0.8, 1, 0.7];
+  const mcpZ = cfg.palm.mcpZ * H;
   for (let i = 0; i < 3; i++) {
     const a = cfg.bases[FOUR[i]];
     const b = cfg.bases[FOUR[i + 1]];
     const xa = a.x * cfg.fingerSpacing * H * sideSign;
     const xb = b.x * cfg.fingerSpacing * H * sideSign;
-    const gapHalf = Math.abs(xb - xa) / 2;
-    const sy = (0.04 + shape.web * 0.09 * grad[i]) * H;
-    const cxData = (a.x + b.x) / 2 * cfg.fingerSpacing;
-    const web = tintedMesh(facetize(new SphereGeometry(1, 4, 2), SKIN, opts.linearOutput, 0, rng), `web-${i}`);
-    web.scale.set(gapHalf * 0.6, sy, 0.09 * H);
-    web.position.set(
-      (xa + xb) / 2,
-      Math.min(a.y, b.y) * H + sy * 0.3 + shape.arch * H * archBell(cxData / (cfg.palm.width / 2)),
-      cfg.palm.mcpZ * H + 0.02 * H,
+    const xL = Math.min(xa, xb);
+    const xR = Math.max(xa, xb);
+    const cxData = ((a.x + b.x) / 2) * cfg.fingerSpacing;
+    const yRoot =
+      Math.min(a.y, b.y) * H + shape.arch * H * archBell(cxData / (cfg.palm.width / 2));
+    const R = ((xR - xL) / 2) * (0.3 + 0.6 * shape.web) * grad[i];
+    const web = tintedMesh(
+      facetize(
+        webGussetGeometry(
+          xL,
+          xR,
+          yRoot + 0.03 * H,
+          yRoot - 0.25 * H,
+          R,
+          mcpZ - 0.01 * H,
+          mcpZ + 0.2 * H,
+          6,
+        ),
+        SKIN,
+        opts.linearOutput,
+        0,
+        rng,
+      ),
+      `web-${i}`,
     );
     root.add(web);
     addOutline(web);

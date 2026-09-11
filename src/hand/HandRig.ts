@@ -85,13 +85,13 @@ export type Pose = {
 export const DEFAULT_BEND_RANGE = { min: 90, max: 180 };
 
 /**
- * 拇指 CMC 自然外翻（度，2026-09-02 重校）：
- * - abduction 42：掌平面内离开食指方向（俯视可见的虎口张开）；
- * - elevation 20：抬离掌面朝指背侧（左视图拇指与掌面约 20° 夹角）；
- * - rotation 45：绕拇指长轴自转，指腹从朝掌面转向掌/指侧（对掌预备位）。
+ * 拇指 CMC 默认角（度）。
+ * 0.4.0 low-poly 重构起默认归零展收/抬离（真机验收 2026-09-11）：新几何（拇指根外移
+ * + 大鱼际外移 + 关节球形态）已自带自然位，历史外翻角 42/20（2026-09-02 重校）不再
+ * 需要——平行对位由布局参数（thumbCorner/thenar）承担，仅保留对掌自转 45°。
  * 渲染分解：rotation.x = -elevation，rotation.y = ±abduction，rotation.z = ∓rotation（按手型镜像）。
  */
-export const DEFAULT_THUMB_CMC = { abduction: 42, elevation: 20, rotation: 45 };
+export const DEFAULT_THUMB_CMC = { abduction: 0, elevation: 0, rotation: 45 };
 
 export function identityTransform(): Transform {
   return { position: { x: 0, y: 0, z: 0 }, quaternion: { w: 1, x: 0, y: 0, z: 0 } };

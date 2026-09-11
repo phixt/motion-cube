@@ -68,6 +68,18 @@
   `spike-shots/hand-lab-1/-2-rotated.png` + `hand-calib-lowpoly.png`——A/B 对照
   指节隆起/段腰收窄/掌横弓/刻面明暗全面优于旧基线；默认 tipTaper 0.6→0.66
   （俯视指尖过尖微调）。版本 bump **0.4.0**。
+- ✅ **真机验收第一轮（2026-09-11 晚反馈，已落地）**：① 拇指 CMC 默认展收/抬离
+  **归零**（42/20→0/0——low-poly 几何已自带自然位，仅保留对掌 45°，HandRig.ts）；
+  ② 拇指根 x 0.55→**0.92** + 大鱼际 x 0.48→**0.60** 外移——拇指与四指平行时间隙
+  ≥ 指间隙（0.36 vs 0.35）；③ 指蹼由「菱形凸起」改为 **U 形谷棱柱**（XY 下半圆弧
+  采样逼近 U——谷底低两侧高、端头没入关节球、z 向延伸 mcpZ+0.2H，
+  handMesh.ts `webGussetGeometry`）。截图 hand-lab-1/-2-rotated + hand-calib-lowpoly
+  复验通过。注：用户已固化 localStorage 仍持旧值，标定页重置或手动对齐新默认。
+- ⬜ **碰撞箱**：手-魔方简化相交判断（段级 AABB/胶囊代理），供接触可行性校验 /
+  自动姿态 / 穿透检测使用（用户 2026-09-11 提出）。
+- ⚠ **渲染管线兼容注意**：R1 渲染替换处于半替换状态（游戏页已回退 cubing、
+  RenderCubeHost/RenderDemo 在库休眠）——手部经 `CubePlayer.onThreeScene` 挂载
+  自愈，渲染线推进（尤其 EditorPage 自建宿主）时必须回归验证手部挂载/显隐/接触点。
 - ⬜ 待办：用户**真机确认**手感/观感（渲染类改动真机前置教训）→ 合并 main；
   合并前决策：删除 handGeometry.ts 冻结基线与 #/hand-lab（或保留 A/B 一轮）；
   CI verify 块补 `npx tsx scripts/verify-hand-mesh.ts`。
