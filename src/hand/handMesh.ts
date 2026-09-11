@@ -112,7 +112,7 @@ function facetize(
   const n = new Vector3();
   for (let t = 0; t < pos.count; t += 3) {
     n.set(nrm.getX(t), nrm.getY(t), nrm.getZ(t));
-    const shade = 0.72 + 0.28 * Math.max(0, n.dot(FAKE_LIGHT));
+    const shade = 0.78 + 0.22 * Math.max(0, n.dot(FAKE_LIGHT));
     const jit = 1 + (rng() - 0.5) * 2 * jitter;
     for (let k = 0; k < 3; k++) {
       const o = (t + k) * 3;
@@ -321,15 +321,19 @@ function buildFingerChain(
     const len = seg.length * H;
     const tHalf = wHalf * 0.94;
     const isLast = j === lastSegIndex;
+    // 纵向站环加密（曲线顺滑）+ 段体后延过盈嵌入父关节球（弯折不裂缝、连接紧密）
+    const back = 0.24 * wHalf;
     const rings: Vec3[][] = [
+      ringPoints(F, wHalf * 0.9, tHalf * 0.9, nPad, nBack, 0, -back),
       ringPoints(F, wHalf * 0.98, tHalf * 0.98, nPad, nBack, 0, 0),
-      ringPoints(F, wHalf * shape.shaftTaper, tHalf * shape.shaftTaper, nPad, nBack, 0, len * 0.55),
+      ringPoints(F, wHalf * shape.shaftTaper, tHalf * shape.shaftTaper, nPad, nBack, 0, len * 0.4),
+      ringPoints(F, wHalf * shape.shaftTaper, tHalf * shape.shaftTaper, nPad, nBack, 0, len * 0.75),
     ];
     let geo: BufferGeometry;
     if (isLast) {
       // 指尖：收口两环 + 前伸圆头扇帽（合并单几何保证法线连续）
       rings.push(
-        ringPoints(F, wHalf * shape.tipTaper * 1.12, tHalf * shape.tipTaper * 1.12, nPad, nBack, 0, len * 0.8),
+        ringPoints(F, wHalf * shape.tipTaper * 1.12, tHalf * shape.tipTaper * 1.12, nPad, nBack, 0, len * 0.88),
       );
       rings.push(ringPoints(F, wHalf * shape.tipTaper, tHalf * shape.tipTaper, nPad, nBack, 0, len));
       const tipRing = rings[rings.length - 1];
@@ -391,7 +395,7 @@ function buildThenarRidge(
   const aMax = cfg.thenar.width * H * 0.45; // 外突半径（横冠军径）
   const b = cfg.thenar.height * H * 0.55; // 竖向半径
   const yC = -0.05 * H + cfg.thenar.y * H; // 略偏掌侧 + 配置竖向微调
-  const stations = [0, 0.35, 0.65, 1];
+  const stations = [0, 0.2, 0.4, 0.6, 0.8, 1]; // 纵向 6 站环：肌腹曲线顺滑
   const rings: Vec3[][] = stations.map((t) => {
     const z = zHeel + (zFront - zHeel) * t;
     // 掌侧壁 x 随 palmTaper 渐宽（与掌体放样同口径）
@@ -427,20 +431,18 @@ function buildPalm(
   const nShape = 3.1; // 近圆角矩形
   // 前环逐点横弓：中部向背侧（+y）弓起，掌心凹
   const frontArch = (xData: number): number => shape.arch * H * archBell(xData / (cfg.palm.width / 2));
+  // 纵向 4 站环（腕→掌中→近缘→掌指缘）：宽/厚/掌心凹连续插值，曲线顺滑
+  const station = (t: number): Vec3[] => {
+    const a = halfW * (shape.palmTaper + (1 - shape.palmTaper) * t);
+    const b = halfT * (1 - 0.1 * t * t); // 厚度向掌指缘渐薄
+    const cup = shape.palmCup * H * (t * (1 - t) * 4); // 掌心凹：中部峰值、两端归零
+    return ringPoints(F, a, b, nShape, nShape, cup, mcpZ - len * (1 - t));
+  };
   const rings: Vec3[][] = [
-    ringPoints(F, halfW * shape.palmTaper, halfT, nShape, nShape, 0, mcpZ - len),
-    ringPoints(
-      F,
-      (halfW * (shape.palmTaper + 1)) / 2,
-      halfT * 0.97,
-      nShape,
-      nShape,
-      shape.palmCup * H,
-      mcpZ - len * 0.5,
-    ),
-    ringPoints(F, halfW, halfT * 0.9, nShape, nShape, 0, mcpZ).map(
-      (p) => [p[0], p[1] + frontArch(p[0] / H), p[2]] as Vec3,
-    ),
+    station(0),
+    station(0.55),
+    station(0.82),
+    station(1).map((p) => [p[0], p[1] + frontArch(p[0] / H), p[2]] as Vec3),
   ];
   const mesh = tintedMesh(facetize(loftGeometry(rings, true, true), SKIN, linearOutput, shape.facetJitter, rng), "palm");
   addOutline(mesh);
