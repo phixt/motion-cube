@@ -80,6 +80,12 @@
 - ⚠ **渲染管线兼容注意**：R1 渲染替换处于半替换状态（游戏页已回退 cubing、
   RenderCubeHost/RenderDemo 在库休眠）——手部经 `CubePlayer.onThreeScene` 挂载
   自愈，渲染线推进（尤其 EditorPage 自建宿主）时必须回归验证手部挂载/显隐/接触点。
+- ✅ **真机验收第二轮（2026-09-12 反馈，已落地）**：大鱼际椭球重构为**肌腹式纵脊**
+  （`buildThenarRidge`：从掌根延伸至近掌指缘、外突更鼓——width=外突量/height=竖向
+  鼓起/length=前伸比例，肌腹中段最鼓两端收束；thenar.x/z 字段退役不再消费，标定页
+  移除对应输入）；拇指根改**锚在纵脊前段**（thumbCorner 默认 0.92/-0.08/0.12）——
+  大拇指从大鱼际上与四指**平行伸出**（CMC 0/0/45），不再从掌中斜向伸出。
+  注：已固化存档需标定页重置对齐（旧 thumbCorner.z=-0.45 会把拇指拉回掌中）。
 - ⬜ 待办：用户**真机确认**手感/观感（渲染类改动真机前置教训）→ 合并 main；
   合并前决策：删除 handGeometry.ts 冻结基线与 #/hand-lab（或保留 A/B 一轮）；
   CI verify 块补 `npx tsx scripts/verify-hand-mesh.ts`。

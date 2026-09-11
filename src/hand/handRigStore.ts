@@ -107,10 +107,11 @@ export const DEFAULT_HAND_CONFIG: HandRigConfig = {
     ring: { x: -0.17, y: 0.1 },
     pinky: { x: -0.52, y: 0.06 },
   },
-  // 拇指根锚在掌根/腕侧：0.4.0 外移（真机验收——拇指与四指平行时间隙 ≥ 指间隙 0.35）
-  thumbCorner: { x: 0.92, y: -0.05, z: -0.45 },
-  // 大鱼际：0.4.0 整体外移（x 0.48→0.60）让出拇指平行空间，尺寸覆盖掌根拇指侧
-  thenar: { width: 0.9, height: 0.42, length: 1.05, x: 0.6, y: -0.03, z: -0.45 },
+  // 拇指根：锚在大鱼际纵脊前段（0.4.0 二轮——脊从掌根延伸至此，拇指自脊上与四指平行伸出）
+  thumbCorner: { x: 0.92, y: -0.08, z: 0.12 },
+  // 大鱼际纵脊：width=外突量 / height=竖向鼓起 / length=前伸比例（1.05≈达掌指缘）；
+  // x/z 自 0.4.0 二轮起几何不再消费（脊位由掌形推导），字段保留兼容
+  thenar: { width: 0.9, height: 0.42, length: 1.05, x: 0, y: -0.03, z: 0 },
   thumbCmc: { ...DEFAULT_THUMB_CMC },
   rulerAngle: 0,
   fingers: defaultFingers(),

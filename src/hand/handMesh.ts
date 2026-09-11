@@ -39,8 +39,6 @@ export const OUTLINE = 0x2b2b33;
 export const MARK_GAP = 0.05;
 /** 指腹（绿）/指背（橙）标记球半径（数据单位） */
 export const MARK_RADIUS = 0.04;
-/** 大鱼际椭球基底半径（实际尺寸 = scale 全径） */
-const THENAR_BASE_RADIUS = 0.5;
 /** 伪受光光向（几何本地空间）：背侧偏上略前最亮，掌侧次之 */
 const FAKE_LIGHT = new Vector3(0.45, 0.8, 0.4).normalize();
 
@@ -369,6 +367,49 @@ function buildFingerChain(
   return { root, joints, segments };
 }
 
+/**
+ * 大鱼际：肌腹式纵脊（真机验收二轮重构——替换原椭球）。
+ * 从掌根延伸至近掌指缘（thenar.length 控制前伸比例），贴掌侧壁外突（thenar.width
+ * =外突量、thenar.height=竖向鼓起），肌腹中段最鼓、两端收束；拇指根锚在其上
+ * （thumbCorner 默认即脊前段），与四指平行伸出。thenar.x/z 字段保留但几何不再消费。
+ */
+function buildThenarRidge(
+  cfg: HandRigConfig,
+  shape: HandShapeParams,
+  H: number,
+  sideSign: number,
+  linearOutput: boolean,
+  addOutline: AddOutline,
+  rng: () => number,
+): Mesh {
+  const F = Math.max(shape.facets, 8);
+  const len = cfg.palm.length * H;
+  const mcpZ = cfg.palm.mcpZ * H;
+  const halfW = (cfg.palm.width / 2) * H;
+  const zHeel = mcpZ - len + 0.02 * H; // 掌根（略内收避免与掌跟面共面 z-fighting）
+  const zFront = zHeel + len * Math.min(cfg.thenar.length, 1.05) * 0.92;
+  const aMax = cfg.thenar.width * H * 0.45; // 外突半径（横冠军径）
+  const b = cfg.thenar.height * H * 0.55; // 竖向半径
+  const yC = -0.05 * H + cfg.thenar.y * H; // 略偏掌侧 + 配置竖向微调
+  const stations = [0, 0.35, 0.65, 1];
+  const rings: Vec3[][] = stations.map((t) => {
+    const z = zHeel + (zFront - zHeel) * t;
+    // 掌侧壁 x 随 palmTaper 渐宽（与掌体放样同口径）
+    const wallX = halfW * (shape.palmTaper + (1 - shape.palmTaper) * t);
+    const belly = Math.sin(Math.PI * t) ** 0.8; // 肌腹：两端收、中段最鼓
+    const a = aMax * (0.3 + 0.7 * belly);
+    return ringPoints(F, a, b, 2.4, 2.4, yC, z).map(
+      (p) => [p[0] + sideSign * (wallX + a * 0.35), p[1], p[2]] as Vec3,
+    );
+  });
+  const mesh = tintedMesh(
+    facetize(loftGeometry(rings, true, true), SKIN, linearOutput, shape.facetJitter, rng),
+    "thenar",
+  );
+  addOutline(mesh);
+  return mesh;
+}
+
 /** 手掌：梯形平面放样（腕→掌指缘）+ 厚度梯度 + 横弓 + 掌心纵凹 */
 function buildPalm(
   cfg: HandRigConfig,
@@ -431,15 +472,8 @@ export function buildHandMesh(
   // 手掌（绝对 z：腕 → mcpZ）
   root.add(buildPalm(cfg, shape, H, opts.linearOutput, addOutline, rng));
 
-  // 大鱼际：低面数刻面椭球（配置位置/尺寸不变）
-  const thenar = tintedMesh(
-    facetize(new SphereGeometry(THENAR_BASE_RADIUS, 9, 7), SKIN, opts.linearOutput, shape.facetJitter, rng),
-    "thenar",
-  );
-  thenar.scale.set(cfg.thenar.width * H, cfg.thenar.height * H, cfg.thenar.length * H);
-  thenar.position.set(cfg.thenar.x * H * sideSign, cfg.thenar.y * H, cfg.thenar.z * H);
-  root.add(thenar);
-  addOutline(thenar);
+  // 大鱼际：肌腹式纵脊（拇指根锚在其上）
+  root.add(buildThenarRidge(cfg, shape, H, sideSign, opts.linearOutput, addOutline, rng));
 
   // 指蹼：相邻四指根间 U 形谷（谷底低、两侧高，端头没入指根关节球），y 随横弓
   const FOUR = ["index", "middle", "ring", "pinky"] as const;

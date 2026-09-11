@@ -122,9 +122,7 @@ const thumbFields: { id: string; label: string; get: () => number; set: (v: numb
   { id: "thenar-width", label: `${t("hand.thenar")}${t("hand.thenarWidth")}`, get: () => cfg.value.thenar.width, set: (v) => (cfg.value.thenar.width = v), min: 0.1, fix: 2 },
   { id: "thenar-height", label: `${t("hand.thenar")}${t("hand.thenarHeight")}`, get: () => cfg.value.thenar.height, set: (v) => (cfg.value.thenar.height = v), min: 0.05, fix: 2 },
   { id: "thenar-length", label: `${t("hand.thenar")}${t("hand.thenarLength")}`, get: () => cfg.value.thenar.length, set: (v) => (cfg.value.thenar.length = v), min: 0.1, fix: 2 },
-  { id: "thenar-x", label: `${t("hand.thenar")} X`, get: () => cfg.value.thenar.x, set: (v) => (cfg.value.thenar.x = v), min: -2, fix: 2 },
   { id: "thenar-y", label: `${t("hand.thenar")} Y`, get: () => cfg.value.thenar.y, set: (v) => (cfg.value.thenar.y = v), min: -1, fix: 2 },
-  { id: "thenar-z", label: `${t("hand.thenar")} Z`, get: () => cfg.value.thenar.z, set: (v) => (cfg.value.thenar.z = v), min: -2, fix: 2 },
 ];
 
 /** low-poly 造型字段（v4 shape，阶段1 粗粒度全局参数） */
