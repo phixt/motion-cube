@@ -22,11 +22,14 @@ const SLOT_EDGE_POS: Array<[string, [number, number, number]]> = [
   ["BL", [-1, 0, -1]],
   ["BR", [1, 0, -1]],
 ];
-// 缺槽 → 槽位归一到 FR 的 y 整转次数。实测（verify-zbls-rounds.ts F 段）：
-// engine 的 y 使缺槽按 FR→BR→BL→FL→FR 循环，故把缺槽送回 FR 需 y^(4-k)：
-//   BR(k=1)→y'(3)，BL(k=2)→y2(2)，FL(k=3)→y(1)。
-// （旧注释"FR→FL→BL→BR"方向记反，导致非 FR 缺槽永远查表脱靶回退——2026-09-08 修正）
-const Y_TO_FR: Record<string, number> = { FR: 0, FL: 1, BL: 2, BR: 3 };
+// 缺槽 → 槽位归一到 FR 的 y 整转次数。
+// ⚠ 已知局限（2026-09-11 F 段实证）：新旧两版映射（{FL:3,BL:2,BR:1} 与
+//   {FL:1,BL:2,BR:3}）下非 FR 缺槽查表均 100% 脱靶（F 段 0 命中）——方向推导
+//   （y 内容循环 F→R→B→L 时新映射应为正，共轭/直加两口径皆然）与实证矛盾，
+//   嫌疑转向 F 段构造的组↔槽对应/整转残差或建表-查表口径不对称；修法另行
+//   设计，落地时把 verify-zbls-rounds.ts F 段恢复为硬断言。
+// 当前维持旧版数值 = 非 FR 槽查表脱靶后静默回退（与 0.3.8 生产行为一致）。
+const Y_TO_FR: Record<string, number> = { FR: 0, FL: 3, BL: 2, BR: 1 };
 const Y_MOVES = ["", "y", "y2", "y'"];
 const U_MOVES = ["", "U", "U2", "U'"];
 
