@@ -4,8 +4,10 @@
  * - 手指/拇指：超椭圆截面（腹侧扁 / 背侧圆）沿线段放样 + 关节低 poly 球（弯折不裂缝）；
  * - 手掌：梯形平面放样（腕窄掌宽）+ 厚度梯度 + 掌指横弓 + 掌心纵凹；
  * - 大鱼际：低面数刻面椭球（沿用配置 thenar）；指蹼：指根间菱形填充；
- * - 着色：无光照 MeshBasicMaterial + 逐面顶点色伪受光 + 明度抖动（双渲染器一致，
- *   cubing 线性输出管线沿用 srgbColor 直写口径）。
+ * - 着色：无光照 MeshBasicMaterial + 逐面顶点色伪受光 + 明度抖动；顶点色统一线性编码
+ *   （Color(hex) 经 ColorManagement 转换，两渲染器各自输出变换后观感一致——
+ *   2026-09-12 真机实证：cubing 渲染器存在线性→sRGB 输出转换，旧「直写 sRGB」口径
+ *   会整体提亮发白，已废弃双路径）。
  *
  * ⚠ 兼容面（feat/hand-lowpoly 立项，见 handRigStore.ts 头注）：
  * - 对外输出与旧 buildHandGeometry 同构：HandMeshResult{root, fingers, thumbRoot, thumbDof}，
@@ -55,8 +57,6 @@ export type HandMeshResult = {
 export type BuildHandMeshOptions = {
   /** 腹/背标记球（编辑器开启；标定测量视图关闭） */
   withMarks?: boolean;
-  /** true = cubing 线性输出管线（顶点色直写 sRGB 数值）；false = 标准 sRGB 输出 */
-  linearOutput?: boolean;
   /** 网格描边（左视图轮廓） */
   withOutline?: boolean;
   /** 造型参数覆盖（#/hand-lab A/B 调参用；缺省取 cfg.shape） */
@@ -84,11 +84,8 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-/** sRGB hex → 顶点色分量：cubing 线性管线直写 sRGB 数值 / sRGB 输出走 ColorManagement */
-function baseRGB(hex: number, linearOutput: boolean): Vec3 {
-  if (linearOutput) {
-    return [((hex >> 16) & 0xff) / 255, ((hex >> 8) & 0xff) / 255, (hex & 0xff) / 255];
-  }
+/** sRGB hex → 顶点色分量（线性编码，ColorManagement 正确往返；双渲染器统一） */
+function baseRGB(hex: number): Vec3 {
   const c = new Color(hex);
   return [c.r, c.g, c.b];
 }
@@ -96,19 +93,13 @@ function baseRGB(hex: number, linearOutput: boolean): Vec3 {
 /**
  * 非索引化 + 面法线（硬边）+ 逐面顶点色：伪受光（面法线 × 固定光向）+ 明度抖动。
  */
-function facetize(
-  geo: BufferGeometry,
-  hex: number,
-  linearOutput: boolean,
-  jitter: number,
-  rng: () => number,
-): BufferGeometry {
+function facetize(geo: BufferGeometry, hex: number, jitter: number, rng: () => number): BufferGeometry {
   const g = geo.index ? geo.toNonIndexed() : geo;
   g.computeVertexNormals();
   const pos = g.getAttribute("position");
   const nrm = g.getAttribute("normal");
   const col = new Float32Array(pos.count * 3);
-  const base = baseRGB(hex, linearOutput);
+  const base = baseRGB(hex);
   const n = new Vector3();
   for (let t = 0; t < pos.count; t += 3) {
     n.set(nrm.getX(t), nrm.getY(t), nrm.getZ(t));
@@ -288,7 +279,7 @@ function buildFingerChain(
   name: FingerName,
   H: number,
   shape: HandShapeParams,
-  opts: Required<Pick<BuildHandMeshOptions, "withMarks" | "linearOutput" | "withOutline">>,
+  opts: Required<Pick<BuildHandMeshOptions, "withMarks" | "withOutline">>,
   addOutline: AddOutline,
   rng: () => number,
 ): FingerNodes {
@@ -312,7 +303,7 @@ function buildFingerChain(
     // 关节球：弯折兜底 + 隆起（MCP 最大，向指尖递减）
     const bulge = shape.knuckleBulge * (j === 0 ? 1 : j === 1 ? 0.92 : 0.85);
     const ballMesh = tintedMesh(
-      facetize(new SphereGeometry(wHalf * bulge, Math.max(F, 6), 3), SKIN, opts.linearOutput, shape.facetJitter, rng),
+      facetize(new SphereGeometry(wHalf * bulge, Math.max(F, 6), 3), SKIN, shape.facetJitter, rng),
       `${name}-joint${j}`,
     );
     joint.add(ballMesh);
@@ -343,20 +334,20 @@ function buildFingerChain(
       rings.push(ringPoints(F, wHalf * 0.9, tHalf * 0.9, nPad, nBack, 0, len));
       geo = loftGeometry(rings, false, false);
     }
-    const mesh = tintedMesh(facetize(geo, SKIN, opts.linearOutput, shape.facetJitter, rng), `${name}-seg${j}`);
+    const mesh = tintedMesh(facetize(geo, SKIN, shape.facetJitter, rng), `${name}-seg${j}`);
     joint.add(mesh);
     addOutline(mesh);
     if (opts.withMarks) {
       // 腹/背标记球：偏移贴合剖面厚度 + 间隙
       const off = tHalf * shape.shaftTaper + MARK_GAP * H;
       const padMesh = tintedMesh(
-        facetize(new SphereGeometry(MARK_RADIUS * H, 8, 6), PAD, opts.linearOutput, 0, rng),
+        facetize(new SphereGeometry(MARK_RADIUS * H, 8, 6), PAD, 0, rng),
         `${name}-mark-pad`,
       );
       padMesh.position.set(0, -off, len / 2);
       joint.add(padMesh);
       const backMesh = tintedMesh(
-        facetize(new SphereGeometry(MARK_RADIUS * H, 8, 6), BACK, opts.linearOutput, 0, rng),
+        facetize(new SphereGeometry(MARK_RADIUS * H, 8, 6), BACK, 0, rng),
         `${name}-mark-back`,
       );
       backMesh.position.set(0, off, len / 2);
@@ -382,7 +373,6 @@ function buildThenarRidge(
   shape: HandShapeParams,
   H: number,
   sideSign: number,
-  linearOutput: boolean,
   addOutline: AddOutline,
   rng: () => number,
 ): Mesh {
@@ -407,7 +397,7 @@ function buildThenarRidge(
     );
   });
   const mesh = tintedMesh(
-    facetize(loftGeometry(rings, true, true), SKIN, linearOutput, shape.facetJitter, rng),
+    facetize(loftGeometry(rings, true, true), SKIN, shape.facetJitter, rng),
     "thenar",
   );
   addOutline(mesh);
@@ -419,7 +409,6 @@ function buildPalm(
   cfg: HandRigConfig,
   shape: HandShapeParams,
   H: number,
-  linearOutput: boolean,
   addOutline: AddOutline,
   rng: () => number,
 ): Mesh {
@@ -444,7 +433,7 @@ function buildPalm(
     station(0.82),
     station(1).map((p) => [p[0], p[1] + frontArch(p[0] / H), p[2]] as Vec3),
   ];
-  const mesh = tintedMesh(facetize(loftGeometry(rings, true, true), SKIN, linearOutput, shape.facetJitter, rng), "palm");
+  const mesh = tintedMesh(facetize(loftGeometry(rings, true, true), SKIN, shape.facetJitter, rng), "palm");
   addOutline(mesh);
   return mesh;
 }
@@ -456,9 +445,8 @@ export function buildHandMesh(
   sideSign: number,
   options: BuildHandMeshOptions = {},
 ): HandMeshResult {
-  const opts: Required<Pick<BuildHandMeshOptions, "withMarks" | "linearOutput" | "withOutline">> = {
+  const opts: Required<Pick<BuildHandMeshOptions, "withMarks" | "withOutline">> = {
     withMarks: options.withMarks ?? true,
-    linearOutput: options.linearOutput ?? false,
     withOutline: options.withOutline ?? false,
   };
   const shape: HandShapeParams = { ...cfg.shape, ...options.shape };
@@ -472,10 +460,10 @@ export function buildHandMesh(
   const root = new Group();
 
   // 手掌（绝对 z：腕 → mcpZ）
-  root.add(buildPalm(cfg, shape, H, opts.linearOutput, addOutline, rng));
+  root.add(buildPalm(cfg, shape, H, addOutline, rng));
 
   // 大鱼际：肌腹式纵脊（拇指根锚在其上）
-  root.add(buildThenarRidge(cfg, shape, H, sideSign, opts.linearOutput, addOutline, rng));
+  root.add(buildThenarRidge(cfg, shape, H, sideSign, addOutline, rng));
 
   // 指蹼：相邻四指根间 U 形谷（谷底低、两侧高，端头没入指根关节球），y 随横弓
   const FOUR = ["index", "middle", "ring", "pinky"] as const;
@@ -505,7 +493,6 @@ export function buildHandMesh(
           6,
         ),
         SKIN,
-        opts.linearOutput,
         0,
         rng,
       ),

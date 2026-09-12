@@ -189,11 +189,10 @@ export class HandRigView {
     this.contactPool.forEach((m) => m.removeFromParent());
     this.contactPool.length = 0;
 
-    // cubing 场景渲染器为线性输出（outputColorSpace = linearSRGBColorSpace）
-    // 0.4.0 low-poly 重构：handMesh 截面放样生成器（API 与旧 buildHandGeometry 同构）
+    // 0.4.0 low-poly 重构：handMesh 截面放样生成器（API 与旧 buildHandGeometry 同构；
+    // 顶点色线性编码，输出变换由各渲染器自理）
     const built = buildHandMesh(this.config, this.rig, this.sideSign, {
       withMarks: true,
-      linearOutput: true,
     });
     this.root = built.root;
     this.fingers = built.fingers;
