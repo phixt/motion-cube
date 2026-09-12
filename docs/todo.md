@@ -130,6 +130,19 @@
   掌面——根球系数 j0 1.0→0.9（PIP/DIP 0.96/0.92 保持柔和丰满）+ 掌前缘厚度保持
   （渐薄 0.1→0.04）；③ 指蹼药丸收缩 1/3+ 并后撤下沉（长 0.3→0.18、y 下沉 0.03、
   后撤至 mcpZ+0.04）。修复过程：新环调用漏 bBack 参数致 NaN（TS 抓出），已补齐。
+- ✅ **手部细化·十一轮（2026-09-12，已落地）**：① **指蹼定版内凹**——药丸外凸废除，
+  回归 U 谷棱柱（谷线顶低于指根球顶=只凹不凸）并后撤缩窄（z 至 mcpZ+0.14、弧收 0.5）；
+  ② **关节凸起平滑**——球系数贴锥面（j0 0.98/j1 1.0/j2 0.96，默认 bulge 1.22→1.1）；
+  ③ **脊-掌接缝平滑**——嵌入 a×0.45→0.55 + 漏斗站 6→8（整体性增强，抹平慎用口径：
+  仅动接缝不动形体）。
+- ⬜ **合并工作清单（上下文压缩后执行）**：
+  1. 删除 `src/hand/handGeometry.ts`（冻结基线）+ `HandLabPage.vue` 的旧方案 A 侧
+     （或整页保留由用户定；删后跑 typecheck）；
+  2. CI verify 块补 `npx tsx scripts/verify-hand-mesh.ts`；
+  3. 全量验证：typecheck/build/verify-data/verify-hand-mesh/playtest（5174）；
+  4. `git switch main && git merge feat/hand-lowpoly`（不 push、不打 tag——tag 触发
+     Release CI）；docs/hand-api-spec.md 随分支进入 main 供实现方 AI 使用；
+  5. 合并后旧分支清理（feat/hand-lowpoly 保留至真机定版）。
 - ⬜ 待办：用户**真机确认**手感/观感（渲染类改动真机前置教训）→ 合并 main；
   合并前决策：删除 handGeometry.ts 冻结基线与 #/hand-lab（或保留 A/B 一轮）；
   CI verify 块补 `npx tsx scripts/verify-hand-mesh.ts`。

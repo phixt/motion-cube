@@ -52,7 +52,7 @@ export type HandShapeParams = {
 
 export const DEFAULT_SHAPE: HandShapeParams = {
   facets: 15,
-  knuckleBulge: 1.22,
+  knuckleBulge: 1.1,
   shaftTaper: 0.92,
   tipTaper: 0.66,
   padFlat: 0.35,

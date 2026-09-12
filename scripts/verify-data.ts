@@ -263,7 +263,7 @@ check("handRigStore: v3 旧档迁移 v4（shape 缺省回默认，无破坏）",
   expect(n !== null, "v3 档应被接受");
   expect(n!.version === 4, "v3 档应迁移为 v4");
   expect(
-    n!.shape.facets === 15 && n!.shape.knuckleBulge === 1.22 && n!.shape.web === 0.5,
+    n!.shape.facets === 15 && n!.shape.knuckleBulge === 1.1 && n!.shape.web === 0.5,
     "shape 缺省应回 DEFAULT_SHAPE",
   );
   // v3 数值字段原样保留
