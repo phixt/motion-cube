@@ -218,6 +218,19 @@
   clear/setHandType/setVisible 全部同步镜像手（setHandType 取对侧）；HandRigView 撤销
   十七轮的 setMirror 隐藏耦合（显式双轨取代）。verify-data 补 mirror 轨道序列化往返。
   实测：双手贴面分离截图 ✓ / B 键单双手切换 ✓ / H 双手齐隐 ✓ / 对侧手编辑物化 ✓。
+- ✅ **双手定版细化（0.4.0 十九轮，2026-09-12，用户反馈驱动）**：① **表述改左右手**
+  ——手型选择器退役（双手常显后无单手型语义），编辑手按钮改「左手 / 右手」（左手
+  为主，默认编辑左手）；实例更名 handLeft/handRight（固定 "left"/"right" 类型）；
+  ② **双手默认不关联**——关键帧显式 `left/right` 双轨（`mirror` 字段退役，旧档
+  { pose, mirror? } 解析时迁移：pose→右手、mirror→左手、缺省镜像），autoKf/添加
+  关键帧双轨同时物化（对侧以当前插值姿态落轨保连续）——编辑一手不再带动另一手；
+  镜像需经面板「镜像到对侧」按钮手动一次性拷贝；③ **单手左手为主**——B 键单手
+  模式只显左手（右手为辅隐藏）；④ **handScale 默认 1.85**（用户预期值；旧存档需
+  标定页重置）+ 默认手位 ±1.95 贴面（掌面 ≈±1.53 恰触面）；⑤ handApi 语义同步——
+  setPose/playFrames 对称驱动双手，setHandType 改单手显示切换（getState.handType
+  记录最近值）；playtest 断言更新（handLeft/handRight + 类型校验）。gen-samples
+  双轨化重生成示例库。全验证绿（typecheck/build/verify×2/playtest 十七截图/
+  双手贴面分离与右手编辑实测）。
 - ⬜ 待办：用户**真机定版**十二轮~十六轮手部观感（main 已含；feat/hand-lowpoly
   分支保留至定版）。
 

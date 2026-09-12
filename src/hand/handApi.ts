@@ -7,7 +7,7 @@
  */
 import { parsePose } from "../data/technique";
 import { DEFAULT_FRAME_RATE } from "../timeline/Timeline";
-import { mirrorPose, oppositeHandType, type HandType, type Pose } from "./HandRig";
+import { mirrorPose, type HandType, type Pose } from "./HandRig";
 import type { HandRigView } from "./HandRigView";
 
 export type HandApiPlayOptions = { fps?: number; loop?: boolean };
@@ -44,6 +44,8 @@ let mirrorView: HandRigView | null = null;
 let playTimer: number | null = null;
 // HandRigView 未暴露显隐 getter（公开签名受规格约束不可改），API 侧记录 setVisible 最近值
 let lastVisible = true;
+// setHandType 最近值（getState 用）
+let lastHandType: HandType = "left";
 
 /** 主手 + 镜像手统一驱动（镜像手取 x 镜像姿态） */
 function driveBoth(pose: Pose | null): void {
@@ -151,8 +153,16 @@ export function registerHandApi(view: HandRigView, mirror?: HandRigView): void {
     setHandType(t: HandType): HandApiResult {
       if (!handView) return err("API 未挂载（需在编辑器页）");
       if (t !== "left" && t !== "right") return err(`手型非法：${String(t)}`);
-      handView.setHandType(t);
-      mirrorView?.setHandType(oppositeHandType(t));
+      // 单手显示切换（十八轮双手固定左右实例）：left 只显左手 / right 只显右手；
+      // 后续 setVisible(true) 恢复双手
+      if (t === "left") {
+        handView.setVisible(true);
+        mirrorView?.setVisible(false);
+      } else {
+        handView.setVisible(false);
+        mirrorView?.setVisible(true);
+      }
+      lastHandType = t;
       return ok();
     },
     setVisible(b: boolean): HandApiResult {
@@ -166,7 +176,7 @@ export function registerHandApi(view: HandRigView, mirror?: HandRigView): void {
     getState(): HandApiState {
       return {
         ok: true,
-        handType: handView?.type ?? "right",
+        handType: lastHandType,
         visible: lastVisible,
         playing: playTimer !== null,
         pose: handView?.currentPose() ?? null,

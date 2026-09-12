@@ -46,6 +46,7 @@ import {
   serializeTechnique,
   TechniqueError,
   upsertKeyframe,
+  type Technique,
 } from "../src/data/technique.ts";
 import {
   clampBend,
@@ -122,8 +123,8 @@ check("technique: 默认 60fps、关键帧排序", () => {
     name: "单拨 U",
     formulaId: "f-u",
     keyframes: [
-      { frame: 60, pose: p1 },
-      { frame: 0, pose: p0 },
+      { frame: 60, left: mirrorPose(p1), right: p1 },
+      { frame: 0, left: mirrorPose(p0), right: p0 },
     ],
   });
   expect(t.frameRate === DEFAULT_FRAME_RATE, "frameRate 应默认 60");
@@ -135,7 +136,7 @@ check("technique: 重复帧号抛错", () => {
   const p = createDefaultPose(rig);
   let threw = false;
   try {
-    createTechnique({ name: "bad", formulaId: "f-1", keyframes: [{ frame: 10, pose: p }, { frame: 10, pose: p }] });
+    createTechnique({ name: "bad", formulaId: "f-1", keyframes: [{ frame: 10, left: p, right: p }, { frame: 10, left: p, right: p }] });
   } catch (e) {
     threw = e instanceof TechniqueError;
   }
@@ -158,14 +159,18 @@ check("technique: JSON 往返 + upsertKeyframe", () => {
     name: "双指连拨",
     formulaId: "f-2",
     keyframes: [
-      { frame: 0, pose: createDefaultPose(rig) },
-      { frame: 30, pose: createDefaultPose(rig) },
+      { frame: 0, left: createDefaultPose(rig), right: createDefaultPose(rig) },
+      { frame: 30, left: createDefaultPose(rig), right: createDefaultPose(rig) },
     ],
     stepMapping: [{ stepIndex: 0, startFrame: 0, endFrame: 30 }],
   });
   const mid = createDefaultPose(rig);
   mid.thumbCMC.abduction = 20;
-  const withMid = upsertKeyframe(t, { frame: 15, pose: mid });
+  const withMid = upsertKeyframe(t, {
+    frame: 15,
+    left: mid,
+    right: createDefaultPose(rig),
+  });
   expect(withMid.keyframes.length === 3, "插入后应有 3 个关键帧");
   const back = deserializeTechnique(serializeTechnique(withMid));
   expect(back.keyframes.length === 3 && back.stepMapping.length === 1, "往返后结构应一致");
@@ -342,24 +347,38 @@ check("HandRig: mirrorPose 镜像语义（双手显示，十七轮）", () => {
   expect(back.palm.transform.position.x === 0.4 && back.thumbCMC.abduction === 20, "双次镜像应还原");
 });
 
-check("technique: 关键帧 mirror 对侧手轨道序列化往返（十八轮）", () => {
-  const pose = defaultHandPose("right");
+check("technique: left/right 双轨关键帧 + 旧档迁移（十八轮）", () => {
+  const left = defaultHandPose("left");
+  const right = defaultHandPose("right");
   const t = createTechnique({
     name: "双手测试",
     formulaId: "f-test",
-    keyframes: [{ frame: 0, pose, mirror: mirrorPose(pose) }],
+    keyframes: [{ frame: 0, left, right }],
   });
   const back = deserializeTechnique(serializeTechnique(t));
-  expect(back.keyframes[0].mirror !== undefined, "mirror 字段应随序列化保留");
   expect(
-    back.keyframes[0].mirror!.palm.transform.position.x === mirrorPose(pose).palm.transform.position.x,
-    "mirror 姿态往返无损",
+    back.keyframes[0].left.palm.transform.position.x === left.palm.transform.position.x &&
+    back.keyframes[0].right.palm.transform.position.x === right.palm.transform.position.x,
+    "left/right 双轨序列化往返无损",
   );
-  // 旧档无 mirror 字段 → undefined（保持镜像跟随语义）
+  // 旧档 { pose, mirror? } 迁移：pose → 右手轨道；mirror 缺省时左手 = 镜像(右手)
+  const legacyPose = defaultHandPose("right");
+  legacyPose.palm.transform.position = { x: 0.5, y: 0, z: 0 };
   const legacy = deserializeTechnique(
-    serializeTechnique({ ...t, keyframes: [{ frame: 0, pose }] }),
+    serializeTechnique({ ...t, keyframes: [{ frame: 0, pose: legacyPose }] } as unknown as Technique),
   );
-  expect(legacy.keyframes[0].mirror === undefined, "旧档无 mirror 字段应保持跟随语义");
+  expect(legacy.keyframes[0].right.palm.transform.position.x === 0.5, "旧 pose 应迁移到右手轨道");
+  expect(
+    legacy.keyframes[0].left.palm.transform.position.x === -0.5,
+    "旧档缺 mirror 时左手 = 镜像(右手)",
+  );
+  const legacyWithMirror = deserializeTechnique(
+    serializeTechnique({
+      ...t,
+      keyframes: [{ frame: 0, pose: legacyPose, mirror: legacyPose }],
+    } as unknown as Technique),
+  );
+  expect(legacyWithMirror.keyframes[0].left.palm.transform.position.x === 0.5, "旧档带 mirror 时左手取 mirror");
 });
 
 check("timeline: 缓动与姿态插值", () => {
@@ -388,7 +407,7 @@ check("samples: 示例手法可加载（60fps/三关键帧/终态 PIP 45）", ()
   const tec = SAMPLE_TECHNIQUES[0];
   expect(tec.frameRate === 60, "frameRate 应为 60");
   expect(tec.keyframes.length === 3, "关键帧应为 3");
-  expect(tec.keyframes[2].pose.bends.index[1] === 45, "终态 PIP 应为 45");
+  expect(tec.keyframes[2].right.bends.index[1] === 45, "终态 PIP 应为 45");
   expect(tec.stepMapping.length === 1, "stepMapping 应为 1");
   expect(tec.formulaId.length > 0, "手法应关联公式");
   // 自动动作刻度补全：其余公式手法 stepMapping 与公式步数一致（每步 1 秒）

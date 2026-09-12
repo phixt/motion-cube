@@ -284,6 +284,8 @@ export const zhCN: Record<string, string> = {
   "editor.handType": "手",
   "editor.handLeft": "左手",
   "editor.handRight": "右手",
+  "editor.mirrorToOther": "镜像到对侧",
+  "editor.mirrorToOtherHint": "把当前编辑手的姿态镜像写入对侧手轨道（一次性拷贝）",
   "editor.technique": "手法",
   "editor.tecSearch": "搜索手法…",
   "editor.formulaSearch": "搜索公式…",

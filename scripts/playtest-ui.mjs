@@ -415,19 +415,18 @@ if (!edStatus.includes("已保存")) throw new Error(`编辑器保存状态异�
 console.log("editor skeleton ok");
 await shot("ui-15-editor");
 
-// 8c) 3D 视口：魔方 + 手注入、手型切换
+// 8c) 3D 视口：魔方 + 左右手注入（十八轮双轨；手型选择器已由双手显示取代）
 if ((await page.$("#editor-view twisty-player")) === null) throw new Error("编辑器缺少 3D 视口魔方");
 const handApiOk = await page.evaluate(() => {
-  const h = globalThis.__motionCubeEditor?.handView;
-  return !!h && typeof h.setPose === "function" && typeof h.setHandType === "function";
+  const ed = globalThis.__motionCubeEditor ?? {};
+  const l = ed.handLeft, r = ed.handRight;
+  return (
+    !!l && !!r &&
+    typeof l.setPose === "function" && typeof r.setPose === "function" &&
+    l.type === "left" && r.type === "right"
+  );
 });
 if (!handApiOk) throw new Error("编辑器手视图 API 未暴露");
-await openSbGroup("手");
-await sleep(150);
-await page.select("#view-hand", "right");
-await sleep(250);
-await page.select("#view-hand", "left");
-await sleep(250);
 console.log("editor 3d viewport ok");
 
 // 8d) 播放器整合：正放从起始态（公式逆序 U'）执行公式 → 驱动魔方

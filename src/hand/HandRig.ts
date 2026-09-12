@@ -211,14 +211,14 @@ export function createDefaultPose(rig: HandRig): Pose {
  */
 export function defaultHandPose(handType: HandType = "right"): Pose {
   const pose = createDefaultPose(createDefaultRig(handType));
-  // 用户指定基准（十八轮）：双手分立魔方左右两侧、掌心朝魔方、拇指朝上——
-  // 右手贴右面（掌心 −x / 拇指 +y / 四指向后 −z），掌心面 ≈ x=±1.5（掌厚让心位 ±1.86）；
-  // 左手为 x 镜像。q=(w0, x√½, y√½, z0) = 绕 (1,1,0)/√2 转 180°。
+  // 用户指定基准（十八轮定版）：双手分立魔方左右两侧、掌心贴左右面、拇指朝上——
+  // 右手贴右面（掌心 −x / 拇指 +y / 四指向后 −z）。handScale 1.85 下掌半厚 0.42，
+  // 掌心位 ±1.95 时掌面 ≈ ±1.53 恰贴面（手往两侧靠）。左手为 x 镜像。
   if (handType === "left") {
-    pose.palm.transform.position = { x: -1.86, y: 0, z: 0 };
+    pose.palm.transform.position = { x: -1.95, y: 0, z: 0 };
     pose.palm.transform.quaternion = { w: 0, x: 0.7071, y: -0.7071, z: 0 };
   } else {
-    pose.palm.transform.position = { x: 1.86, y: 0, z: 0 };
+    pose.palm.transform.position = { x: 1.95, y: 0, z: 0 };
     pose.palm.transform.quaternion = { w: 0, x: 0.7071, y: 0.7071, z: 0 };
   }
   return pose;

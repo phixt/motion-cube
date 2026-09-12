@@ -101,7 +101,8 @@ function defaultFingers(): Record<FingerName, SegmentCalib[]> {
 
 export const DEFAULT_HAND_CONFIG: HandRigConfig = {
   version: 4,
-  handScale: 2.1 / 1.33,
+  /** 整体放大系数：数据单位 → 渲染倍数（十八轮用户定版 1.85；旧存档需标定页重置对齐） */
+  handScale: 1.85,
   fingerSpacing: 1,
   palm: { width: 1.35, height: 0.45, length: 1.55, mcpZ: 0.4 },
   bases: {

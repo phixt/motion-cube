@@ -290,6 +290,8 @@ export const en: Record<string, string> = {
   "editor.handType": "Hand",
   "editor.handLeft": "Left",
   "editor.handRight": "Right",
+  "editor.mirrorToOther": "Mirror to other",
+  "editor.mirrorToOtherHint": "Copy the edited hand pose mirrored into the other hand track (one-shot)",
   "editor.technique": "Technique",
   "editor.tecSearch": "Search techniques…",
   "editor.formulaSearch": "Search formulas…",

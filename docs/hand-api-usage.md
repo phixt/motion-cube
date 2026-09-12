@@ -55,11 +55,15 @@ h.setPose({ nonsense: 1 }); // { ok: false, error: "关键帧姿态非法：palm
 
 ## 与双手显示的关系
 
-编辑器开启「双手显示」后，对侧镜像手随主手自动跟随——`window.motionCubeHand`
-驱动的每一条姿态同样会同步到镜像手，无需额外调用。
+编辑器默认双手显示（左手为主、右手为辅）。`setPose` / `playFrames` 驱动的单条
+姿态会以**对称方式**同时作用于双手（左手取姿态本体、右手取其 x 镜像），无需额外
+调用；`setHandType("left" | "right")` 切换单手显示（只显左手 / 只显右手），
+`setVisible(true)` 恢复双手。手法关键帧本身为 left/right 显式双轨（可独立编辑，
+双手默认不关联）。
 
 ## 验证记录
 
 2026-09-12 真机验证通过（DEV dev server + Chrome）：`getState` /
 `setPose`（合法通过、非法拒绝）/ `playFrames`（playing 态） / `stop` /
-`setHandType` / `setVisible` 全部按预期返回。
+`setHandType` / `setVisible` 全部按预期返回；同日二次验证双手对称驱动与
+单手显示切换（十八轮 left/right 双轨语义）。

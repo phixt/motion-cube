@@ -2,7 +2,7 @@
  * 手法库模型。
  * 与公式强关联（formulaId）但可单独编辑；关键帧为稀疏控制点，系统按 1/60s 补帧。
  */
-import { FINGER_ORDER, type Contact, type FingerName, type Pose, type Side } from "../hand/HandRig";
+import { FINGER_ORDER, mirrorPose, type Contact, type FingerName, type Pose, type Side } from "../hand/HandRig";
 import { DEFAULT_FRAME_RATE, sortKeyframes, validateKeyframes } from "../timeline/Timeline";
 import { parseMoves } from "../notation/alg";
 
@@ -11,13 +11,10 @@ export type Easing = "linear" | "easeIn" | "easeOut" | "easeInOut";
 export type TechniqueKeyframe = {
   /** 帧号（60fps 基准） */
   frame: number;
-  /** 主手（编辑器手型选择器所选手）姿态 */
-  pose: Pose;
-  /**
-   * 对侧手姿态（0.4.0 十八轮双手独立编辑）：缺省 = 镜像跟随主手（mirrorPose(pose)）；
-   * 存在 = 对侧手独立轨道（可与其他关键帧的跟随态混插值）。旧档无此字段 = 跟随。
-   */
-  mirror?: Pose;
+  /** 左手姿态（双手独立轨道，十八轮起显式必填） */
+  left: Pose;
+  /** 右手姿态 */
+  right: Pose;
   easing?: Easing;
 };
 
@@ -232,22 +229,36 @@ export function parsePose(v: unknown): Pose {
   };
 }
 
-/** 深度校验并规范化一个关键帧条目；结构非法抛 TechniqueError */
+/** 深度校验并规范化一个关键帧条目；结构非法抛 TechniqueError。
+ *  十八轮起为显式 left/right 双轨；旧档 { pose, mirror? } 就地迁移：
+ *  旧 pose 视为右手（旧选择器默认手型），mirror 缺省时左手 = 镜像(右手)。 */
 function parseKeyframe(v: unknown): TechniqueKeyframe {
   const o = v as Record<string, unknown> | null;
   if (!o || typeof o !== "object") throw new TechniqueError("关键帧条目非法：必须为对象");
-  const { frame, pose, mirror, easing } = o;
+  const { frame, pose, mirror, left, right, easing } = o;
   if (!Number.isInteger(frame) || (frame as number) < 0) {
     throw new TechniqueError(`关键帧帧号非法：${String(frame)}`);
   }
-  if (pose === undefined) throw new TechniqueError(`关键帧 ${String(frame)} 缺少 pose`);
   if (easing !== undefined && !(EASINGS as readonly string[]).includes(easing as string)) {
     throw new TechniqueError(`关键帧 ${String(frame)} 缓动非法：${String(easing)}`);
   }
+  if (left !== undefined || right !== undefined) {
+    if (left === undefined || right === undefined) {
+      throw new TechniqueError(`关键帧 ${String(frame)} 需同时包含 left 与 right`);
+    }
+    return {
+      frame: frame as number,
+      left: parsePose(left),
+      right: parsePose(right),
+      easing: easing as Easing | undefined,
+    };
+  }
+  if (pose === undefined) throw new TechniqueError(`关键帧 ${String(frame)} 缺少 pose`);
+  const rightPose = parsePose(pose);
   return {
     frame: frame as number,
-    pose: parsePose(pose),
-    ...(mirror !== undefined ? { mirror: parsePose(mirror) } : {}),
+    left: mirror !== undefined ? parsePose(mirror) : mirrorPose(rightPose),
+    right: rightPose,
     easing: easing as Easing | undefined,
   };
 }

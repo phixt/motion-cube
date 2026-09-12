@@ -29,7 +29,7 @@
   ],
   "formulas": [
     {
-      "id": "739d1bff-699a-44f9-a80f-78fd6325f719",
+      "id": "bff73f06-7bf6-4ec5-b70c-df26f5dacc92",
       "name": "V Perm",
       "moves": "(R' U R' U') (R D' R' D) R' UD' (R2 U' R2' D R2)",
       "tags": [
@@ -38,7 +38,7 @@
       "categoryId": "cat-pll"
     },
     {
-      "id": "27c7c34b-16c0-4597-9794-4f297b7cb57f",
+      "id": "59e8b049-7b76-4bd5-ae4c-6f058f5de0f9",
       "name": "OLL 21",
       "moves": "R U2 R' U' R U' R'",
       "tags": [
@@ -47,7 +47,7 @@
       "categoryId": "cat-oll"
     },
     {
-      "id": "dd29651f-e309-45ec-b9d8-f20a1cd287fa",
+      "id": "caca4f69-af37-4f5c-96e2-e2a754e87049",
       "name": "H Perm",
       "moves": "M2 U M2 U2 M2 U M2",
       "tags": [
@@ -56,7 +56,7 @@
       "categoryId": "cat-pll"
     },
     {
-      "id": "4d73d7d5-af51-43f6-be25-1aa6c5c438e6",
+      "id": "51aefa47-2478-4af1-b7cd-2ccf7e34e03b",
       "name": "ZBLL（示例）",
       "moves": "R U R' U R U2 R'",
       "tags": [
@@ -66,7 +66,7 @@
       "categoryId": "cat-zbll"
     },
     {
-      "id": "43335221-0eac-4044-8e21-70c9f9e444f5",
+      "id": "81a35aca-58fb-4d0a-9b54-810e0e03727d",
       "name": "OLL 1（速拧参考）",
       "moves": "R U2 R2 F R F' U2 R' F R F'",
       "tags": [
@@ -76,7 +76,7 @@
       "categoryId": "cat-oll"
     },
     {
-      "id": "c0a77553-0dcb-4462-aaa9-ac0a77877c1d",
+      "id": "b7050560-43b4-4f1e-9565-2f7016ead618",
       "name": "PLL Aa（速拧参考）",
       "moves": "x (R' U R' D2) (R U' R' D2) R2 x'",
       "tags": [
@@ -86,7 +86,7 @@
       "categoryId": "cat-pll"
     },
     {
-      "id": "5e9bcc62-88ad-4fde-b3bc-a3a52a420198",
+      "id": "1c102a92-da46-497e-b68a-09f2b459328e",
       "name": "CMLL O Adjacent（速拧参考）",
       "moves": "R U R' F' R U R' U' R' F R2 U' R'",
       "tags": [
@@ -96,7 +96,7 @@
       "categoryId": "cat-cmll"
     },
     {
-      "id": "1d95800d-9ea7-4c75-9fa6-027b553d93dd",
+      "id": "628ad41f-24ce-4255-ba0b-e806ef857af0",
       "name": "ZBLL U 1（速拧参考）",
       "moves": "(R' U' R U' R' U2' R2) (U' L' U R' U' L)",
       "tags": [
@@ -106,7 +106,7 @@
       "categoryId": "cat-zbll"
     },
     {
-      "id": "2c0aa97d-bb71-463b-b894-6017ddbfecc1",
+      "id": "4f33dd97-6bde-4b25-9359-70d0f897db93",
       "name": "1LLL 1 1（速拧参考）",
       "moves": "U' (F' U' L' U L F) (L' U' L U' L' U B' U B L)",
       "tags": [
@@ -116,7 +116,7 @@
       "categoryId": "cat-1lll"
     },
     {
-      "id": "bc700bdf-00f0-45c7-96e9-975b2118d2f4",
+      "id": "f0833f64-31b6-45ac-99ad-bc18d7c00e05",
       "name": "单拨 U",
       "moves": "U",
       "tags": [
@@ -127,26 +127,26 @@
   ],
   "techniques": [
     {
-      "id": "f05e9ec9-2cb5-4b79-9f52-d1c7f9252baf",
+      "id": "d5c8b06c-8af9-4bcf-91a2-8ab1f90baaed",
       "name": "单拨 U（示例）",
-      "formulaId": "bc700bdf-00f0-45c7-96e9-975b2118d2f4",
+      "formulaId": "f0833f64-31b6-45ac-99ad-bc18d7c00e05",
       "frameRate": 60,
       "keyframes": [
         {
           "frame": 0,
-          "pose": {
+          "left": {
             "palm": {
               "transform": {
                 "position": {
-                  "x": 0,
+                  "x": -1.95,
                   "y": 0,
-                  "z": -2.2
+                  "z": 0
                 },
                 "quaternion": {
-                  "w": 0.5,
-                  "x": -0.5,
-                  "y": -0.5,
-                  "z": 0.5
+                  "w": 0,
+                  "x": 0.7071,
+                  "y": -0.7071,
+                  "z": 0
                 }
               },
               "thumbBase": {
@@ -193,26 +193,89 @@
             "thumbCMC": {
               "abduction": 0,
               "elevation": 0,
-              "rotation": 45
+              "rotation": -15
+            },
+            "contacts": []
+          },
+          "right": {
+            "palm": {
+              "transform": {
+                "position": {
+                  "x": 1.95,
+                  "y": 0,
+                  "z": 0
+                },
+                "quaternion": {
+                  "w": 0,
+                  "x": 0.7071,
+                  "y": 0.7071,
+                  "z": 0
+                }
+              },
+              "thumbBase": {
+                "position": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "quaternion": {
+                  "w": 1,
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                }
+              }
+            },
+            "bends": {
+              "thumb": [
+                170,
+                165,
+                168
+              ],
+              "index": [
+                168,
+                135,
+                175
+              ],
+              "middle": [
+                168,
+                135,
+                150
+              ],
+              "ring": [
+                168,
+                135,
+                150
+              ],
+              "pinky": [
+                168,
+                135,
+                150
+              ]
+            },
+            "thumbCMC": {
+              "abduction": 0,
+              "elevation": 0,
+              "rotation": 15
             },
             "contacts": []
           }
         },
         {
           "frame": 30,
-          "pose": {
+          "left": {
             "palm": {
               "transform": {
                 "position": {
-                  "x": 0,
+                  "x": -1.95,
                   "y": 0,
-                  "z": -2.2
+                  "z": 0
                 },
                 "quaternion": {
-                  "w": 0.5,
-                  "x": -0.5,
-                  "y": -0.5,
-                  "z": 0.5
+                  "w": 0,
+                  "x": 0.7071,
+                  "y": -0.7071,
+                  "z": 0
                 }
               },
               "thumbBase": {
@@ -259,26 +322,89 @@
             "thumbCMC": {
               "abduction": 0,
               "elevation": 0,
-              "rotation": 45
+              "rotation": -15
+            },
+            "contacts": []
+          },
+          "right": {
+            "palm": {
+              "transform": {
+                "position": {
+                  "x": 1.95,
+                  "y": 0,
+                  "z": 0
+                },
+                "quaternion": {
+                  "w": 0,
+                  "x": 0.7071,
+                  "y": 0.7071,
+                  "z": 0
+                }
+              },
+              "thumbBase": {
+                "position": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "quaternion": {
+                  "w": 1,
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                }
+              }
+            },
+            "bends": {
+              "thumb": [
+                170,
+                165,
+                168
+              ],
+              "index": [
+                168,
+                90,
+                155
+              ],
+              "middle": [
+                168,
+                135,
+                150
+              ],
+              "ring": [
+                168,
+                135,
+                150
+              ],
+              "pinky": [
+                168,
+                135,
+                150
+              ]
+            },
+            "thumbCMC": {
+              "abduction": 0,
+              "elevation": 0,
+              "rotation": 15
             },
             "contacts": []
           }
         },
         {
           "frame": 60,
-          "pose": {
+          "left": {
             "palm": {
               "transform": {
                 "position": {
-                  "x": 0,
+                  "x": -1.95,
                   "y": 0,
-                  "z": -2.2
+                  "z": 0
                 },
                 "quaternion": {
-                  "w": 0.5,
-                  "x": -0.5,
-                  "y": -0.5,
-                  "z": 0.5
+                  "w": 0,
+                  "x": 0.7071,
+                  "y": -0.7071,
+                  "z": 0
                 }
               },
               "thumbBase": {
@@ -325,7 +451,70 @@
             "thumbCMC": {
               "abduction": 0,
               "elevation": 0,
-              "rotation": 45
+              "rotation": -15
+            },
+            "contacts": []
+          },
+          "right": {
+            "palm": {
+              "transform": {
+                "position": {
+                  "x": 1.95,
+                  "y": 0,
+                  "z": 0
+                },
+                "quaternion": {
+                  "w": 0,
+                  "x": 0.7071,
+                  "y": 0.7071,
+                  "z": 0
+                }
+              },
+              "thumbBase": {
+                "position": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "quaternion": {
+                  "w": 1,
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                }
+              }
+            },
+            "bends": {
+              "thumb": [
+                170,
+                165,
+                168
+              ],
+              "index": [
+                168,
+                45,
+                135
+              ],
+              "middle": [
+                168,
+                135,
+                150
+              ],
+              "ring": [
+                168,
+                135,
+                150
+              ],
+              "pinky": [
+                168,
+                135,
+                150
+              ]
+            },
+            "thumbCMC": {
+              "abduction": 0,
+              "elevation": 0,
+              "rotation": 15
             },
             "contacts": []
           }
@@ -364,26 +553,89 @@
       ]
     },
     {
-      "id": "09011505-a71f-4458-a933-9688ec0bf087",
+      "id": "397ac61c-0f2d-47f8-96e2-139b32c72e88",
       "name": "复杂运动演示（示例）",
-      "formulaId": "4d73d7d5-af51-43f6-be25-1aa6c5c438e6",
+      "formulaId": "51aefa47-2478-4af1-b7cd-2ccf7e34e03b",
       "frameRate": 60,
       "keyframes": [
         {
           "frame": 0,
-          "pose": {
+          "left": {
             "palm": {
               "transform": {
                 "position": {
-                  "x": 0,
+                  "x": -1.95,
                   "y": 0,
                   "z": -2.7
                 },
                 "quaternion": {
-                  "w": 0.5,
-                  "x": -0.5,
-                  "y": -0.5,
-                  "z": 0.5
+                  "w": 0,
+                  "x": 0.7071,
+                  "y": -0.7071,
+                  "z": 0
+                }
+              },
+              "thumbBase": {
+                "position": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "quaternion": {
+                  "w": 1,
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                }
+              }
+            },
+            "bends": {
+              "thumb": [
+                175,
+                172,
+                174
+              ],
+              "index": [
+                175,
+                175,
+                175
+              ],
+              "middle": [
+                175,
+                175,
+                175
+              ],
+              "ring": [
+                175,
+                175,
+                175
+              ],
+              "pinky": [
+                175,
+                175,
+                175
+              ]
+            },
+            "thumbCMC": {
+              "abduction": 0,
+              "elevation": 0,
+              "rotation": -25
+            },
+            "contacts": []
+          },
+          "right": {
+            "palm": {
+              "transform": {
+                "position": {
+                  "x": 1.95,
+                  "y": 0,
+                  "z": -2.7
+                },
+                "quaternion": {
+                  "w": 0,
+                  "x": 0.7071,
+                  "y": 0.7071,
+                  "z": 0
                 }
               },
               "thumbBase": {
@@ -437,19 +689,82 @@
         },
         {
           "frame": 55,
-          "pose": {
+          "left": {
             "palm": {
               "transform": {
                 "position": {
-                  "x": 0,
+                  "x": -1.95,
                   "y": 0,
                   "z": -2.12
                 },
                 "quaternion": {
-                  "w": 0.5,
-                  "x": -0.5,
-                  "y": -0.5,
-                  "z": 0.5
+                  "w": 0,
+                  "x": 0.7071,
+                  "y": -0.7071,
+                  "z": 0
+                }
+              },
+              "thumbBase": {
+                "position": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "quaternion": {
+                  "w": 1,
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                }
+              }
+            },
+            "bends": {
+              "thumb": [
+                172,
+                168,
+                170
+              ],
+              "index": [
+                170,
+                150,
+                165
+              ],
+              "middle": [
+                170,
+                150,
+                165
+              ],
+              "ring": [
+                170,
+                150,
+                165
+              ],
+              "pinky": [
+                170,
+                150,
+                165
+              ]
+            },
+            "thumbCMC": {
+              "abduction": 0,
+              "elevation": 0,
+              "rotation": -40
+            },
+            "contacts": []
+          },
+          "right": {
+            "palm": {
+              "transform": {
+                "position": {
+                  "x": 1.95,
+                  "y": 0,
+                  "z": -2.12
+                },
+                "quaternion": {
+                  "w": 0,
+                  "x": 0.7071,
+                  "y": 0.7071,
+                  "z": 0
                 }
               },
               "thumbBase": {
@@ -503,19 +818,82 @@
         },
         {
           "frame": 95,
-          "pose": {
+          "left": {
             "palm": {
               "transform": {
                 "position": {
-                  "x": 0,
+                  "x": -1.95,
                   "y": 0,
                   "z": -2.05
                 },
                 "quaternion": {
-                  "w": 0.468543129443505,
-                  "x": 0.5295916689783619,
-                  "y": -0.5295916689783619,
-                  "z": -0.468543129443505
+                  "w": 0.04316742230509729,
+                  "x": -0.04316742230509729,
+                  "y": -0.7057811159641021,
+                  "z": -0.7057811159641021
+                }
+              },
+              "thumbBase": {
+                "position": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "quaternion": {
+                  "w": 1,
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                }
+              }
+            },
+            "bends": {
+              "thumb": [
+                168,
+                160,
+                165
+              ],
+              "index": [
+                168,
+                95,
+                150
+              ],
+              "middle": [
+                168,
+                150,
+                160
+              ],
+              "ring": [
+                168,
+                150,
+                160
+              ],
+              "pinky": [
+                168,
+                150,
+                160
+              ]
+            },
+            "thumbCMC": {
+              "abduction": -5,
+              "elevation": 0,
+              "rotation": -45
+            },
+            "contacts": []
+          },
+          "right": {
+            "palm": {
+              "transform": {
+                "position": {
+                  "x": 1.95,
+                  "y": 0,
+                  "z": -2.05
+                },
+                "quaternion": {
+                  "w": 0.04316742230509729,
+                  "x": -0.04316742230509729,
+                  "y": 0.7057811159641021,
+                  "z": 0.7057811159641021
                 }
               },
               "thumbBase": {
@@ -569,19 +947,82 @@
         },
         {
           "frame": 155,
-          "pose": {
+          "left": {
             "palm": {
               "transform": {
                 "position": {
-                  "x": 0,
+                  "x": -1.95,
                   "y": 0,
                   "z": -2.08
                 },
                 "quaternion": {
-                  "w": 0.5254827454987588,
-                  "x": 0.473146789255815,
-                  "y": -0.473146789255815,
-                  "z": -0.5254827454987588
+                  "w": -0.037006754659385584,
+                  "x": 0.037006754659385584,
+                  "y": -0.7061309440249591,
+                  "z": -0.7061309440249591
+                }
+              },
+              "thumbBase": {
+                "position": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "quaternion": {
+                  "w": 1,
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                }
+              }
+            },
+            "bends": {
+              "thumb": [
+                170,
+                164,
+                168
+              ],
+              "index": [
+                168,
+                160,
+                165
+              ],
+              "middle": [
+                168,
+                100,
+                148
+              ],
+              "ring": [
+                168,
+                150,
+                160
+              ],
+              "pinky": [
+                168,
+                150,
+                160
+              ]
+            },
+            "thumbCMC": {
+              "abduction": 5,
+              "elevation": 0,
+              "rotation": -45
+            },
+            "contacts": []
+          },
+          "right": {
+            "palm": {
+              "transform": {
+                "position": {
+                  "x": 1.95,
+                  "y": 0,
+                  "z": -2.08
+                },
+                "quaternion": {
+                  "w": -0.037006754659385584,
+                  "x": 0.037006754659385584,
+                  "y": 0.7061309440249591,
+                  "z": 0.7061309440249591
                 }
               },
               "thumbBase": {
@@ -635,19 +1076,82 @@
         },
         {
           "frame": 215,
-          "pose": {
+          "left": {
             "palm": {
               "transform": {
                 "position": {
-                  "x": 0,
+                  "x": -1.95,
                   "y": 0,
                   "z": -2.1
                 },
                 "quaternion": {
-                  "w": 0.46390378825784945,
-                  "x": 0.5336602620019748,
-                  "y": -0.5336602620019748,
-                  "z": -0.46390378825784945
+                  "w": 0.049324802584471,
+                  "x": -0.049324802584471,
+                  "y": -0.7053775399387217,
+                  "z": -0.7053775399387217
+                }
+              },
+              "thumbBase": {
+                "position": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "quaternion": {
+                  "w": 1,
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                }
+              }
+            },
+            "bends": {
+              "thumb": [
+                172,
+                166,
+                170
+              ],
+              "index": [
+                168,
+                150,
+                160
+              ],
+              "middle": [
+                168,
+                150,
+                160
+              ],
+              "ring": [
+                168,
+                100,
+                148
+              ],
+              "pinky": [
+                168,
+                150,
+                160
+              ]
+            },
+            "thumbCMC": {
+              "abduction": -5,
+              "elevation": 0,
+              "rotation": -45
+            },
+            "contacts": []
+          },
+          "right": {
+            "palm": {
+              "transform": {
+                "position": {
+                  "x": 1.95,
+                  "y": 0,
+                  "z": -2.1
+                },
+                "quaternion": {
+                  "w": 0.049324802584471,
+                  "x": -0.049324802584471,
+                  "y": 0.7053775399387217,
+                  "z": 0.7053775399387217
                 }
               },
               "thumbBase": {
@@ -701,19 +1205,82 @@
         },
         {
           "frame": 275,
-          "pose": {
+          "left": {
             "palm": {
               "transform": {
                 "position": {
-                  "x": 0,
+                  "x": -1.95,
                   "y": 0,
                   "z": -2.06
                 },
                 "quaternion": {
-                  "w": 0.5295916689783619,
-                  "x": 0.468543129443505,
-                  "y": -0.468543129443505,
-                  "z": -0.5295916689783619
+                  "w": -0.04316742230509729,
+                  "x": 0.04316742230509729,
+                  "y": -0.7057811159641021,
+                  "z": -0.7057811159641021
+                }
+              },
+              "thumbBase": {
+                "position": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "quaternion": {
+                  "w": 1,
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                }
+              }
+            },
+            "bends": {
+              "thumb": [
+                170,
+                162,
+                166
+              ],
+              "index": [
+                168,
+                150,
+                160
+              ],
+              "middle": [
+                168,
+                150,
+                160
+              ],
+              "ring": [
+                168,
+                150,
+                160
+              ],
+              "pinky": [
+                168,
+                105,
+                150
+              ]
+            },
+            "thumbCMC": {
+              "abduction": 5,
+              "elevation": 0,
+              "rotation": -50
+            },
+            "contacts": []
+          },
+          "right": {
+            "palm": {
+              "transform": {
+                "position": {
+                  "x": 1.95,
+                  "y": 0,
+                  "z": -2.06
+                },
+                "quaternion": {
+                  "w": -0.04316742230509729,
+                  "x": 0.04316742230509729,
+                  "y": 0.7057811159641021,
+                  "z": 0.7057811159641021
                 }
               },
               "thumbBase": {
@@ -767,19 +1334,82 @@
         },
         {
           "frame": 335,
-          "pose": {
+          "left": {
             "palm": {
               "transform": {
                 "position": {
-                  "x": 0,
+                  "x": -1.95,
                   "y": 0,
                   "z": -2
                 },
                 "quaternion": {
-                  "w": 0.4545194776720437,
-                  "x": 0.5416752204197018,
-                  "y": -0.5416752204197018,
-                  "z": -0.4545194776720437
+                  "w": 0.06162782569686909,
+                  "x": -0.06162782569686909,
+                  "y": -0.7044092710206732,
+                  "z": -0.7044092710206732
+                }
+              },
+              "thumbBase": {
+                "position": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "quaternion": {
+                  "w": 1,
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                }
+              }
+            },
+            "bends": {
+              "thumb": [
+                166,
+                158,
+                164
+              ],
+              "index": [
+                168,
+                115,
+                150
+              ],
+              "middle": [
+                168,
+                115,
+                150
+              ],
+              "ring": [
+                168,
+                150,
+                160
+              ],
+              "pinky": [
+                168,
+                150,
+                160
+              ]
+            },
+            "thumbCMC": {
+              "abduction": -8,
+              "elevation": 0,
+              "rotation": -50
+            },
+            "contacts": []
+          },
+          "right": {
+            "palm": {
+              "transform": {
+                "position": {
+                  "x": 1.95,
+                  "y": 0,
+                  "z": -2
+                },
+                "quaternion": {
+                  "w": 0.06162782569686909,
+                  "x": -0.06162782569686909,
+                  "y": 0.7044092710206732,
+                  "z": 0.7044092710206732
                 }
               },
               "thumbBase": {
@@ -833,19 +1463,82 @@
         },
         {
           "frame": 385,
-          "pose": {
+          "left": {
             "palm": {
               "transform": {
                 "position": {
-                  "x": 0,
+                  "x": -1.95,
                   "y": 0,
                   "z": -2.06
                 },
                 "quaternion": {
-                  "w": 0.5495251793179634,
-                  "x": 0.4449967160503099,
-                  "y": -0.4449967160503099,
-                  "z": -0.5495251793179634
+                  "w": -0.07391207637655776,
+                  "x": 0.07391207637655776,
+                  "y": -0.703226432214906,
+                  "z": -0.703226432214906
+                }
+              },
+              "thumbBase": {
+                "position": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "quaternion": {
+                  "w": 1,
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                }
+              }
+            },
+            "bends": {
+              "thumb": [
+                168,
+                160,
+                166
+              ],
+              "index": [
+                168,
+                150,
+                160
+              ],
+              "middle": [
+                168,
+                150,
+                160
+              ],
+              "ring": [
+                168,
+                112,
+                150
+              ],
+              "pinky": [
+                168,
+                112,
+                150
+              ]
+            },
+            "thumbCMC": {
+              "abduction": 8,
+              "elevation": 0,
+              "rotation": -55
+            },
+            "contacts": []
+          },
+          "right": {
+            "palm": {
+              "transform": {
+                "position": {
+                  "x": 1.95,
+                  "y": 0,
+                  "z": -2.06
+                },
+                "quaternion": {
+                  "w": -0.07391207637655776,
+                  "x": 0.07391207637655776,
+                  "y": 0.703226432214906,
+                  "z": 0.703226432214906
                 }
               },
               "thumbBase": {
@@ -899,19 +1592,82 @@
         },
         {
           "frame": 425,
-          "pose": {
+          "left": {
             "palm": {
               "transform": {
                 "position": {
-                  "x": 0,
+                  "x": -1.95,
                   "y": 0,
                   "z": -2.04
                 },
                 "quaternion": {
-                  "w": 0.473146789255815,
-                  "x": 0.5254827454987588,
-                  "y": -0.5254827454987588,
-                  "z": -0.473146789255815
+                  "w": 0.037006754659385584,
+                  "x": -0.037006754659385584,
+                  "y": -0.7061309440249591,
+                  "z": -0.7061309440249591
+                }
+              },
+              "thumbBase": {
+                "position": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "quaternion": {
+                  "w": 1,
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                }
+              }
+            },
+            "bends": {
+              "thumb": [
+                164,
+                156,
+                162
+              ],
+              "index": [
+                168,
+                100,
+                148
+              ],
+              "middle": [
+                168,
+                100,
+                148
+              ],
+              "ring": [
+                168,
+                100,
+                148
+              ],
+              "pinky": [
+                168,
+                100,
+                148
+              ]
+            },
+            "thumbCMC": {
+              "abduction": -8,
+              "elevation": 0,
+              "rotation": -55
+            },
+            "contacts": []
+          },
+          "right": {
+            "palm": {
+              "transform": {
+                "position": {
+                  "x": 1.95,
+                  "y": 0,
+                  "z": -2.04
+                },
+                "quaternion": {
+                  "w": 0.037006754659385584,
+                  "x": -0.037006754659385584,
+                  "y": 0.7061309440249591,
+                  "z": 0.7061309440249591
                 }
               },
               "thumbBase": {
@@ -965,19 +1721,82 @@
         },
         {
           "frame": 465,
-          "pose": {
+          "left": {
             "palm": {
               "transform": {
                 "position": {
-                  "x": 0,
+                  "x": -1.95,
                   "y": 0,
                   "z": -2.15
                 },
                 "quaternion": {
-                  "w": 0.5,
-                  "x": -0.5,
-                  "y": -0.5,
-                  "z": 0.5
+                  "w": 0,
+                  "x": 0.7071,
+                  "y": -0.7071,
+                  "z": 0
+                }
+              },
+              "thumbBase": {
+                "position": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "quaternion": {
+                  "w": 1,
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                }
+              }
+            },
+            "bends": {
+              "thumb": [
+                170,
+                165,
+                168
+              ],
+              "index": [
+                170,
+                150,
+                165
+              ],
+              "middle": [
+                170,
+                150,
+                165
+              ],
+              "ring": [
+                170,
+                150,
+                165
+              ],
+              "pinky": [
+                170,
+                150,
+                165
+              ]
+            },
+            "thumbCMC": {
+              "abduction": 0,
+              "elevation": 0,
+              "rotation": -45
+            },
+            "contacts": []
+          },
+          "right": {
+            "palm": {
+              "transform": {
+                "position": {
+                  "x": 1.95,
+                  "y": 0,
+                  "z": -2.15
+                },
+                "quaternion": {
+                  "w": 0,
+                  "x": 0.7071,
+                  "y": 0.7071,
+                  "z": 0
                 }
               },
               "thumbBase": {
@@ -1031,19 +1850,82 @@
         },
         {
           "frame": 520,
-          "pose": {
+          "left": {
             "palm": {
               "transform": {
                 "position": {
-                  "x": 0,
+                  "x": -1.95,
                   "y": 0,
                   "z": -2.7
                 },
                 "quaternion": {
-                  "w": 0.5,
-                  "x": -0.5,
-                  "y": -0.5,
-                  "z": 0.5
+                  "w": 0,
+                  "x": 0.7071,
+                  "y": -0.7071,
+                  "z": 0
+                }
+              },
+              "thumbBase": {
+                "position": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "quaternion": {
+                  "w": 1,
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                }
+              }
+            },
+            "bends": {
+              "thumb": [
+                175,
+                172,
+                174
+              ],
+              "index": [
+                175,
+                175,
+                175
+              ],
+              "middle": [
+                175,
+                175,
+                175
+              ],
+              "ring": [
+                175,
+                175,
+                175
+              ],
+              "pinky": [
+                175,
+                175,
+                175
+              ]
+            },
+            "thumbCMC": {
+              "abduction": 0,
+              "elevation": 0,
+              "rotation": -25
+            },
+            "contacts": []
+          },
+          "right": {
+            "palm": {
+              "transform": {
+                "position": {
+                  "x": 1.95,
+                  "y": 0,
+                  "z": -2.7
+                },
+                "quaternion": {
+                  "w": 0,
+                  "x": 0.7071,
+                  "y": 0.7071,
+                  "z": 0
                 }
               },
               "thumbBase": {
@@ -1136,9 +2018,9 @@
       "contactTracks": []
     },
     {
-      "id": "556f58c7-4b75-46b5-bf8c-e812f95163ce",
+      "id": "00c3940f-a238-47aa-8205-5f2b8dab4717",
       "name": "V Perm（手法）",
-      "formulaId": "739d1bff-699a-44f9-a80f-78fd6325f719",
+      "formulaId": "bff73f06-7bf6-4ec5-b70c-df26f5dacc92",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
@@ -1226,9 +2108,9 @@
       "contactTracks": []
     },
     {
-      "id": "2c560bde-fc2c-4c08-b2d1-392735fba9d0",
+      "id": "66daa63d-8933-4137-94af-29a8e0ca49d9",
       "name": "OLL 21（手法）",
-      "formulaId": "27c7c34b-16c0-4597-9794-4f297b7cb57f",
+      "formulaId": "59e8b049-7b76-4bd5-ae4c-6f058f5de0f9",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
@@ -1271,9 +2153,9 @@
       "contactTracks": []
     },
     {
-      "id": "1092aae2-26ba-4d2a-82d0-185e292658e4",
+      "id": "0a84018e-0782-471c-885e-3f5194a6fa50",
       "name": "H Perm（手法）",
-      "formulaId": "dd29651f-e309-45ec-b9d8-f20a1cd287fa",
+      "formulaId": "caca4f69-af37-4f5c-96e2-e2a754e87049",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
@@ -1316,9 +2198,9 @@
       "contactTracks": []
     },
     {
-      "id": "20552953-4849-4dc3-97d8-fd23c18b683d",
+      "id": "55652ebb-bd2b-4f8e-9101-2c4580499cd6",
       "name": "ZBLL（示例）（手法）",
-      "formulaId": "4d73d7d5-af51-43f6-be25-1aa6c5c438e6",
+      "formulaId": "51aefa47-2478-4af1-b7cd-2ccf7e34e03b",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
@@ -1361,9 +2243,9 @@
       "contactTracks": []
     },
     {
-      "id": "0e9f5474-1565-477d-b128-5c4e741165fd",
+      "id": "16566fba-9b0d-47e4-875a-7ac4f7e17320",
       "name": "OLL 1（速拧参考）（手法）",
-      "formulaId": "43335221-0eac-4044-8e21-70c9f9e444f5",
+      "formulaId": "81a35aca-58fb-4d0a-9b54-810e0e03727d",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
@@ -1426,9 +2308,9 @@
       "contactTracks": []
     },
     {
-      "id": "215b60d4-8781-4235-91c9-cd3dc2b5afa2",
+      "id": "24a8fcfc-9fe5-4d97-bb5e-333ea3f6ee72",
       "name": "PLL Aa（速拧参考）（手法）",
-      "formulaId": "c0a77553-0dcb-4462-aaa9-ac0a77877c1d",
+      "formulaId": "b7050560-43b4-4f1e-9565-2f7016ead618",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
@@ -1491,9 +2373,9 @@
       "contactTracks": []
     },
     {
-      "id": "5d6dd493-c335-4b03-b856-b279a641160c",
+      "id": "0dc0a757-0b0d-4552-aaa3-7fb5fd83f680",
       "name": "CMLL O Adjacent（速拧参考）（手法）",
-      "formulaId": "5e9bcc62-88ad-4fde-b3bc-a3a52a420198",
+      "formulaId": "1c102a92-da46-497e-b68a-09f2b459328e",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
@@ -1566,9 +2448,9 @@
       "contactTracks": []
     },
     {
-      "id": "7451a461-0042-4339-b9e5-ec58ea5a7101",
+      "id": "8a673ca7-3f39-4ffd-ad5b-8ad11caee976",
       "name": "ZBLL U 1（速拧参考）（手法）",
-      "formulaId": "1d95800d-9ea7-4c75-9fa6-027b553d93dd",
+      "formulaId": "628ad41f-24ce-4255-ba0b-e806ef857af0",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
@@ -1641,9 +2523,9 @@
       "contactTracks": []
     },
     {
-      "id": "1f94644f-1799-457d-818a-45683dbd9212",
+      "id": "d37a3a94-9be1-40a9-92f9-d8c94f5e3d04",
       "name": "1LLL 1 1（速拧参考）（手法）",
-      "formulaId": "2c0aa97d-bb71-463b-b894-6017ddbfecc1",
+      "formulaId": "4f33dd97-6bde-4b25-9359-70d0f897db93",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [

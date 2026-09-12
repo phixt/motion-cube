@@ -6,8 +6,8 @@ import { join } from "node:path";
 import { createCategory, type Category } from "../src/data/category.ts";
 import { createFormula } from "../src/data/formula.ts";
 import { serializeLibraryData, type LibraryData } from "../src/data/libraryStore.ts";
-import { createTechnique } from "../src/data/technique.ts";
-import { defaultHandPose, type Contact, type Pose } from "../src/hand/HandRig.ts";
+import { createTechnique, type TechniqueKeyframe } from "../src/data/technique.ts";
+import { defaultHandPose, mirrorPose, type Contact, type Pose } from "../src/hand/HandRig.ts";
 import { parseMoves, splitCompoundMove } from "../src/notation/alg.ts";
 
 const OUT = "data/samples";
@@ -96,6 +96,11 @@ const contactAtUL: Contact[] = [
 const contactOnL: Contact[] = [
   { finger: "index", segmentIndex: 0, side: "back", t: 0.45, target: "L 面" },
 ];
+/** 右手创作姿态 → 显式双轨关键帧（左手 = 镜像，十八轮） */
+function dual(frame: number, pose: Pose): TechniqueKeyframe {
+  return { frame, left: mirrorPose(pose), right: pose };
+}
+
 function pose(pip: number, dip: number) {
   const p = defaultHandPose("right");
   p.bends.index[1] = pip;
@@ -107,9 +112,9 @@ const technique = createTechnique({
   formulaId: flickFormula.id,
   frameRate: 60,
   keyframes: [
-    { frame: 0, pose: pose(135, 175) },
-    { frame: 30, pose: pose(90, 155) },
-    { frame: 60, pose: pose(45, 135) },
+    dual(0, pose(135, 175)),
+    dual(30, pose(90, 155)),
+    dual(60, pose(45, 135)),
   ],
   stepMapping: [{ stepIndex: 0, startFrame: 0, endFrame: 60 }],
   // 接触轨道（精确起止帧）：起始触 UL 边（0–30），结束触 L 面（60）
@@ -159,17 +164,17 @@ const handDemoTechnique = createTechnique({
   formulaId: zbllDemoFormula.id,
   frameRate: 60,
   keyframes: [
-    { frame: 0,   pose: demoPose({ z: -2.7,  mcp: [175,175,175,175], pip: [175,175,175,175], dip: [175,175,175,175], thumb: [175,172,174], cmc: { abduction: 0, rotation: 25 } }) },
-    { frame: 55,  pose: demoPose({ z: -2.12, mcp: [170,170,170,170], pip: [150,150,150,150], dip: [165,165,165,165], thumb: [172,168,170], cmc: { abduction: 0, rotation: 40 } }) },
-    { frame: 95,  pose: demoPose({ z: -2.05, yaw: -7,  pip: [95,150,150,150],  dip: [150,160,160,160], thumb: [168,160,165], cmc: { abduction: 5, rotation: 45 } }) },
-    { frame: 155, pose: demoPose({ z: -2.08, yaw: 6,   pip: [160,100,150,150], dip: [165,148,160,160], thumb: [170,164,168], cmc: { abduction: -5, rotation: 45 } }) },
-    { frame: 215, pose: demoPose({ z: -2.1,  yaw: -8,  pip: [150,150,100,150], dip: [160,160,148,160], thumb: [172,166,170], cmc: { abduction: 5, rotation: 45 } }) },
-    { frame: 275, pose: demoPose({ z: -2.06, yaw: 7,   pip: [150,150,150,105], dip: [160,160,160,150], thumb: [170,162,166], cmc: { abduction: -5, rotation: 50 } }) },
-    { frame: 335, pose: demoPose({ z: -2.0,  yaw: -10, pip: [115,115,150,150], dip: [150,150,160,160], thumb: [166,158,164], cmc: { abduction: 8, rotation: 50 } }) },
-    { frame: 385, pose: demoPose({ z: -2.06, yaw: 12,  pip: [150,150,112,112], dip: [160,160,150,150], thumb: [168,160,166], cmc: { abduction: -8, rotation: 55 } }) },
-    { frame: 425, pose: demoPose({ z: -2.04, yaw: -6,  pip: [100,100,100,100], dip: [148,148,148,148], thumb: [164,156,162], cmc: { abduction: 8, rotation: 55 } }) },
-    { frame: 465, pose: demoPose({ z: -2.15, mcp: [170,170,170,170], pip: [150,150,150,150], dip: [165,165,165,165], thumb: [170,165,168], cmc: { abduction: 0, rotation: 45 } }) },
-    { frame: 520, pose: demoPose({ z: -2.7,  mcp: [175,175,175,175], pip: [175,175,175,175], dip: [175,175,175,175], thumb: [175,172,174], cmc: { abduction: 0, rotation: 25 } }) },
+    dual(0, demoPose({ z: -2.7,  mcp: [175,175,175,175], pip: [175,175,175,175], dip: [175,175,175,175], thumb: [175,172,174], cmc: { abduction: 0, rotation: 25 } })),
+    dual(55, demoPose({ z: -2.12, mcp: [170,170,170,170], pip: [150,150,150,150], dip: [165,165,165,165], thumb: [172,168,170], cmc: { abduction: 0, rotation: 40 } })),
+    dual(95, demoPose({ z: -2.05, yaw: -7,  pip: [95,150,150,150],  dip: [150,160,160,160], thumb: [168,160,165], cmc: { abduction: 5, rotation: 45 } })),
+    dual(155, demoPose({ z: -2.08, yaw: 6,   pip: [160,100,150,150], dip: [165,148,160,160], thumb: [170,164,168], cmc: { abduction: -5, rotation: 45 } })),
+    dual(215, demoPose({ z: -2.1,  yaw: -8,  pip: [150,150,100,150], dip: [160,160,148,160], thumb: [172,166,170], cmc: { abduction: 5, rotation: 45 } })),
+    dual(275, demoPose({ z: -2.06, yaw: 7,   pip: [150,150,150,105], dip: [160,160,160,150], thumb: [170,162,166], cmc: { abduction: -5, rotation: 50 } })),
+    dual(335, demoPose({ z: -2.0,  yaw: -10, pip: [115,115,150,150], dip: [150,150,160,160], thumb: [166,158,164], cmc: { abduction: 8, rotation: 50 } })),
+    dual(385, demoPose({ z: -2.06, yaw: 12,  pip: [150,150,112,112], dip: [160,160,150,150], thumb: [168,160,166], cmc: { abduction: -8, rotation: 55 } })),
+    dual(425, demoPose({ z: -2.04, yaw: -6,  pip: [100,100,100,100], dip: [148,148,148,148], thumb: [164,156,162], cmc: { abduction: 8, rotation: 55 } })),
+    dual(465, demoPose({ z: -2.15, mcp: [170,170,170,170], pip: [150,150,150,150], dip: [165,165,165,165], thumb: [170,165,168], cmc: { abduction: 0, rotation: 45 } })),
+    dual(520, demoPose({ z: -2.7,  mcp: [175,175,175,175], pip: [175,175,175,175], dip: [175,175,175,175], thumb: [175,172,174], cmc: { abduction: 0, rotation: 25 } })),
   ],
   stepMapping: [0, 1, 2, 3, 4, 5, 6].map((i) => ({
     stepIndex: i,
