@@ -135,21 +135,22 @@
   ② **关节凸起平滑**——球系数贴锥面（j0 0.98/j1 1.0/j2 0.96，默认 bulge 1.22→1.1）；
   ③ **脊-掌接缝平滑**——嵌入 a×0.45→0.55 + 漏斗站 6→8（整体性增强，抹平慎用口径：
   仅动接缝不动形体）。
-- ⬜ **合并工作清单（上下文压缩后执行）**：
-  1. 删除 `src/hand/handGeometry.ts`（冻结基线）+ `HandLabPage.vue` 的旧方案 A 侧
-     （或整页保留由用户定；删后跑 typecheck）；
-  2. CI verify 块补 `npx tsx scripts/verify-hand-mesh.ts`；
-  3. 全量验证：typecheck/build/verify-data/verify-hand-mesh/playtest（5174）；
-  4. `git switch main && git merge feat/hand-lowpoly`（不 push、不打 tag——tag 触发
-     Release CI）；docs/hand-api-spec.md 随分支进入 main 供实现方 AI 使用；
-  5. 合并后旧分支清理（feat/hand-lowpoly 保留至真机定版）。
+- ✅ **合并完成（2026-09-12）**：feat/hand-lowpoly → main **ff 至 50c2547**（19 提交；
+  不 push、不打 tag；版本 0.4.0 双端同步不动）。清单 1-5 全项落地：① handGeometry.ts
+  删除 + hand-lab 改单视图调试页（50c2547）；② CI verify 补 verify-hand-mesh；③ 全量
+  验证绿（typecheck / build / verify-data / verify-hand-mesh / playtest 5174 十七截图）；
+  ④ 合并入 main；⑤ 分支处置：feat/hand-lowpoly 保留至真机定版；feat/hand-thumb-normalize
+  内容已在 main（dc096a8 同内容）；feat/zbll-import-verify、research/solver-advanced 按
+  用户裁定封存不并入。**并发说明**：合并准备期间实现方 AI 落地外部注入 API A 期
+  （9ca48b0 实现 + 53c68db 文档标记），经规格硬约束核查（未碰 handMesh / HandRig 类型 /
+  HandRigView 签名 / playtest 断言，technique.ts 仅 parsePose 加 export）随分支带入；
+  该 API 未经真机轮，DEV 构建限定、零生产面，后续真机验证归 API 线。
 - ✅ **手部细化·十二轮（2026-09-12，已落地）**：① **指蹼双凹透镜棱柱**——背侧 U 谷
   + 掌侧 ∩ 上凹（指面侧也有内凹面，解决单面问题），圆弧逼近全曲面；② **自发光口径**——
   伪受光对比 0.78+0.22→0.9+0.1、刻面抖动 0.05→0.03（面观感弱化、整体平亮偏白）；
   ③ **指尖收钝**——tipTaper 0.66→0.74、前伸 0.18→0.12len。
-- ⬜ 待办：用户**真机确认**手感/观感（渲染类改动真机前置教训）→ 合并 main；
-  合并前决策：删除 handGeometry.ts 冻结基线与 #/hand-lab（或保留 A/B 一轮）；
-  CI verify 块补 `npx tsx scripts/verify-hand-mesh.ts`。
+- ⬜ 待办：用户**真机定版**十二轮手部观感（main 已含；feat/hand-lowpoly 分支保留至定版）；
+  外部注入 API 真机验证（handApi.ts，#/editor DEV 下 window.motionCubeHand）。
 
 ### 路线图重排（2026-09-11 用户裁定）
 
