@@ -30,6 +30,7 @@ import {
   type Pose,
 } from "../../hand/HandRig";
 import { HandRigView } from "../../hand/HandRigView";
+import { registerHandApi, unregisterHandApi } from "../../hand/handApi";
 import { bindingKey, type EditorAction } from "../../input/keymap";
 import { invertMoves, parseMoves, splitCompoundMove } from "../../notation/alg";
 import { loadEditorActionKeys, loadSettings } from "../../settings";
@@ -1323,6 +1324,7 @@ onMounted(() => {
   window.addEventListener("keydown", onEditorKey);
   window.addEventListener("keyup", onEditorKey);
   (globalThis as { __motionCubeEditor?: unknown }).__motionCubeEditor = { player, handView };
+  registerHandApi(handView); // DEV 外部注入 API（docs/hand-api-spec.md）
   renderAll();
   // 视口渲染兜底：cubing 的 TwistyPlayer 用 IntersectionObserver 懒初始化，
   // 挂载时若视口在折叠线外（或懒初始化未触发）可能长时间空白；
@@ -1427,6 +1429,7 @@ onBeforeUnmount(() => {
   window.removeEventListener("keyup", onEditorKey);
   editorViewEl.value?.replaceChildren();
   delete (globalThis as { __motionCubeEditor?: unknown }).__motionCubeEditor;
+  unregisterHandApi();
   grayOverlay?.dispose();
   grayOverlay = null;
   player = null;

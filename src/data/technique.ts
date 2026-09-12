@@ -188,7 +188,7 @@ function parseContacts(v: unknown): Contact[] {
 }
 
 /** 深度校验并规范化一个关键帧姿态；结构非法抛 TechniqueError */
-function parsePose(v: unknown): Pose {
+export function parsePose(v: unknown): Pose {
   const o = v as Record<string, unknown> | null;
   if (!o || typeof o !== "object") throw new TechniqueError("关键帧姿态非法：pose 必须为对象");
   const palm = o.palm as Record<string, unknown> | null;
