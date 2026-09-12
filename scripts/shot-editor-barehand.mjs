@@ -27,6 +27,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const page = await browser.newPage();
 const URL = process.env.SPIKE_URL ?? "http://localhost:5174/";
 
+await page.goto(`${URL}#/library`, { waitUntil: "networkidle0" });
+await sleep(1200);
+// 合并示例库（复杂运动演示手法在示例里）
+const samplesBtn = await page.$("#btn-samples");
+if (samplesBtn) await samplesBtn.click();
+await sleep(600);
 await page.goto(`${URL}#/editor`, { waitUntil: "networkidle0" });
 await sleep(1500);
 // 侧栏默认全折叠：先展开「视口显隐」分组，再点隐藏魔方
@@ -46,7 +52,23 @@ if (toggle) {
 } else {
   console.log("WARN: #editor-toggle-cube not found");
 }
-await sleep(1000);
+await sleep(600);
+// 可选：选中指定手法（SPIKE_TEC=名称子串），查看该手法姿态
+const tecName = process.env.SPIKE_TEC;
+if (tecName) {
+  const picked = await page.evaluate((n) => {
+    const btn = [...document.querySelectorAll(".tec-item")].find((b) =>
+      (b.textContent ?? "").includes(n),
+    );
+    if (btn) {
+      btn.click();
+      return btn.textContent.trim();
+    }
+    return null;
+  }, tecName);
+  console.log(`technique: ${picked ?? `NOT FOUND (${tecName})`}`);
+  await sleep(800);
+}
 await page.screenshot({ path: `${OUT}/editor-barehand.png` });
 console.log("SHOT: spike-shots/editor-barehand.png");
 await browser.close();

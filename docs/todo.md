@@ -93,6 +93,17 @@
   默认弯度 160/160/165→**175/170/170**（基关节 20° 弯+45° 扭转呈钩状下坠，与
   「从大鱼际平行伸出」冲突；既有手法关键帧数据不受影响，新姿态取新默认）；
   ③ 新增 `scripts/shot-editor-barehand.mjs`（视口显隐隐藏魔方后的裸手检查脚本）。
+- ✅ **真机验收第六轮（2026-09-12 反馈，已落地）**：① **手部颜色反向回退**——线性
+  编码在编辑器过暗如枯木（上轮方向判断错误），恢复 cubing 路径顶点色直写 sRGB=
+  淡米偏白（用户选定口径），linearOutput 双路径并存；② 拇指默认弯度 175/170/170→
+  **170/165/168**（保留一定自然弯）；③ 示例库新增 **「复杂运动演示（示例）」** 手法
+  （绑 ZBLL 示例 7 步公式，11 关键帧：接近→握持→腕部摆动+逐指拨动→释放，
+  gen-samples.ts 生成管线，公式库「加载示例」合入）；④ 裸手检查脚本支持
+  SPIKE_TEC 选指定手法。
+- ⬜ **外部注入 API**（可行性评估完成待拍板）：推荐 DEV 先行——
+  `window.__motionCubeHandAPI`（setPose/playFrames/setConfig/setHandType/…）转调
+  HandRigView，外部经 DevTools / tauri eval / 本地 WebSocket 推帧；数据一律过
+  parsePose 校验；生产暴露需设置页 opt-in。
 - ⬜ 待办：用户**真机确认**手感/观感（渲染类改动真机前置教训）→ 合并 main；
   合并前决策：删除 handGeometry.ts 冻结基线与 #/hand-lab（或保留 A/B 一轮）；
   CI verify 块补 `npx tsx scripts/verify-hand-mesh.ts`。

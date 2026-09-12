@@ -193,6 +193,7 @@ export class HandRigView {
     // 顶点色线性编码，输出变换由各渲染器自理）
     const built = buildHandMesh(this.config, this.rig, this.sideSign, {
       withMarks: true,
+      linearOutput: true,
     });
     this.root = built.root;
     this.fingers = built.fingers;

@@ -139,12 +139,11 @@ export function createDefaultRig(handType: HandType = "right"): HandRig {
           { length: 0.53, width: 0.21 },
         ],
         joints: [
-          // 默认近直微曲（0.4.0 四轮——旧 160/160/165 基关节即带 20° 弯+45° 扭转，
-          // 编辑器默认姿态下整指呈钩状下坠，与「从大鱼际平行伸出」冲突）；
-          // CMC 外翻角取 DEFAULT_THUMB_CMC（0/0/45）
-          { name: "CMC", bend: 175, range: { min: 60, max: 180 }, ...DEFAULT_THUMB_CMC },
-          { name: "MCP", bend: 170 },
-          { name: "IP", bend: 170 },
+          // 默认自然微曲（0.4.0 六轮定版 170/165/168——175/170/170 过直如枝，160/160/165
+          // 基关节即 20° 弯+45° 扭转呈钩状下坠；CMC 外翻角取 DEFAULT_THUMB_CMC 0/0/45）
+          { name: "CMC", bend: 170, range: { min: 60, max: 180 }, ...DEFAULT_THUMB_CMC },
+          { name: "MCP", bend: 165 },
+          { name: "IP", bend: 168 },
         ],
       },
       index: standardFinger("index", [0.79, 0.46, 0.35], [0.26, 0.21, 0.16]),

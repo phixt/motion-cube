@@ -264,6 +264,7 @@ export class HandCalibView {
     // 0.4.0 low-poly 重构：handMesh 截面放样生成器（测量视图关标记；左视开描边）
     const built = buildHandMesh(this.cfg, rig, 1, {
       withMarks: false,
+      linearOutput: false,
       withOutline: this.view === "left",
     });
     // 拇指应用自然外翻（CMC 三轴：抬离/展收/对掌，轴语义同 HandRigView.applyPose），手指保持伸直（测量用途）

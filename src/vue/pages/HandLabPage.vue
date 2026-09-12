@@ -99,7 +99,7 @@ onMounted(() => {
   applyRestPose(oldHand as unknown as HandLike, rigA, cfg);
   // B：新 low-poly 放样方案（handMesh.ts）
   const rigB = createRigFromConfig(cfg, "right");
-  const newHand = buildHandMesh(cfg, rigB, 1, { withMarks: true });
+  const newHand = buildHandMesh(cfg, rigB, 1, { withMarks: true, linearOutput: false });
   applyRestPose(newHand as unknown as HandLike, rigB, cfg);
   viewOld = new HandLabView(oldRef.value, oldHand.root);
   viewNew = new HandLabView(newRef.value, newHand.root);
