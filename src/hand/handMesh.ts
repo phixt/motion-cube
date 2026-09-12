@@ -308,9 +308,8 @@ function buildFingerChain(
     cursor.add(joint);
     joints.push(joint);
     const seg = def.segments[j];
-    // 参考宽：本段宽；末关节（无段，拇指 IP）沿用末段宽
-    const refSeg = seg ?? def.segments[lastSegIndex];
-    const wHalf = (refSeg.width / 2) * H;
+    if (!seg) break; // 末梢关节（拇指 IP）：无后续段，不放关节球——指尖与四指统一为收口圆头
+    const wHalf = (seg.width / 2) * H;
     // 关节球：弯折兜底 + 隆起（MCP 最大，向指尖递减）
     const bulge = shape.knuckleBulge * (j === 0 ? 1 : j === 1 ? 0.92 : 0.85);
     const ballMesh = tintedMesh(
@@ -319,7 +318,6 @@ function buildFingerChain(
     );
     joint.add(ballMesh);
     addOutline(ballMesh);
-    if (!seg) break; // 末关节只放关节球
     const len = seg.length * H;
     const tHalf = wHalf * 0.94;
     const isLast = j === lastSegIndex;
@@ -393,7 +391,13 @@ function buildThenarRidge(
   const mcpZ = cfg.palm.mcpZ * H;
   const halfW = (cfg.palm.width / 2) * H;
   const zHeel = mcpZ - len + 0.02 * H; // 掌根（略内收避免与掌跟面共面 z-fighting）
-  const zFront = zHeel + len * Math.min(cfg.thenar.length, 1.05) * 0.92;
+  // 前缘适配后退的拇指根（0.4.0 七轮）：脊前端不超过拇指根后方 0.18，避免在拇指根
+  // 前方悬出一段「搁板」——削减大鱼际以贴合拇指根后移
+  const zCap = cfg.thumbCorner.z * H + 0.18 * H;
+  const zFront = Math.min(
+    zHeel + len * Math.min(cfg.thenar.length, 1.05) * 0.92,
+    zCap,
+  );
   const aMax = cfg.thenar.width * H * 0.45; // 外突半径（横冠军径）
   const b = cfg.thenar.height * H * 0.55; // 竖向半径
   const yC = -0.05 * H + cfg.thenar.y * H; // 略偏掌侧 + 配置竖向微调

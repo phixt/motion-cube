@@ -86,12 +86,12 @@ export const DEFAULT_BEND_RANGE = { min: 90, max: 180 };
 
 /**
  * 拇指 CMC 默认角（度）。
- * 0.4.0 low-poly 重构起默认归零展收/抬离（真机验收 2026-09-11）：新几何（拇指根外移
- * + 大鱼际外移 + 关节球形态）已自带自然位，历史外翻角 42/20（2026-09-02 重校）不再
- * 需要——平行对位由布局参数（thumbCorner/thenar）承担，仅保留对掌自转 45°。
+ * 0.4.0 七轮扶正：展收/抬离归零 + 对掌扭转 45→15——45° 扭转让拇指弯屈方向偏出指
+ * 平面，是「下撇不平行」观感的主因（轴本身与四指平行，被扭转的杆身读作斜杆）；
+ * 对掌需求由姿态数据（thumbCMC.rotation）与标定滑块表达。
  * 渲染分解：rotation.x = -elevation，rotation.y = ±abduction，rotation.z = ∓rotation（按手型镜像）。
  */
-export const DEFAULT_THUMB_CMC = { abduction: 0, elevation: 0, rotation: 45 };
+export const DEFAULT_THUMB_CMC = { abduction: 0, elevation: 0, rotation: 15 };
 
 export function identityTransform(): Transform {
   return { position: { x: 0, y: 0, z: 0 }, quaternion: { w: 1, x: 0, y: 0, z: 0 } };

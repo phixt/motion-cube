@@ -7,7 +7,7 @@
  */
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { Group, PerspectiveCamera, Scene, WebGLRenderer } from "three";
-import { FINGER_ORDER, type FingerName, type HandRig } from "../../hand/HandRig";
+import { defaultHandPose, FINGER_ORDER, type FingerName, type HandRig, type Pose } from "../../hand/HandRig";
 import { createRigFromConfig, loadHandRigConfig, type HandRigConfig } from "../../hand/handRigStore";
 import { buildHandGeometry } from "../../hand/handGeometry"; // 冻结旧方案（A 基线，合并前删除）
 import { buildHandMesh } from "../../hand/handMesh";
@@ -17,12 +17,18 @@ type FingerJoints = { joints: { rotation: { x: number } }[] };
 type HandLike = {
   root: Group;
   fingers: Record<FingerName, FingerJoints>;
+  thumbRoot: { position: { set: (x: number, y: number, z: number) => void }; quaternion: { set: (x: number, y: number, z: number, w: number) => void } };
   thumbDof: { rotation: { set: (x: number, y: number, z: number) => void } };
 };
 
 const DEG = Math.PI / 180;
 
-/** 默认姿态：各关节 bend 级联 + 拇指 CMC 三轴（语义同 HandRigView.applyPose） */
+/** 姿态模式：rest = 测量直姿（骨架默认弯度，掌在原点）；editor = 编辑器默认手位
+ *  （defaultHandPose：掌部位姿 + 弯度 + 拇指 CMC，与动画编辑器新建手法一致，
+ *  用于诊断拇指轴朝向） */
+const poseMode = ref<"rest" | "editor">("rest");
+
+/** 测量直姿：各关节 bend 级联 + 拇指 CMC 三轴（语义同 HandRigView.applyPose） */
 function applyRestPose(hand: HandLike, rig: HandRig, cfg: HandRigConfig): void {
   for (const name of FINGER_ORDER) {
     const bends = rig.fingers[name].joints.map((j) => j.bend);
@@ -32,6 +38,27 @@ function applyRestPose(hand: HandLike, rig: HandRig, cfg: HandRigConfig): void {
   }
   const cmc = cfg.thumbCmc;
   hand.thumbDof.rotation.set(-cmc.elevation * DEG, cmc.abduction * DEG, -cmc.rotation * DEG);
+}
+
+/** 编辑器默认姿态：defaultHandPose 的掌部位姿 + 关节弯度 + 拇指 CMC */
+function applyEditorPose(hand: HandLike, pose: Pose): void {
+  const t = pose.palm.transform;
+  hand.root.position.set(t.position.x, t.position.y, t.position.z);
+  hand.root.quaternion.set(t.quaternion.x, t.quaternion.y, t.quaternion.z, t.quaternion.w);
+  const tb = pose.palm.thumbBase;
+  hand.thumbRoot.position.set(tb.position.x, tb.position.y, tb.position.z);
+  hand.thumbRoot.quaternion.set(tb.quaternion.x, tb.quaternion.y, tb.quaternion.z, tb.quaternion.w);
+  for (const name of FINGER_ORDER) {
+    const bends = pose.bends[name];
+    hand.fingers[name].joints.forEach((jt, i) => {
+      jt.rotation.x = (180 - (bends[i] ?? 180)) * DEG;
+    });
+  }
+  hand.thumbDof.rotation.set(
+    -pose.thumbCMC.elevation * DEG,
+    pose.thumbCMC.abduction * DEG,
+    -pose.thumbCMC.rotation * DEG,
+  );
 }
 
 class HandLabView {
@@ -90,21 +117,29 @@ const newRef = ref<HTMLElement | null>(null);
 let viewOld: HandLabView | null = null;
 let viewNew: HandLabView | null = null;
 
-onMounted(() => {
+function buildHands(): void {
   if (!oldRef.value || !newRef.value) return;
+  viewOld?.dispose();
+  viewNew?.dispose();
   const cfg = loadHandRigConfig();
+  const editorPose = defaultHandPose("right");
+  const apply = poseMode.value === "editor"
+    ? (h: HandLike) => applyEditorPose(h, editorPose)
+    : (h: HandLike, rig: HandRig) => applyRestPose(h, rig, cfg);
   // A：旧圆柱方案（handGeometry.ts 冻结基线）
   const rigA = createRigFromConfig(cfg, "right");
   const oldHand = buildHandGeometry(cfg, rigA, 1, true, false, false);
-  applyRestPose(oldHand as unknown as HandLike, rigA, cfg);
+  apply(oldHand as unknown as HandLike, rigA);
   // B：新 low-poly 放样方案（handMesh.ts）
   const rigB = createRigFromConfig(cfg, "right");
   const newHand = buildHandMesh(cfg, rigB, 1, { withMarks: true, linearOutput: false });
-  applyRestPose(newHand as unknown as HandLike, rigB, cfg);
+  apply(newHand as unknown as HandLike, rigB);
   viewOld = new HandLabView(oldRef.value, oldHand.root);
   viewNew = new HandLabView(newRef.value, newHand.root);
   (globalThis as { __motionCubeHandLab?: unknown }).__motionCubeHandLab = { viewOld, viewNew };
-});
+}
+
+onMounted(buildHands);
 
 onBeforeUnmount(() => {
   viewOld?.dispose();
@@ -119,7 +154,10 @@ onBeforeUnmount(() => {
   <div class="hand-lab-page">
     <div class="lab-title">手部 A/B 对照 · #/hand-lab（low-poly 重构调试页）</div>
     <div class="lab-note">
-      左 = 旧圆柱方案（冻结基线）｜右 = 新截面放样方案（0.4.0）。同一标定配置与默认姿态，缓慢自转。
+      左 = 旧圆柱方案（冻结基线）｜右 = 新截面放样方案（0.4.0）。同一标定配置，缓慢自转。
+      姿态：
+      <button class="lab-mode" :class="{ on: poseMode === 'rest' }" @click="poseMode = 'rest'; buildHands()">测量直姿</button>
+      <button class="lab-mode" :class="{ on: poseMode === 'editor' }" @click="poseMode = 'editor'; buildHands()">编辑器默认姿态</button>
     </div>
     <div class="lab-views">
       <div class="lab-box">
@@ -169,6 +207,20 @@ onBeforeUnmount(() => {
   border-radius: var(--ControlCornerRadius, 6px);
   background: var(--ctrl-solid-fill, #101014);
   overflow: hidden;
+}
+.lab-mode {
+  border: 1px solid var(--stroke-divider);
+  border-radius: 4px;
+  background: var(--ctrl-fill-default);
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding: 2px 8px;
+  margin-left: 4px;
+  cursor: pointer;
+}
+.lab-mode.on {
+  background: var(--ctrl-solid-fill);
+  color: var(--text-primary);
 }
 .lab-tag {
   margin-top: 6px;
