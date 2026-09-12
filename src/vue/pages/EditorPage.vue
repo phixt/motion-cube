@@ -124,11 +124,12 @@ const grayPanelEl = ref<HTMLElement | null>(null);
 /** 魔方/手显隐（快捷键 C/H + 侧边栏按钮） */
 const showCube = ref(true);
 const showHand = ref(true);
-/** 双手显示（十七轮）：对侧镜像手随主手姿态镜像驱动；默认开 */
+/** 双手显示（十七轮）：默认开 */
 const showBothHands = ref(true);
-/** 双手独立编辑（十八轮）：关键帧面板当前编辑的手——main = 主手，mirror = 对侧手 */
-/** 双手独立编辑（十八轮）：关键帧面板当前编辑的手——left = 左手（主），right = 右手（辅） */
-const editingHand = ref<"left" | "right">("left");
+/** 主位手（十九轮用户定版）：随模式走的角色——双手状态下右手为主位（公式右撇子
+ *  基准，默认编辑右手）；单手状态下默认左手且左手即主位，可换右手（换后右手即
+ *  主位）。主位手 = 单手显示的手 + 关键帧面板默认编辑手。 */
+const focusHand = ref<"left" | "right">("right");
 let grayOverlay: GrayOverlay | null = null;
 let grayPanelApi: ReturnType<typeof renderGrayPanel> | null = null;
 const maskVisible = ref(false);
@@ -285,7 +286,7 @@ const stepFrames = (dir: 1 | -1, jumpKf: boolean): void => {
 const ensureAutoKfPose = (t2: Technique, frame: number, patch: (pose: Pose) => Pose): Technique => {
   const k2 = t2.keyframes.find((k) => k.frame === frame);
   if (k2) {
-    if (editingHand.value === "right") {
+    if (focusHand.value === "right") {
       return upsertKeyframe(t2, { ...k2, right: patch(k2.right) });
     }
     return upsertKeyframe(t2, { ...k2, left: patch(k2.left) });
@@ -295,8 +296,8 @@ const ensureAutoKfPose = (t2: Technique, frame: number, patch: (pose: Pose) => P
   const baseRight = previewRightPose() ?? defaultHandPose("right");
   return upsertKeyframe(t2, {
     frame,
-    left: editingHand.value === "left" ? patch(baseLeft) : baseLeft,
-    right: editingHand.value === "right" ? patch(baseRight) : baseRight,
+    left: focusHand.value === "left" ? patch(baseLeft) : baseLeft,
+    right: focusHand.value === "right" ? patch(baseRight) : baseRight,
   });
 };
 
@@ -307,7 +308,7 @@ const mirrorToOppositeAtPlayhead = (): void => {
   commit((t2) => {
     const k2 = t2.keyframes.find((k) => k.frame === frame);
     if (!k2) return t2;
-    return editingHand.value === "left"
+    return focusHand.value === "left"
       ? upsertKeyframe(t2, { ...k2, right: mirrorPose(k2.left) })
       : upsertKeyframe(t2, { ...k2, left: mirrorPose(k2.right) });
   }, true);
@@ -317,14 +318,26 @@ const toggleShowCube = (): void => {
   showCube.value = !showCube.value;
   player?.showCube(showCube.value);
 };
+/** 双手显隐统一应用：单手状态只显主位手（双手=右手主位/单手=默认左手，可换） */
+function applyHandVisibility(): void {
+  handLeft?.setVisible(showHand.value && (showBothHands.value || focusHand.value === "left"));
+  handRight?.setVisible(showHand.value && (showBothHands.value || focusHand.value === "right"));
+}
 const toggleShowHand = (): void => {
   showHand.value = !showHand.value;
-  handLeft?.setVisible(showHand.value);
-  handRight?.setVisible(showHand.value && showBothHands.value);
+  applyHandVisibility();
 };
 const toggleBothHands = (): void => {
   showBothHands.value = !showBothHands.value;
-  handRight?.setVisible(showHand.value && showBothHands.value);
+  // 主位规则：双手=右手主位（默认编辑）；单手=默认左手（可经面板换右手）
+  focusHand.value = showBothHands.value ? "right" : "left";
+  applyHandVisibility();
+  renderPreview(); // 面板数值随主位手刷新 + 双手重喂轨
+};
+const setFocusHand = (h: "left" | "right"): void => {
+  focusHand.value = h;
+  applyHandVisibility();
+  renderPreview();
 };
 
 /** 捕获当前魔方状态为 正放/倒放 起始态 */
@@ -599,7 +612,7 @@ function previewRightPose(): Pose | null {
  *  保证数值监控常驻显示（details 已并入面板） */
 function shownPose(): Pose | null {
   if (shownFrame() === null) return null;
-  return editingHand.value === "right"
+  return focusHand.value === "right"
     ? previewRightPose() ?? defaultHandPose("right")
     : previewLeftPose() ?? defaultHandPose("left");
 }
@@ -685,10 +698,14 @@ function renderPreview(): void {
   // 单手模式（B）只显左手（左手为主，右手为辅）。外部注入 API 驱动时由
   // handApi 以镜像方式同步双手（对称显示）。
   if (handLeft) {
-    handLeft.setPose(previewLeftPose() ?? defaultHandPose("left"));
+    handLeft.setPose(
+      showBothHands.value || focusHand.value === "left" ? previewLeftPose() ?? defaultHandPose("left") : null,
+    );
   }
   if (handRight) {
-    handRight.setPose(showBothHands.value ? previewRightPose() ?? defaultHandPose("right") : null);
+    handRight.setPose(
+      showBothHands.value || focusHand.value === "right" ? previewRightPose() ?? defaultHandPose("right") : null,
+    );
   }
 }
 
@@ -1378,7 +1395,7 @@ onMounted(() => {
   // 由 handApi 以镜像方式同步双手（对称显示）
   handRight = new HandRigView(player, "right");
   void handRight.init();
-  handRight?.setVisible(showHand.value && showBothHands.value);
+  applyHandVisibility();
   grayOverlay = new GrayOverlay(player);
   void grayOverlay.init().then(() => grayOverlay?.requestApply(grayState.value));
   // 编辑器快捷键：游戏公式键已解绑（编辑器内无实际含义），仅保留编辑器功能键
@@ -1398,8 +1415,12 @@ onMounted(() => {
       } catch {
         // 场景未就绪时忽略
       }
-      handLeft?.setPose(previewLeftPose() ?? defaultHandPose("left"));
-      handRight?.setPose(showBothHands.value ? previewRightPose() ?? defaultHandPose("right") : null);
+      handLeft?.setPose(
+        showBothHands.value || focusHand.value === "left" ? previewLeftPose() ?? defaultHandPose("left") : null,
+      );
+      handRight?.setPose(
+        showBothHands.value || focusHand.value === "right" ? previewRightPose() ?? defaultHandPose("right") : null,
+      );
     })();
   };
   viewIo = new IntersectionObserver(
@@ -1516,13 +1537,13 @@ onBeforeUnmount(() => {
             <button
               id="kf-edit-hand-left"
               class="zoom-btn"
-              :class="{ on: editingHand === 'left' }"
-              @click="editingHand = 'left'">{{ t("editor.handLeft") }}</button>
+              :class="{ on: focusHand === 'left' }"
+              @click="setFocusHand('left')">{{ t("editor.handLeft") }}</button>
             <button
               id="kf-edit-hand-right"
               class="zoom-btn"
-              :class="{ on: editingHand === 'right' }"
-              @click="editingHand = 'right'">{{ t("editor.handRight") }}</button>
+              :class="{ on: focusHand === 'right' }"
+              @click="setFocusHand('right')">{{ t("editor.handRight") }}</button>
             <button
               id="kf-mirror-to-other"
               class="zoom-btn"
