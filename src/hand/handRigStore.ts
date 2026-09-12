@@ -54,13 +54,13 @@ export const DEFAULT_SHAPE: HandShapeParams = {
   facets: 15,
   knuckleBulge: 1.1,
   shaftTaper: 0.92,
-  tipTaper: 0.66,
+  tipTaper: 0.74,
   padFlat: 0.35,
   arch: 0.06,
   palmTaper: 0.84,
   palmCup: 0.03,
   web: 0.5,
-  facetJitter: 0.05,
+  facetJitter: 0.03,
 };
 
 export type HandRigConfig = {

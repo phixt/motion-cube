@@ -117,7 +117,7 @@ function facetize(
   const n = new Vector3();
   for (let t = 0; t < pos.count; t += 3) {
     n.set(nrm.getX(t), nrm.getY(t), nrm.getZ(t));
-    const shade = 0.78 + 0.22 * Math.max(0, n.dot(FAKE_LIGHT));
+    const shade = 0.9 + 0.1 * Math.max(0, n.dot(FAKE_LIGHT)); // 自发光口径：弱化刻面观感
     const jit = 1 + (rng() - 0.5) * 2 * jitter;
     for (let k = 0; k < 3; k++) {
       const o = (t + k) * 3;
@@ -230,42 +230,52 @@ function loftGeometry(rings: Vec3[][], capStart: boolean, capEnd: boolean): Buff
 }
 
 /**
- * 指蹼 U 形谷棱柱（内凹口径，0.4.0 十一轮回归）：XY 截面 = U 谷线（两侧高、谷底低，
- * θ π→2π 下半圆弧采样）+ 底边，沿 Z 从 z0（没入掌面）到 z1；谷面条带外法线朝谷口，
- * 前端帽外法线 +Z。谷线顶低于指根球顶 → 只内凹不外凸；端头由指根关节球遮盖。
+ * 指蹼双凹透镜棱柱（0.4.0 十二轮）：XY 截面为透镜形——背侧 U 谷下凹 + 掌侧 ∩ 上凹，
+ * 指背/指面两面都是内凹面（此前 U 谷棱柱仅背侧有凹面）；沿 Z 从 z0（没入掌面）到 z1，
+ * 前帽随形。端头由指根关节球遮盖。
  */
-function webGussetGeometry(
+function webLensGeometry(
   xL: number,
   xR: number,
   yTop: number,
-  yBottom: number,
-  R: number,
+  yBot: number,
+  dipT: number,
+  dipB: number,
   z0: number,
   z1: number,
-  arcSegs: number,
+  segs: number,
 ): BufferGeometry {
   const cx = (xL + xR) / 2;
-  const arc = (th0: number, th1: number): Vec3[] => {
-    const pts: Vec3[] = [];
-    for (let k = 0; k <= arcSegs; k++) {
-      const th = th0 + ((th1 - th0) * k) / arcSegs;
-      pts.push([cx + R * Math.cos(th), yTop + R * Math.sin(th), 0]);
-    }
-    return pts;
+  const half = (xR - xL) / 2;
+  const bell = (x: number): number => {
+    const t = Math.max(-1, Math.min(1, (x - cx) / half));
+    return Math.sqrt(1 - t * t); // 圆弧逼近：中心 1、两端 0
   };
-  const curveLR = arc(Math.PI, 2 * Math.PI); // 左→右经谷底
-  const ring0 = curveLR.map((p) => [p[0], p[1], z0] as Vec3);
-  const ring1 = curveLR.map((p) => [p[0], p[1], z1] as Vec3);
-  const wall: number[] = [];
-  for (let k = 0; k < ring0.length - 1; k++) {
-    wall.push(...ring0[k], ...ring1[k], ...ring1[k + 1]);
-    wall.push(...ring0[k], ...ring1[k + 1], ...ring0[k + 1]);
+  const topY = (x: number): number => yTop - dipT * bell(x);
+  const botY = (x: number): number => yBot + dipB * bell(x);
+  const xs: number[] = [];
+  for (let k = 0; k <= segs; k++) xs.push(xL + ((xR - xL) * k) / segs);
+  const mk = (z: number): { top: Vec3[]; bot: Vec3[] } => ({
+    top: xs.map((x) => [x, topY(x), z] as Vec3),
+    bot: xs.map((x) => [x, botY(x), z] as Vec3),
+  });
+  const A = mk(z0);
+  const B = mk(z1);
+  const topPos: number[] = [];
+  const botPos: number[] = [];
+  for (let k = 0; k < xs.length - 1; k++) {
+    // 顶面谷条带（法线 +Y）
+    topPos.push(...A.top[k], ...B.top[k], ...B.top[k + 1]);
+    topPos.push(...A.top[k], ...B.top[k + 1], ...A.top[k + 1]);
+    // 底面谷条带（法线 -Y，反绕）
+    botPos.push(...A.bot[k], ...A.bot[k + 1], ...B.bot[k + 1]);
+    botPos.push(...A.bot[k], ...B.bot[k + 1], ...B.bot[k]);
   }
+  // 前帽（z1，法线 +Z）：轮廓 = 底线左→右（∩ 上凹）+ 顶线右→左（U 下凹）+ 闭合，CCW
   const cap: number[] = [];
   const outline: Vec3[] = [
-    [xL, yBottom, z1],
-    [xR, yBottom, z1],
-    ...arc(2 * Math.PI, Math.PI).map((p) => [p[0], p[1], z1] as Vec3),
+    ...B.bot.map((p) => [p[0], p[1], z1] as Vec3),
+    ...B.top.slice().reverse().map((p) => [p[0], p[1], z1] as Vec3),
   ];
   const c: Vec3 = [0, 0, z1];
   for (const p of outline) {
@@ -276,7 +286,11 @@ function webGussetGeometry(
     const k2 = (k + 1) % outline.length;
     cap.push(...c, ...outline[k], ...outline[k2]);
   }
-  return mergeGeometries([positionsToGeometry(wall), positionsToGeometry(cap)]);
+  return mergeGeometries([
+    positionsToGeometry(topPos),
+    positionsToGeometry(botPos),
+    positionsToGeometry(cap),
+  ]);
 }
 
 /** 掌指横弓 / 指根随动：中部（中指 x≈0）向背侧弓起（掌心凹），边缘归零 */
@@ -345,7 +359,7 @@ function buildFingerChain(
       );
       rings.push(ringPoints(F, wHalf * endF, tHalf * endF, tHalf * endF, nPad, nBack, 0, len));
       const tipRing = rings[rings.length - 1];
-      const apex: Vec3 = [0, 0, len + len * 0.18];
+      const apex: Vec3 = [0, 0, len + len * 0.12];
       geo = mergeGeometries([loftGeometry(rings, false, false), fanGeometry(tipRing, apex, true)]);
     } else {
       const midF = lf(1, endF, 0.5) * lf(1, shape.shaftTaper, 0.6);
@@ -561,14 +575,15 @@ export function buildHandMesh(
     const xR = Math.max(xa, xb);
     const web = tintedMesh(
       facetize(
-        webGussetGeometry(
+        webLensGeometry(
           xL,
           xR,
-          yRoot + 0.01 * H, // 谷线顶低于指根球顶：内凹不外凸
-          yRoot - 0.22 * H,
-          ((xR - xL) / 2) * (0.3 + 0.5 * shape.web) * grad[i],
+          yRoot + 0.02 * H, // 背缘（低于指根球顶）
+          yRoot - 0.14 * H, // 掌缘
+          0.045 * H * grad[i], // 背侧凹深（中缝最深）
+          0.035 * H,        // 掌侧凹深
           mcpZ - 0.01 * H,
-          mcpZ + 0.14 * H, // 后撤：前端帽不越过指根球前缘
+          mcpZ + 0.14 * H,
           6,
         ),
         SKIN,

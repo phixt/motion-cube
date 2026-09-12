@@ -143,6 +143,10 @@
   4. `git switch main && git merge feat/hand-lowpoly`（不 push、不打 tag——tag 触发
      Release CI）；docs/hand-api-spec.md 随分支进入 main 供实现方 AI 使用；
   5. 合并后旧分支清理（feat/hand-lowpoly 保留至真机定版）。
+- ✅ **手部细化·十二轮（2026-09-12，已落地）**：① **指蹼双凹透镜棱柱**——背侧 U 谷
+  + 掌侧 ∩ 上凹（指面侧也有内凹面，解决单面问题），圆弧逼近全曲面；② **自发光口径**——
+  伪受光对比 0.78+0.22→0.9+0.1、刻面抖动 0.05→0.03（面观感弱化、整体平亮偏白）；
+  ③ **指尖收钝**——tipTaper 0.66→0.74、前伸 0.18→0.12len。
 - ⬜ 待办：用户**真机确认**手感/观感（渲染类改动真机前置教训）→ 合并 main；
   合并前决策：删除 handGeometry.ts 冻结基线与 #/hand-lab（或保留 A/B 一轮）；
   CI verify 块补 `npx tsx scripts/verify-hand-mesh.ts`。
