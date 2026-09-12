@@ -231,6 +231,13 @@
   记录最近值）；playtest 断言更新（handLeft/handRight + 类型校验）。gen-samples
   双轨化重生成示例库。全验证绿（typecheck/build/verify×2/playtest 十七截图/
   双手贴面分离与右手编辑实测）。
+- ✅ **主位手规则定版（十九轮用户纠偏，11fedb6）**——认知纠正：主位是随模式走的
+  角色，非固定左手。**双手状态 = 右手主位**（公式右撇子基准，默认编辑右手）；
+  **单手状态 = 默认左手且左手即主位**（右撇子单手拼惯用左手），面板可换右手
+  （换后右手即主位）。实现：editingHand → focusHand（默认 right）；B 切换时按
+  模式重置主位（双手→right / 单手→left）；applyHandVisibility 统一显隐（单手
+  只显主位手）；toggle/setFocus 后 renderPreview 刷新面板数值与双手喂轨。实测：
+  双手默认右手高亮 ✓ / 单手默认左手 ✓ / 面板换右手即主位 ✓ / 回双手右手主位 ✓。
 - ⬜ 待办：用户**真机定版**十二轮~十六轮手部观感（main 已含；feat/hand-lowpoly
   分支保留至定版）。
 
