@@ -1,0 +1,51 @@
+{
+  "_archive": {
+    "title": "ZBLS O 组「全槽已解」3 条（已从 data/samples/cuberoot-algs.json 剔除留档）",
+    "sourceFile": "data/samples/cuberoot-algs.json → sets.zbls.cases",
+    "removedAt": "2026-09-08",
+    "ruling": "ZBLS 必然控棱（最后一组 F2L + LL 十字 EO），运行中不会出现「四槽全解、LL 棱已朝向」的回退情形，故 O 组 I/V/D 三条不是有效 ZBLS case，从数据层剔除。有效 ZBLS 全集 = 302，与 mihlefeld Alg-Trainers 302 计数一致。",
+    "notes": "三条的 setup 施加到已解态后，中层 4 棱全部 home（缺槽数=0），solver 建表（src/cube/solver/zbls.ts prepare）本来就按 normalize<0 跳过，剔除前后查找表逐条一致（tableSize=268, genCount=1696）。scripts/gen-cuberoot-algs.mjs 已加同口径形状过滤，再生成不会回潮。详细引用修改说明见同目录 zbls-ogroup-3-cases.md。",
+    "restoreHint": "若需恢复：把 cases 数组插回 zbls.cases（原位置在 id 5283「P T」之前、id 6080「T」之后即可）；mirrorCaseId 均为自指，无外部镜像链依赖。"
+  },
+  "cases": [
+    {
+      "id": 6081,
+      "name": "I",
+      "subgroup": "O",
+      "setup": "F U R U' R' F'",
+      "mirrorCaseId": 6081,
+      "algs": [
+        ["F R U R' U' F'"],
+        ["L F U F' U' L'", "U F' L' U' L U F"],
+        ["B L U L' U' B'"],
+        ["R B U B' U' R'"]
+      ]
+    },
+    {
+      "id": 6082,
+      "name": "V",
+      "subgroup": "O",
+      "setup": "F R U R' U' F'",
+      "mirrorCaseId": 6082,
+      "algs": [
+        ["F U R U' R' F'", "U2 f R U R' U' f'"],
+        ["L U F U' F' L'", "U2 l F U F' U' l'", "F' U' L' U L F", "U2 f' L' U' L U f"],
+        ["B U L U' L' B'", "U2 b L U L' U' b'"],
+        ["R U B U' B' R'", "U2 r B U B' U' r'"]
+      ]
+    },
+    {
+      "id": 6083,
+      "name": "D",
+      "subgroup": "O",
+      "setup": "F R' F' R U S' R U' R' S",
+      "mirrorCaseId": 6083,
+      "algs": [
+        ["S' R U R' S U' R' F R F'"],
+        ["M' F U F' M U' F' L F L'", "S L' U' L S' U L F' L' F"],
+        ["S L U L' S' U' L' B L B'"],
+        ["M B U B' M' U' B' R B R'"]
+      ]
+    }
+  ]
+}

@@ -409,6 +409,26 @@ async function main() {
         const groups = [];
         let anyValid = false;
         const setupKey = normalizeZblsAlg(c.setup);
+        // 决议（2026-09-08）：ZBLS 必控棱——setup 施加到已解态后必须**恰有 1 个槽未解**
+        // （槽 = 角块+棱块任一不在 home 即未解；0 个未解 = 全槽已解回退型，非 ZBLS）。
+        // cuberoot O 组 I/V/D（id 6081/6082/6083）即此型，已剔除并留档
+        // docs/archived/zbls-ogroup-3-cases.json。注意不能只按棱判（zbls.ts 的
+        // missingSlot 建表口径更严——32 条「棱 home 角乱」型虽进求解器表失败，
+        // 但槽位确未解，是有效 ZBLS case，必须保留）。
+        {
+          let unsolved = 0;
+          try {
+            const st = applyAlg(solvedState(), cleanAlg(setupKey));
+            for (const [cn, en] of [["DRF", "FR"], ["DFL", "FL"], ["DLB", "BL"], ["DBR", "BR"]]) {
+              if (!cubieSolvedAt(st, pos(cn)) || !cubieSolvedAt(st, pos(en))) unsolved++;
+            }
+          } catch { unsolved = -1; }
+          if (unsolved !== 1) {
+            stats.dropped++;
+            console.warn(`[drop] ${slug}/${c.name}: 非 ZBLS 形状（setup 态未解槽数=${unsolved}，应为 1）`);
+            continue;
+          }
+        }
         // 4 组候选 = 同一 case 的 4 个槽位方向变体（cuberoot 手动 R→F→L→B 旋转）。
         // invariant 只对「setup 匹配的槽位」（组 0 形态）闭环；其余组在求解时按槽位实时验证。
         // 因此：全部组全部候选（cubing 可播放 + 可解析）落库；anyValid 用组 0 闭环判定 case 合法。

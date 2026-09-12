@@ -1,7 +1,8 @@
 /**
  * zbls.ts — ZBLS 一步：最后一组 F2L + 顶层十字 EO（CFOP 高级 solveAdvanced 用）。
  *
- * 数据：cuberoot 305 条 ZBLS case，每条 4 组槽位方向候选（组 0 = FR 槽公式）。
+ * 数据：cuberoot 302 条 ZBLS case（O 组全槽已解 3 条已按决议剔离数据层，
+ *   留档 docs/archived/zbls-ogroup-3-cases.md），每条 4 组槽位方向候选（组 0 = FR 槽公式）。
  * 坐标：状态 = 「3 组 F2L 完成 + 1 组缺 + LL 任意」。
  *   normalize(state) = 缺槽（中层棱判定，4 棱全 home 或缺 >1 槽 → 无效码 -1）
  *   → 槽位 y 归一到 FR → LL 坐标（角置换×朝向×棱置换×翻色）AUF U 归一的取小。
@@ -21,7 +22,13 @@ const SLOT_EDGE_POS: Array<[string, [number, number, number]]> = [
   ["BL", [-1, 0, -1]],
   ["BR", [1, 0, -1]],
 ];
-// 缺槽 → 槽位归一到 FR 的 y 整转次数（engine.rot(v,1,1): FR→FL→BL→BR→FR，故 BR→FR 需 1 次 y）
+// 缺槽 → 槽位归一到 FR 的 y 整转次数。
+// ⚠ 已知局限（2026-09-11 F 段实证）：新旧两版映射（{FL:3,BL:2,BR:1} 与
+//   {FL:1,BL:2,BR:3}）下非 FR 缺槽查表均 100% 脱靶（F 段 0 命中）——方向推导
+//   （y 内容循环 F→R→B→L 时新映射应为正，共轭/直加两口径皆然）与实证矛盾，
+//   嫌疑转向 F 段构造的组↔槽对应/整转残差或建表-查表口径不对称；修法另行
+//   设计，落地时把 verify-zbls-rounds.ts F 段恢复为硬断言。
+// 当前维持旧版数值 = 非 FR 槽查表脱靶后静默回退（与 0.3.8 生产行为一致）。
 const Y_TO_FR: Record<string, number> = { FR: 0, FL: 3, BL: 2, BR: 1 };
 const Y_MOVES = ["", "y", "y2", "y'"];
 const U_MOVES = ["", "U", "U2", "U'"];
@@ -102,7 +109,7 @@ export function prepare(): ZBLSTables {
     let st: State;
     try { st = applyAlg(solvedState(), setupMoves); } catch { continue; }
     const code = normalize(st);
-    if (code < 0) continue; // setup 态非 ZBLS 态（如 D 类 4 棱 home）→ 该 case 不可用
+    if (code < 0) continue; // setup 态非 ZBLS 态（缺槽数≠1）→ 跳过；数据层已按决议剔除此类型
     let list = table.get(code);
     if (!list) table.set(code, (list = []));
     for (const group of c.algs) {
