@@ -37,7 +37,7 @@ function shapeOf(st: Uint8Array): string {
   return unsolved.join("+") || "ALL-SOLVED";
 }
 
-// ---- cuberoot 305 形状分布 ----
+// ---- cuberoot zbls（现库 302）形状分布回归检查 ----
 const dist = new Map<string, number>();
 const extra: Array<{ subgroup: string; name: string; id: number; setup: string }> = [];
 let fail = 0;
@@ -68,4 +68,4 @@ for (const v of Object.values(mi) as any[]) {
   if (shapeOf(st) === "ALL-SOLVED") miAllSolved++;
 }
 console.log(`\n== mihlefeld 302：全槽已解形条数 = ${miAllSolved}（应为 0，即这 3 条确实不在 302 内）==`);
-console.log(`== 结论：O 组 ${arc.cases.length} 条已剔离数据层（留档可溯）→ 有效 ZBLS 全集 = 302，与 mihlefeld 一致 ==`);
+console.log(`== 结论：O 组 ${arc.cases.length} 条已剔除数据层（留档可溯）→ 有效 ZBLS 全集 = 302，与 mihlefeld 一致 ==`);

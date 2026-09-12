@@ -243,7 +243,7 @@ console.log("== E 数据完整性检查 ==");
   }
   expect(arc.cases.length === 3, `[E] 归档应为 3 条，实际 ${arc.cases.length}`);
   for (const a of arc.cases) {
-    expect(a.subgroup === "O" && a.setup, `[E] 归档条目异常: ${a.id}`);
+    expect(a.subgroup === "O" && !!a.setup, `[E] 归档条目异常: ${a.id}`);
     const st = applySafe(SOLVE, a.setup)!;
     expect(st && missingEdgeCount(st) === 0, `[E] 归档条目 ${a.name} 应为全槽已解型（缺槽=0）`);
   }

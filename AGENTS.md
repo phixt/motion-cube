@@ -35,11 +35,15 @@
   setPose/playFrames 对称驱动双手（左=右镜像），setHandType=单手显示切换、
   setVisible(true) 恢复双手；实现方硬约束（禁改 handMesh/HandRig 类型/HandRigView
   签名/playtest 断言）见 docs/hand-api-spec.md；真机验证已通过。
-- **内置公式库**：`data/samples/cuberoot-algs.json`（爬自 api.cuberoot.me，241 个
-  case：2-look-oll/oll/2-look-pll/pll/f2l + 2-look-cmll/cmll/eo4a/lse-eolr）由
-  `scripts/gen-cuberoot-algs.mjs` 生成（含最小 54 贴纸引擎语义校验）；访问器
-  `src/data/algDb.ts` 导出 `BUILTIN_LIBRARY`（公式 id `cr-<caseId>`，tags=CFOP/Roux）；
-  公式库页「加载内置公式库」按钮合并落库。
+- **内置公式库**：`data/samples/cuberoot-algs.json`（爬自 api.cuberoot.me，11 集合
+  1015 个 case：2-look-oll/oll/2-look-pll/pll/f2l + zbll 472 + zbls 302（O 组 3 条
+  全槽已解按决议剔除，留档 docs/archived/） + 2-look-cmll/cmll/eo4a/lse-eolr）由
+  `scripts/gen-cuberoot-algs.mjs` 生成（含最小 54 贴纸引擎语义校验 + ZBLS「恰 1 槽
+  未解」形状过滤）；访问器 `src/data/algDb.ts` 导出 `BUILTIN_LIBRARY`（公式 id
+  `cr-<caseId>`，tags=CFOP/Roux）；公式库页「加载内置公式库」按钮合并落库。
+  **ZBLL 覆盖口径**：主口径=库完整性 493/493=100%（52.5%/926 轨道级旧口径已废弃；
+  真实局限=ZBLS 非 FR 缺槽命中率，见 zbls.ts 注释）；验证
+  `node scripts/verify-zbll-coverage.ts` / `npx tsx scripts/verify-zbls-rounds.ts`。
 - **求解器**（移植自 rubik-cube.html，纯 TS、无运行时依赖）：`src/cube/solver/`——
   engine（54 贴纸引擎+code 置换表）、search（ItemSolver PDB/IDA*/descend）、
   algs（OLL/PLL/CMLL 坐标 + 逐条核验的内置 LL 公式库 + algGraph）、f2lTable（150 case）、

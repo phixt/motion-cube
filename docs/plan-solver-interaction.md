@@ -17,8 +17,10 @@
   - cfop-adv = F2L×3 → 第4槽 min(F2L, ZBLS) → LL min(EO预置+一步ZBLL, 普通)——**双路线取短**，
     实测 24 样本 0/24 变劣、均值 61.21 ≤ 61.58。
   - roux-adv = EOLR + 6E2C（`l4e` 整段搜索，含 cornerUFR 处理）——**LSE 一次算完**。
-- 数据：`data/samples/cuberoot-algs.json` 241 case（zbll 472 条、zbls 305 条落库）；一步 ZBLL
-  查表 M2 闭包 **52.5% 覆盖**，未覆盖回退 OLL+PLL；**EOLR 一步表命中率 ~0**（46 case 仅全 EO 22 条，指纹匹配需改）。
+- 数据：`data/samples/cuberoot-algs.json` 11 集合 1015 case（zbll 472 条、zbls 302 条落库，
+  O 组 3 条已剔除留档）；一步 ZBLL 库完整 **493/493**（旧「M2 闭包 52.5% 覆盖」为已废弃
+  轨道级口径；未命中时回退 OLL+PLL；真实问题=非 FR 缺槽命中率，见 zbls.ts 注释）；
+  **EOLR 一步表命中率 ~0**（46 case 仅全 EO 22 条，指纹匹配需改）。
 
 ### 1.2 播放速度：单一滑条（证据确凿）
 - `src/vue/pages/GamePage.vue`：`speed ref(1)` + WinSlider 0.1–3.0 StepFrequency0.1；
@@ -82,7 +84,9 @@
   保留新数据/新表（zbll 472 等）仅作为高级数据，不污染普通。
 
 ### 2.4 高级须先调研、数据支撑
-- zbll「表现很差」（一步表 52.5% 覆盖 + M2 闭包口径存疑）；EOLR 命中率 ~0（46 case 仅 22 全 EO）。
+- zbll「表现很差」——**调研已定案**（09-12）：52.5%/M2 闭包系轨道级口径混用；库实际
+  完整 493/493，「差」的真实来源=建表-查表命中率（ZBLS 非 FR 缺槽脱靶回退、EOLR
+  命中率 ~0，46 case 仅 22 全 EO）。
 - 先出**调研结论文档**（zbll 真覆盖评估、roux 高级路线评估，含 cuberoot 数据核验），再决定实现。
 
 ## 3. 整改方案（分层，每层可独立成小步）
