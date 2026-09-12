@@ -5,7 +5,7 @@
  */
 import { Box3 } from "three";
 import { createDefaultRig, FINGER_ORDER } from "../src/hand/HandRig.ts";
-import { DEFAULT_HAND_CONFIG } from "../src/hand/handRigStore.ts";
+import { createRigFromConfig, DEFAULT_HAND_CONFIG } from "../src/hand/handRigStore.ts";
 import { buildHandMesh, type HandMeshResult } from "../src/hand/handMesh.ts";
 
 let failed = 0;
@@ -127,10 +127,25 @@ const extremes: Array<{ name: string; shape: Record<string, number> }> = [
   { name: "细刻面+平腹", shape: { facets: 16, padFlat: 1 } },
   { name: "尖指+深弓", shape: { tipTaper: 0.3, arch: 0.2, palmCup: 0.12 } },
   { name: "满蹼+无收窄", shape: { web: 1, shaftTaper: 1.05, palmTaper: 1 } },
+  { name: "极粗指+大隆起", shape: { fingerWidth: 1.45, knuckleBulge: 1.6 } },
 ];
 for (const e of extremes) {
-  const res = buildHandMesh(DEFAULT_HAND_CONFIG, createDefaultRig("right"), 1, { shape: e.shape });
+  // 走 createRigFromConfig：fingerWidth 乘子在骨架层生效（与运行时同路径），
+  // 因此先把 shape 覆盖合入 cfg 再建骨架与网格
+  const cfg = { ...DEFAULT_HAND_CONFIG, shape: { ...DEFAULT_HAND_CONFIG.shape, ...e.shape } };
+  const res = buildHandMesh(cfg, createRigFromConfig(cfg, "right"), 1);
   noNaN(res, `极值[${e.name}]`);
+}
+
+// ---- 3) 指根领圈存在（掌面↔MCP球凹圆角，十三轮） ----
+{
+  const res = buildHandMesh(DEFAULT_HAND_CONFIG, createRigFromConfig(DEFAULT_HAND_CONFIG, "right"), 1);
+  let collars = 0;
+  res.root.traverse((o) => {
+    const m = o as unknown as { isMesh?: boolean; userData?: { part?: string } };
+    if (m.isMesh && m.userData?.part === "knuckle-collar") collars++;
+  });
+  expect(collars === 4, `四指根领圈应为 4（实得 ${collars}）`);
 }
 
 console.log(failed === 0 ? "verify-hand-mesh: ALL PASS ✓" : `verify-hand-mesh: ${failed} FAIL`);

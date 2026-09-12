@@ -28,6 +28,8 @@ export type SegmentCalib = { length: number; width: number };
  * 全部为无量纲比例或数据单位（1 = 块边长），几何构建（handMesh.ts）消费。
  */
 export type HandShapeParams = {
+  /** 手指整体加粗乘子：四指段宽 × 此系数（拇指不乘，保持与大鱼际截面配平；十三轮新增） */
+  fingerWidth: number;
   /** 指段截面边数（low-poly 刻面；掌体自动取 max(facets*2, 12) 更圆整） */
   facets: number;
   /** 关节球隆起：关节处低 poly 球半径 = 段半宽 × 此系数（MCP 最大，向指尖递减） */
@@ -51,6 +53,7 @@ export type HandShapeParams = {
 };
 
 export const DEFAULT_SHAPE: HandShapeParams = {
+  fingerWidth: 1.15,
   facets: 15,
   knuckleBulge: 1.1,
   shaftTaper: 0.92,
@@ -206,6 +209,7 @@ export function normalizeHandRigConfig(input: unknown): HandRigConfig | null {
     rulerAngle: clampNum(obj.rulerAngle, 0, 360, DEFAULT_HAND_CONFIG.rulerAngle),
     fingers,
     shape: {
+      fingerWidth: clampNum(sh.fingerWidth, 0.9, 1.45, DEFAULT_SHAPE.fingerWidth),
       facets: Math.round(clampNum(sh.facets, 4, 16, DEFAULT_SHAPE.facets)),
       knuckleBulge: clampNum(sh.knuckleBulge, 1, 1.6, DEFAULT_SHAPE.knuckleBulge),
       shaftTaper: clampNum(sh.shaftTaper, 0.6, 1.05, DEFAULT_SHAPE.shaftTaper),
@@ -238,14 +242,18 @@ export function saveHandRigConfig(cfg: HandRigConfig): void {
 export function createRigFromConfig(cfg: HandRigConfig, handType: HandType = "right"): HandRig {
   const base = createDefaultRig(handType);
   const fingers = { ...base.fingers } as HandRig["fingers"];
+  // 手指整体加粗（十三轮）：四指段宽 × shape.fingerWidth；拇指不乘——其根截面
+  // 与大鱼际脊末环配平（buildThenarRidge target），乘子会破坏对齐
+  const fw = Math.min(1.45, Math.max(0.9, cfg.shape?.fingerWidth || 1));
   for (const name of FINGER_ORDER) {
     const segs = cfg.fingers[name];
     if (!segs) continue;
+    const k = name === "thumb" ? 1 : fw;
     fingers[name] = {
       ...fingers[name],
       segments: fingers[name].segments.map((s, i) => ({
         length: segs[i]?.length ?? s.length,
-        width: segs[i]?.width ?? s.width,
+        width: (segs[i]?.width ?? s.width) * k,
       })),
     };
   }

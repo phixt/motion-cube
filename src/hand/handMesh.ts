@@ -519,6 +519,48 @@ function buildPalm(
   return mesh;
 }
 
+/**
+ * 指根领圈（0.4.0 十三轮）：掌前缘面 ↔ 指根 MCP 球之间的静态凹圆角倒角。
+ * 挂在掌侧（root 子节点，不随指弯）——MCP 球心即弯转轴、球面旋转不变，
+ * 领圈 hug 球面在弯曲时依旧衔接；末环沉入球体内避免共面闪烁。
+ * 足印横半径受 rxMax（掌壁+微凸裕量）钳制；相邻领圈允许交叠——交叠鞍谷
+ * 即掌指隆起间的解剖凹谷，union 观感为连续掌指隆脊。
+ */
+function buildKnuckleCollar(
+  cx: number,
+  cy: number,
+  mcpZ: number,
+  wHalf: number,
+  rxMax: number,
+  shape: HandShapeParams,
+  linearOutput: boolean,
+  addOutline: AddOutline,
+  rng: () => number,
+): Mesh {
+  const F = Math.max(shape.facets, 8);
+  const rx = Math.max(Math.min(wHalf * 1.25, rxMax), 0.05 * wHalf);
+  const s = rx / (wHalf * 1.25); // 钳制比例同步作用于竖径，保持足印形状
+  const ry = wHalf * 0.94 * 1.25 * s;
+  // 凹圆角站环（wHalf 单位）：面缘宽足印 → 缓收 → 沉入球体（末环 < 球面截线半径）
+  const stations: Array<[number, number]> = [
+    [0, 1],
+    [0.18, 0.88],
+    [0.32, 0.8],
+    [0.46, 0.72],
+  ];
+  const rings: Vec3[][] = stations.map(([dz, k]) =>
+    ringPoints(F, rx * k, ry * k, ry * k, 2.3, 2.3, cy, mcpZ + dz * wHalf).map(
+      (p) => [p[0] + cx, p[1], p[2]] as Vec3,
+    ),
+  );
+  const mesh = tintedMesh(
+    facetize(loftGeometry(rings, false, false), SKIN, linearOutput, shape.facetJitter, rng),
+    "knuckle-collar",
+  );
+  addOutline(mesh);
+  return mesh;
+}
+
 /** 主入口：构建整手 low-poly 网格（坐标系与旧 buildHandGeometry 完全一致） */
 export function buildHandMesh(
   cfg: HandRigConfig,
@@ -595,6 +637,24 @@ export function buildHandMesh(
     );
     root.add(web);
     addOutline(web);
+  }
+
+  // 指根领圈（十三轮）：掌面 ↔ MCP 球静态凹圆角，掌面与手指平滑相接；
+  // 外侧掌壁+0.03H 微凸裕量钳制，相邻领圈允许交叠成掌指隆脊
+  {
+    const halfW = (cfg.palm.width / 2) * H;
+    for (let i = 0; i < FOUR.length; i++) {
+      const name = FOUR[i];
+      const base = cfg.bases[name];
+      const xData = base.x * cfg.fingerSpacing;
+      const cx = xData * H * sideSign;
+      const cy = base.y * H + shape.arch * H * archBell(xData / (cfg.palm.width / 2));
+      const wHalf = (rig.fingers[name].segments[0].width / 2) * H;
+      const wallLimit = halfW - Math.abs(cx) + 0.03 * H;
+      root.add(
+        buildKnuckleCollar(cx, cy, mcpZ, wHalf, wallLimit, shape, opts.linearOutput, addOutline, rng),
+      );
+    }
   }
 
   // 四指根：布局 × 指距，y 随横弓（archBell 期望数据单位输入）

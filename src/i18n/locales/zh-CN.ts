@@ -72,6 +72,7 @@ export const zhCN: Record<string, string> = {
   "hand.thenarHeight": "厚",
   "hand.thenarLength": "长",
   "hand.shape": "造型（low-poly，0.4.0 重构）",
+  "hand.shapeFingerWidth": "手指加粗",
   "hand.shapeFacets": "截面边数",
   "hand.shapeBulge": "关节隆起",
   "hand.shapeShaft": "段腰收窄",

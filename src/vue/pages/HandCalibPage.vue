@@ -127,6 +127,7 @@ const thumbFields: { id: string; label: string; get: () => number; set: (v: numb
 
 /** low-poly 造型字段（v4 shape，阶段1 粗粒度全局参数） */
 const shapeFields: { id: string; label: string; get: () => number; set: (v: number) => void; min: number; fix: number }[] = [
+  { id: "shape-fingerwidth", label: t("hand.shapeFingerWidth"), get: () => cfg.value.shape.fingerWidth, set: (v) => (cfg.value.shape.fingerWidth = v), min: 0.9, fix: 2 },
   { id: "shape-facets", label: t("hand.shapeFacets"), get: () => cfg.value.shape.facets, set: (v) => (cfg.value.shape.facets = v), min: 4, fix: 0 },
   { id: "shape-bulge", label: t("hand.shapeBulge"), get: () => cfg.value.shape.knuckleBulge, set: (v) => (cfg.value.shape.knuckleBulge = v), min: 1, fix: 2 },
   { id: "shape-shaft", label: t("hand.shapeShaft"), get: () => cfg.value.shape.shaftTaper, set: (v) => (cfg.value.shape.shaftTaper = v), min: 0.6, fix: 2 },

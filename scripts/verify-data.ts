@@ -48,10 +48,10 @@ import {
   upsertKeyframe,
 } from "../src/data/technique.ts";
 import {
-  FINGER_ORDER,
   clampBend,
   createDefaultPose,
   createDefaultRig,
+  FINGER_ORDER,
   type FingerName,
 } from "../src/hand/HandRig.ts";
 import {
@@ -224,9 +224,11 @@ check("handRigStore: 默认配置与骨架一致、覆盖生效", () => {
     const b = fromCfg.fingers[name].segments;
     expect(a.length === b.length, `${name} 段数应一致`);
     for (let i = 0; i < a.length; i++) {
+      // 十三轮起四指段宽 × shape.fingerWidth（骨架层加粗），拇指保持原宽
+      const wantW = name === "thumb" ? a[i].width : a[i].width * DEFAULT_HAND_CONFIG.shape.fingerWidth;
       expect(
-        a[i].length === b[i].length && a[i].width === b[i].width,
-        `${name}[${i}] 默认段应与骨架一致`,
+        a[i].length === b[i].length && Math.abs(b[i].width - wantW) < 1e-9,
+        `${name}[${i}] 默认段应与骨架一致（四指含加粗乘子）`,
       );
     }
   }
@@ -278,6 +280,33 @@ check("handRigStore: v3 旧档迁移 v4（shape 缺省回默认，无破坏）",
   const n2 = normalizeHandRigConfig(over);
   expect(n2!.shape.knuckleBulge <= 1.6, "隆起系数应截断到上限");
   expect(n2!.shape.facets === 4, "截面边数应截断到下限并取整");
+});
+
+check("handRigStore: fingerWidth 旧档补默认 + 越界截断 + 乘子仅四指（十三轮）", () => {
+  // 旧 v4 档 shape 缺 fingerWidth 字段 → 补默认
+  const v4old = structuredClone(DEFAULT_HAND_CONFIG) as Record<string, unknown>;
+  delete (v4old.shape as Record<string, unknown>).fingerWidth;
+  const n = normalizeHandRigConfig(v4old);
+  expect(n !== null, "缺 fingerWidth 的旧 v4 档应被接受");
+  expect(n!.shape.fingerWidth === 1.15, "旧档缺 fingerWidth 应补默认 1.15");
+  // 越界截断
+  const over = structuredClone(DEFAULT_HAND_CONFIG);
+  over.shape.fingerWidth = 9;
+  const n2 = normalizeHandRigConfig(over);
+  expect(n2!.shape.fingerWidth === 1.45, "加粗乘子应截断到上限 1.45");
+  over.shape.fingerWidth = 0.1;
+  const n3 = normalizeHandRigConfig(over);
+  expect(n3!.shape.fingerWidth === 0.9, "加粗乘子应截断到下限 0.9");
+  // 骨架层乘子：四指段宽 × fingerWidth，拇指保持原宽（与大鱼际截面配平）
+  const rig = createRigFromConfig(n!);
+  for (const name of FINGER_ORDER) {
+    for (let i = 0; i < rig.fingers[name].segments.length; i++) {
+      const base = DEFAULT_HAND_CONFIG.fingers[name][i].width;
+      const got = rig.fingers[name].segments[i].width;
+      const want = name === "thumb" ? base : base * 1.15;
+      expect(Math.abs(got - want) < 1e-9, `${name}[${i}] 段宽乘子应${name === "thumb" ? "不生效" : "生效"}`);
+    }
+  }
 });
 
 // ---------- 时间线 ----------

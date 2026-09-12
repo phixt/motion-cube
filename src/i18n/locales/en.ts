@@ -72,6 +72,7 @@ export const en: Record<string, string> = {
   "hand.thenarHeight": "Thickness",
   "hand.thenarLength": "Length",
   "hand.shape": "Shaping (low-poly, 0.4.0 rework)",
+  "hand.shapeFingerWidth": "Finger girth",
   "hand.shapeFacets": "Cross facets",
   "hand.shapeBulge": "Knuckle bulge",
   "hand.shapeShaft": "Shaft taper",
