@@ -342,6 +342,26 @@ check("HandRig: mirrorPose 镜像语义（双手显示，十七轮）", () => {
   expect(back.palm.transform.position.x === 0.4 && back.thumbCMC.abduction === 20, "双次镜像应还原");
 });
 
+check("technique: 关键帧 mirror 对侧手轨道序列化往返（十八轮）", () => {
+  const pose = defaultHandPose("right");
+  const t = createTechnique({
+    name: "双手测试",
+    formulaId: "f-test",
+    keyframes: [{ frame: 0, pose, mirror: mirrorPose(pose) }],
+  });
+  const back = deserializeTechnique(serializeTechnique(t));
+  expect(back.keyframes[0].mirror !== undefined, "mirror 字段应随序列化保留");
+  expect(
+    back.keyframes[0].mirror!.palm.transform.position.x === mirrorPose(pose).palm.transform.position.x,
+    "mirror 姿态往返无损",
+  );
+  // 旧档无 mirror 字段 → undefined（保持镜像跟随语义）
+  const legacy = deserializeTechnique(
+    serializeTechnique({ ...t, keyframes: [{ frame: 0, pose }] }),
+  );
+  expect(legacy.keyframes[0].mirror === undefined, "旧档无 mirror 字段应保持跟随语义");
+});
+
 check("timeline: 缓动与姿态插值", () => {
   expect(applyEasing("linear", 0.5) === 0.5, "linear");
   expect(Math.abs(applyEasing("easeIn", 0.5) - 0.25) < 1e-9, "easeIn");

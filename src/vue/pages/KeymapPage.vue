@@ -59,6 +59,7 @@ const EDITOR_ACTION_LABEL_KEYS: Record<EditorAction, string> = {
   play: "keymap.editor.play",
   "toggle-cube": "keymap.editor.cube",
   "toggle-hand": "keymap.editor.hand",
+  "toggle-both-hands": "keymap.editor.bothHands",
   "step-back": "keymap.editor.stepBack",
   "step-forward": "keymap.editor.stepForward",
   "jump-prev": "keymap.editor.jumpPrev",

@@ -21,10 +21,12 @@ import {
   type Easing,
   type StepMapping,
   type Technique,
+  type TechniqueKeyframe,
 } from "../../data/technique";
 import {
   defaultHandPose,
   FINGER_ORDER,
+  mirrorPose,
   oppositeHandType,
   type FingerName,
   type HandType,
@@ -127,6 +129,8 @@ const showCube = ref(true);
 const showHand = ref(true);
 /** 双手显示（十七轮）：对侧镜像手随主手姿态镜像驱动；默认开 */
 const showBothHands = ref(true);
+/** 双手独立编辑（十八轮）：关键帧面板当前编辑的手——main = 主手，mirror = 对侧手 */
+const editingHand = ref<"main" | "mirror">("main");
 let grayOverlay: GrayOverlay | null = null;
 let grayPanelApi: ReturnType<typeof renderGrayPanel> | null = null;
 const maskVisible = ref(false);
@@ -277,14 +281,42 @@ const stepFrames = (dir: 1 | -1, jumpKf: boolean): void => {
   renderPreview();
 };
 
-/** 姿态修改统一入口：目标帧有帧则更新；无帧且 autoKf 开启则自动建帧（以当前插值姿态为基底） */
+/** 姿态修改统一入口：目标帧有帧则更新；无帧且 autoKf 开启则自动建帧（以当前插值姿态为基底）。
+ *  十八轮双手独立编辑：patch 按编辑手路由——main 改 kf.pose；mirror 改 kf.mirror
+ *  （无显式数据时先物化 mirrorPose(kf.pose) 为可编辑副本）。 */
 const ensureAutoKfPose = (t2: Technique, frame: number, patch: (pose: Pose) => Pose): Technique => {
   const k2 = t2.keyframes.find((k) => k.frame === frame);
-  if (k2) return upsertKeyframe(t2, { ...k2, pose: patch(k2.pose) });
+  if (k2) {
+    if (editingHand.value === "mirror") {
+      const base = k2.mirror ?? mirrorPose(k2.pose);
+      return upsertKeyframe(t2, { ...k2, mirror: patch(base) });
+    }
+    return upsertKeyframe(t2, { ...k2, pose: patch(k2.pose) });
+  }
   if (!autoKf.value) return t2;
+  if (editingHand.value === "mirror") {
+    const baseMain = previewPose() ?? defaultHandPose(mirrorHandType());
+    return upsertKeyframe(t2, { frame, pose: baseMain, mirror: patch(previewMirrorPose() ?? mirrorPose(baseMain)) });
+  }
   const base = previewPose() ?? defaultHandPose((handTypeSelectEl.value?.value as HandType) ?? "right");
   return upsertKeyframe(t2, { frame, pose: patch(base) });
 };
+
+/** 清除目标帧的对侧手显式数据（恢复镜像跟随主手） */
+const clearMirrorAtPlayhead = (): void => {
+  const frame = previewFrame.value;
+  commit((t2) => {
+    const k2 = t2.keyframes.find((k) => k.frame === frame);
+    if (!k2 || k2.mirror === undefined) return t2;
+    const kf: TechniqueKeyframe = { frame: k2.frame, pose: k2.pose, easing: k2.easing };
+    return upsertKeyframe(t2, kf);
+  }, true);
+};
+
+/** 播放头处关键帧是否已有对侧手显式数据 */
+const activeKfHasMirror = computed(
+  () => tech.value?.keyframes.some((k) => k.frame === previewFrame.value && k.mirror !== undefined) ?? false,
+);
 
 const toggleShowCube = (): void => {
   showCube.value = !showCube.value;
@@ -354,6 +386,9 @@ const onEditorKey = (e: KeyboardEvent): void => {
       break;
     case "toggle-hand":
       toggleShowHand();
+      break;
+    case "toggle-both-hands":
+      toggleBothHands();
       break;
     case "step-back":
       stepFrames(-1, false);
@@ -561,14 +596,40 @@ function shownFrame(): number | null {
   return tech.value ? previewFrame.value : null;
 }
 
-/** 编辑面板显示姿态：播放头处插值姿态（含端点关键帧）；无关键帧时回退默认手位，
+/** 关键帧对侧手姿态解析：显式 mirror 数据优先，否则镜像跟随主手 */
+function resolveKfMirror(kf: TechniqueKeyframe): Pose {
+  return kf.mirror ?? mirrorPose(kf.pose);
+}
+
+/** 对侧手预览姿态：逐关键帧解析 mirror 轨道后同段同缓动插值 */
+function previewMirrorPose(): Pose | null {
+  if (!tech.value || tech.value.keyframes.length === 0) return null;
+  const resolve = resolveKfMirror;
+  if (tech.value.keyframes.length === 1) return resolve(tech.value.keyframes[0]);
+  const sorted = sortedKeyframes.value;
+  const seg = keyframeSegment(sorted, previewFrame.value);
+  if (!seg) return resolve(sorted[0]);
+  if (seg.a === seg.b) return resolve(seg.a);
+  const eased = applyEasing((seg.a.easing ?? "linear") as EasingFn, seg.local);
+  return interpolatePose(resolve(seg.a), resolve(seg.b), eased);
+}
+
+/** 编辑面板显示姿态：按编辑手取对应轨道的插值姿态；无关键帧时回退默认手位，
  *  保证数值监控常驻显示（details 已并入面板） */
 function shownPose(): Pose | null {
   if (shownFrame() === null) return null;
+  if (editingHand.value === "mirror") {
+    return previewMirrorPose() ?? defaultHandPose(mirrorHandType());
+  }
   return (
     previewPose() ??
     defaultHandPose((handTypeSelectEl.value?.value as HandType) ?? "right")
   );
+}
+
+/** 对侧手手型 = 手型选择器的对侧 */
+function mirrorHandType(): HandType {
+  return oppositeHandType((handTypeSelectEl.value?.value as HandType) ?? "right");
 }
 
 function renderSelected(keepInputs = false): void {
@@ -648,8 +709,18 @@ function renderPreview(): void {
       }
     }
   }
+  // 双手驱动（十八轮双轨）：主手恒走 pose 轨道（不随编辑手切换）；镜像手走
+  // mirror 轨道（显式 mirror 数据优先，缺省镜像跟随主手）。外部注入 API 驱动
+  // 主手时镜像手由 handApi 内部同步。
   if (handView) {
-  handView.setPose(pose ?? defaultHandPose((handTypeSelectEl.value?.value as HandType) ?? "right"));
+    handView.setPose(
+      previewPose() ?? defaultHandPose((handTypeSelectEl.value?.value as HandType) ?? "right"),
+    );
+  }
+  if (handViewMirror) {
+    handViewMirror.setPose(
+      showBothHands.value ? (previewMirrorPose() ?? defaultHandPose(mirrorHandType())) : null,
+    );
   }
 }
 
@@ -1328,11 +1399,11 @@ onMounted(() => {
   });
   handView = new HandRigView(player);
   void handView.init();
-  // 双手显示（十七轮）：对侧镜像手同场景注入，姿态经 setMirror 随主手自动镜像
-  // （外部注入 API 驱动主手时同样跟随）
-  handViewMirror = new HandRigView(player, oppositeHandType((handTypeSelectEl.value?.value as HandType) ?? "right"));
+  // 双手显示（十七轮）+ 双手独立编辑（十八轮）：对侧镜像手同场景注入，
+  // 渲染层由 renderPreview 双轨驱动（主手 pose 轨 / 对侧 mirror 轨）；
+  // 外部注入 API 驱动主手时镜像手由 handApi 内部同步
+  handViewMirror = new HandRigView(player, mirrorHandType());
   void handViewMirror.init();
-  handView.setMirror(handViewMirror);
   handViewMirror?.setVisible(showHand.value && showBothHands.value);
   grayOverlay = new GrayOverlay(player);
   void grayOverlay.init().then(() => grayOverlay?.requestApply(grayState.value));
@@ -1341,7 +1412,7 @@ onMounted(() => {
   window.addEventListener("keydown", onEditorKey);
   window.addEventListener("keyup", onEditorKey);
   (globalThis as { __motionCubeEditor?: unknown }).__motionCubeEditor = { player, handView, handViewMirror };
-  registerHandApi(handView); // DEV 外部注入 API（docs/hand-api-spec.md）
+  registerHandApi(handView, handViewMirror ?? undefined); // DEV 外部注入 API（docs/hand-api-spec.md）
   renderAll();
   // 视口渲染兜底：cubing 的 TwistyPlayer 用 IntersectionObserver 懒初始化，
   // 挂载时若视口在折叠线外（或懒初始化未触发）可能长时间空白；
@@ -1464,6 +1535,25 @@ onBeforeUnmount(() => {
           <div class="kf-edit-head">
             <WinTextBlock class="editor-label" :Text="t('editor.kfEdit')" FontSize="12" />
             <WinButton id="kf-panel-close" :Content="t('editor.stepDone')" @Click="kfPanelOpen = false" />
+          </div>
+          <div class="editor-kf-row">
+            <WinTextBlock class="editor-label" :Text="t('editor.editHand')" />
+            <button
+              id="kf-edit-hand-main"
+              class="zoom-btn"
+              :class="{ on: editingHand === 'main' }"
+              @click="editingHand = 'main'">{{ t("editor.handMain") }}</button>
+            <button
+              id="kf-edit-hand-mirror"
+              class="zoom-btn"
+              :class="{ on: editingHand === 'mirror' }"
+              @click="editingHand = 'mirror'">{{ t("editor.handMirror") }}</button>
+            <button
+              v-if="editingHand === 'mirror' && activeKfHasMirror"
+              id="kf-clear-mirror"
+              class="zoom-btn"
+              @click="clearMirrorAtPlayhead">{{ t("editor.clearMirror") }}</button>
+            <span v-if="editingHand === 'mirror' && !activeKfHasMirror" class="meta">{{ t("editor.mirrorFollow") }}</span>
           </div>
           <div class="editor-kf-row">
             <WinTextBlock class="editor-label" :Text="t('editor.frame')" />

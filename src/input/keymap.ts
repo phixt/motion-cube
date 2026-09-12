@@ -12,6 +12,7 @@ export type EditorAction =
   | "play"
   | "toggle-cube"
   | "toggle-hand"
+  | "toggle-both-hands"
   | "step-back"
   | "step-forward"
   | "jump-prev"
@@ -74,6 +75,7 @@ export const DEFAULT_EDITOR_ACTIONS: EditorKeymapConfig = {
   play: { code: "Space" },
   "toggle-cube": { code: "KeyC" },
   "toggle-hand": { code: "KeyH" },
+  "toggle-both-hands": { code: "KeyB" },
   "step-back": { code: "ArrowLeft" },
   "step-forward": { code: "ArrowRight" },
   "jump-prev": { code: "ArrowLeft", shift: true },
@@ -84,6 +86,7 @@ export const EDITOR_ACTION_ORDER: readonly EditorAction[] = [
   "play",
   "toggle-cube",
   "toggle-hand",
+  "toggle-both-hands",
   "step-back",
   "step-forward",
   "jump-prev",
@@ -165,10 +168,14 @@ export function deserializeEditorActions(text: string): EditorKeymapConfig | nul
     const raw = JSON.parse(text) as Record<string, unknown> | null;
     if (!raw || typeof raw !== "object") return null;
     const out = {} as EditorKeymapConfig;
+    // 按动作回退默认：旧档缺新动作（如 toggle-both-hands）不整体作废、保留旧自定义键
     for (const action of EDITOR_ACTION_ORDER) {
       const b = raw[action] as Partial<KeyBinding> | null;
-      if (!b || typeof b !== "object" || typeof b.code !== "string") return null;
-      out[action] = { code: b.code, shift: !!b.shift, space: !!b.space };
+      if (b && typeof b === "object" && typeof b.code === "string") {
+        out[action] = { code: b.code, shift: !!b.shift, space: !!b.space };
+      } else {
+        out[action] = { ...DEFAULT_EDITOR_ACTIONS[action] };
+      }
     }
     return out;
   } catch {

@@ -211,15 +211,15 @@ export function createDefaultPose(rig: HandRig): Pose {
  */
 export function defaultHandPose(handType: HandType = "right"): Pose {
   const pose = createDefaultPose(createDefaultRig(handType));
-  // 用户指定基准：右手 Z=-2.2 掌心朝视线；左手 Z=2.2，掌心朝右手掌心（相对），
-  // 即掌背朝视线、拇指朝上。十七轮双手显示配套：x=±0.9 分立魔方两侧——镜像手
-  // （mirrorPose 跨 x=0）不再与主手重叠（原注释「坐标待手调」落地）。
+  // 用户指定基准（十八轮）：双手分立魔方左右两侧、掌心朝魔方、拇指朝上——
+  // 右手贴右面（掌心 −x / 拇指 +y / 四指向后 −z），掌心面 ≈ x=±1.5（掌厚让心位 ±1.86）；
+  // 左手为 x 镜像。q=(w0, x√½, y√½, z0) = 绕 (1,1,0)/√2 转 180°。
   if (handType === "left") {
-    pose.palm.transform.position = { x: -0.9, y: 0, z: 2.2 };
-    pose.palm.transform.quaternion = { w: 0.5, x: 0.5, y: -0.5, z: -0.5 };
+    pose.palm.transform.position = { x: -1.86, y: 0, z: 0 };
+    pose.palm.transform.quaternion = { w: 0, x: 0.7071, y: -0.7071, z: 0 };
   } else {
-    pose.palm.transform.position = { x: 0.9, y: 0, z: -2.2 };
-    pose.palm.transform.quaternion = { w: 0.5, x: -0.5, y: -0.5, z: 0.5 };
+    pose.palm.transform.position = { x: 1.86, y: 0, z: 0 };
+    pose.palm.transform.quaternion = { w: 0, x: 0.7071, y: 0.7071, z: 0 };
   }
   return pose;
 }

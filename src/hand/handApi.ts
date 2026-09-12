@@ -7,7 +7,7 @@
  */
 import { parsePose } from "../data/technique";
 import { DEFAULT_FRAME_RATE } from "../timeline/Timeline";
-import type { HandType, Pose } from "./HandRig";
+import { mirrorPose, oppositeHandType, type HandType, type Pose } from "./HandRig";
 import type { HandRigView } from "./HandRigView";
 
 export type HandApiPlayOptions = { fps?: number; loop?: boolean };
@@ -39,9 +39,17 @@ declare global {
 }
 
 let handView: HandRigView | null = null;
+/** 镜像手（双手显示）：API 驱动主手时以 mirrorPose 同步驱动对侧 */
+let mirrorView: HandRigView | null = null;
 let playTimer: number | null = null;
 // HandRigView 未暴露显隐 getter（公开签名受规格约束不可改），API 侧记录 setVisible 最近值
 let lastVisible = true;
+
+/** 主手 + 镜像手统一驱动（镜像手取 x 镜像姿态） */
+function driveBoth(pose: Pose | null): void {
+  handView?.setPose(pose);
+  mirrorView?.setPose(pose ? mirrorPose(pose) : null);
+}
 
 const err = (error: string): HandApiResult => ({ ok: false, error });
 const ok = (): HandApiResult => ({ ok: true });
@@ -92,7 +100,7 @@ function playFrames(
   const lastFrame = parsed[parsed.length - 1].frame;
   let idx = 0;
   let startAt = performance.now();
-  handView.setPose(parsed[0].pose);
+  driveBoth(parsed[0].pose);
   playTimer = window.setInterval(() => {
     if (!handView) {
       stopPlayTimer();
@@ -102,7 +110,7 @@ function playFrames(
     const target = firstFrame + ((performance.now() - startAt) / 1000) * fps;
     if (target >= lastFrame) {
       if (!loop) {
-        handView.setPose(parsed[parsed.length - 1].pose);
+        driveBoth(parsed[parsed.length - 1].pose);
         stopPlayTimer();
         return;
       }
@@ -110,22 +118,24 @@ function playFrames(
       idx = 0;
     }
     while (idx + 1 < parsed.length && parsed[idx + 1].frame <= target) idx++;
-    handView.setPose(parsed[idx].pose);
+    driveBoth(parsed[idx].pose);
   }, 1000 / fps);
   return ok();
 }
 
-/** 挂载 window.motionCubeHand（仅 DEV）；生产 opt-in 留 B 期 */
-export function registerHandApi(view: HandRigView): void {
+/** 挂载 window.motionCubeHand（仅 DEV）；生产 opt-in 留 B 期。
+ * mirror = 双手显示的对侧手实例：API 驱动主手时自动以镜像姿态同步驱动 */
+export function registerHandApi(view: HandRigView, mirror?: HandRigView): void {
   if (!import.meta.env.DEV) return;
   handView = view;
+  mirrorView = mirror ?? null;
   lastVisible = true;
   window.motionCubeHand = {
     setPose(json: unknown): HandApiResult {
       if (!handView) return err("API 未挂载（需在编辑器页）");
       const { pose, error } = tryParsePose(json);
       if (!pose) return err(error ?? "姿态非法");
-      handView.setPose(pose);
+      driveBoth(pose);
       return ok();
     },
     playFrames,
@@ -135,19 +145,21 @@ export function registerHandApi(view: HandRigView): void {
     },
     clear(): HandApiResult {
       if (!handView) return err("API 未挂载（需在编辑器页）");
-      handView.setPose(null);
+      driveBoth(null);
       return ok();
     },
     setHandType(t: HandType): HandApiResult {
       if (!handView) return err("API 未挂载（需在编辑器页）");
       if (t !== "left" && t !== "right") return err(`手型非法：${String(t)}`);
       handView.setHandType(t);
+      mirrorView?.setHandType(oppositeHandType(t));
       return ok();
     },
     setVisible(b: boolean): HandApiResult {
       if (!handView) return err("API 未挂载（需在编辑器页）");
       if (typeof b !== "boolean") return err(`visible 必须为布尔：${String(b)}`);
       handView.setVisible(b);
+      mirrorView?.setVisible(b);
       lastVisible = b;
       return ok();
     },
@@ -167,5 +179,6 @@ export function registerHandApi(view: HandRigView): void {
 export function unregisterHandApi(): void {
   stopPlayTimer();
   handView = null;
+  mirrorView = null;
   delete window.motionCubeHand;
 }

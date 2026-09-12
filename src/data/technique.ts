@@ -11,7 +11,13 @@ export type Easing = "linear" | "easeIn" | "easeOut" | "easeInOut";
 export type TechniqueKeyframe = {
   /** 帧号（60fps 基准） */
   frame: number;
+  /** 主手（编辑器手型选择器所选手）姿态 */
   pose: Pose;
+  /**
+   * 对侧手姿态（0.4.0 十八轮双手独立编辑）：缺省 = 镜像跟随主手（mirrorPose(pose)）；
+   * 存在 = 对侧手独立轨道（可与其他关键帧的跟随态混插值）。旧档无此字段 = 跟随。
+   */
+  mirror?: Pose;
   easing?: Easing;
 };
 
@@ -230,7 +236,7 @@ export function parsePose(v: unknown): Pose {
 function parseKeyframe(v: unknown): TechniqueKeyframe {
   const o = v as Record<string, unknown> | null;
   if (!o || typeof o !== "object") throw new TechniqueError("关键帧条目非法：必须为对象");
-  const { frame, pose, easing } = o;
+  const { frame, pose, mirror, easing } = o;
   if (!Number.isInteger(frame) || (frame as number) < 0) {
     throw new TechniqueError(`关键帧帧号非法：${String(frame)}`);
   }
@@ -238,7 +244,12 @@ function parseKeyframe(v: unknown): TechniqueKeyframe {
   if (easing !== undefined && !(EASINGS as readonly string[]).includes(easing as string)) {
     throw new TechniqueError(`关键帧 ${String(frame)} 缓动非法：${String(easing)}`);
   }
-  return { frame: frame as number, pose: parsePose(pose), easing: easing as Easing | undefined };
+  return {
+    frame: frame as number,
+    pose: parsePose(pose),
+    ...(mirror !== undefined ? { mirror: parsePose(mirror) } : {}),
+    easing: easing as Easing | undefined,
+  };
 }
 
 /** 深度校验并规范化 stepMapping；结构非法抛 TechniqueError */
