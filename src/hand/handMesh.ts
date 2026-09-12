@@ -151,11 +151,13 @@ function mergeGeometries(geos: BufferGeometry[]): BufferGeometry {
   return out;
 }
 
-/** 超椭圆截面环：x∈±a（宽）、y∈±b（厚，+yOff 整体抬升）；腹侧(-y)指数 nPad 越大越扁 */
+/** 超椭圆截面环：x∈±a（宽）；腹侧(-y)半径 bPad / 背侧(+y)半径 bBack 可独立
+ * （关节环指面单独微凹成折痕、背侧不凹）；nPad/nBack 各自指数越大越扁 */
 function ringPoints(
   facets: number,
   a: number,
-  b: number,
+  bPad: number,
+  bBack: number,
   nPad: number,
   nBack: number,
   yOff: number,
@@ -167,6 +169,7 @@ function ringPoints(
     const c = Math.cos(th);
     const s = Math.sin(th);
     const n = s < 0 ? nPad : nBack;
+    const b = s < 0 ? bPad : bBack;
     pts.push([
       Math.sign(c) * Math.abs(c) ** (2 / n) * a,
       Math.sign(s) * Math.abs(s) ** (2 / n) * b + yOff,
@@ -263,7 +266,7 @@ function buildFingerChain(
     if (!seg) break; // 末梢关节（拇指 IP）：无后续段，不放关节球——指尖与四指统一为收口圆头
     const wHalf = (seg.width / 2) * H;
     // 关节球：弯折兜底 + 隆起（MCP 最大，向指尖递减）
-    const bulge = shape.knuckleBulge * (j === 0 ? 1 : j === 1 ? 0.94 : 0.88);
+    const bulge = shape.knuckleBulge * (j === 0 ? 0.9 : j === 1 ? 0.96 : 0.92);
     const ballMesh = tintedMesh(
       facetize(new SphereGeometry(wHalf * bulge, Math.max(F, 8), 4), SKIN, opts.linearOutput, shape.facetJitter, rng),
       `${name}-joint${j}`,
@@ -273,26 +276,32 @@ function buildFingerChain(
     const len = seg.length * H;
     const tHalf = wHalf * 0.94;
     const isLast = j === lastSegIndex;
-    // 纵向站环加密（曲线顺滑）+ 段体后延过盈嵌入父关节球（弯折不裂缝、连接紧密）
+    // 近圆锥（0.4.0 十轮）：段内连续收分、末环半径=下一段宽（跨段连续无分界）；
+    // 关节环指面独立微凹成折痕（背侧不凹）；根球系数下调——指根不凸出掌面
+    const nextW = isLast ? 0 : def.segments[j + 1].width;
+    const endF = isLast ? shape.tipTaper : nextW / seg.width;
+    const lf = (p: number, q: number, k: number): number => p + (q - p) * k;
     const back = 0.24 * wHalf;
     const rings: Vec3[][] = [
-      ringPoints(F, wHalf * 0.88, tHalf * 0.88, nPad, nBack, 0, -back),
-      ringPoints(F, wHalf * 0.95, tHalf * 0.95, nPad, nBack, 0, 0),
-      ringPoints(F, wHalf * shape.shaftTaper, tHalf * shape.shaftTaper, nPad, nBack, 0, len * 0.4),
-      ringPoints(F, wHalf * shape.shaftTaper, tHalf * shape.shaftTaper, nPad, nBack, 0, len * 0.75),
+      ringPoints(F, wHalf * 0.9, tHalf * 0.9 * 0.86, tHalf * 0.9, nPad, nBack, 0, -back),
+      ringPoints(F, wHalf, tHalf * 0.86, tHalf, nPad, nBack, 0, 0), // 关节环：指面折痕微凹
     ];
     let geo: BufferGeometry;
     if (isLast) {
-      // 指尖：收口两环 + 前伸圆头扇帽（合并单几何保证法线连续）
+      // 指尖：锥形收分两环 + 前伸圆头扇帽（合并单几何保证法线连续）
+      rings.push(ringPoints(F, wHalf * lf(1, endF, 0.5), tHalf * lf(1, endF, 0.5), tHalf * lf(1, endF, 0.5), nPad, nBack, 0, len * 0.45));
       rings.push(
-        ringPoints(F, wHalf * shape.tipTaper * 1.12, tHalf * shape.tipTaper * 1.12, nPad, nBack, 0, len * 0.88),
+        ringPoints(F, wHalf * lf(endF, endF * 1.08, 0.6), tHalf * lf(endF, endF * 1.08, 0.6), tHalf * lf(endF, endF * 1.08, 0.6), nPad, nBack, 0, len * 0.82),
       );
-      rings.push(ringPoints(F, wHalf * shape.tipTaper, tHalf * shape.tipTaper, nPad, nBack, 0, len));
+      rings.push(ringPoints(F, wHalf * endF, tHalf * endF, tHalf * endF, nPad, nBack, 0, len));
       const tipRing = rings[rings.length - 1];
       const apex: Vec3 = [0, 0, len + len * 0.18];
       geo = mergeGeometries([loftGeometry(rings, false, false), fanGeometry(tipRing, apex, true)]);
     } else {
-      rings.push(ringPoints(F, wHalf * 0.86, tHalf * 0.86, nPad, nBack, 0, len)); // 节端微收腰
+      const midF = lf(1, endF, 0.5) * lf(1, shape.shaftTaper, 0.6);
+      rings.push(ringPoints(F, wHalf * midF, tHalf * midF, tHalf * midF, nPad, nBack, 0, len * 0.45));
+      rings.push(ringPoints(F, wHalf * lf(1, endF, 0.85), tHalf * lf(1, endF, 0.85), tHalf * lf(1, endF, 0.85), nPad, nBack, 0, len * 0.8));
+      rings.push(ringPoints(F, wHalf * endF, tHalf * endF, tHalf * endF, nPad, nBack, 0, len));
       geo = loftGeometry(rings, false, false);
     }
     const mesh = tintedMesh(facetize(geo, SKIN, opts.linearOutput, shape.facetJitter, rng), `${name}-seg${j}`);
@@ -397,7 +406,7 @@ function buildThenarRidge(
     toward(spec(0.72), 1),
   ];
   const rings: Vec3[][] = stations.map((st) =>
-    ringPoints(F, st.a, st.b, 2.3, 2.3, st.cy, st.z).map(
+    ringPoints(F, st.a, st.b, st.b, 2.3, 2.3, st.cy, st.z).map(
       (p) => [p[0] + st.cx, p[1], p[2]] as Vec3,
     ),
   );
@@ -429,9 +438,9 @@ function buildPalm(
   // 纵向 4 站环（腕→掌中→近缘→掌指缘）：宽/厚/掌心凹连续插值，曲线顺滑
   const station = (t: number): Vec3[] => {
     const a = halfW * (shape.palmTaper + (1 - shape.palmTaper) * t);
-    const b = halfT * (1 - 0.1 * t * t); // 厚度向掌指缘渐薄
+    const b = halfT * (1 - 0.04 * t * t); // 厚度微薄（前缘保持包住指根）
     const cup = shape.palmCup * H * (t * (1 - t) * 4); // 掌心凹：中部峰值、两端归零
-    return ringPoints(F, a, b, nShape, nShape, cup, mcpZ - len * (1 - t));
+    return ringPoints(F, a, b, b, nShape, nShape, cup, mcpZ - len * (1 - t));
   };
   const rings: Vec3[][] = [
     station(0),
@@ -498,11 +507,11 @@ export function buildHandMesh(
       Math.min(a.y, b.y) * H + shape.arch * H * archBell(cxData / (cfg.palm.width / 2));
     const web = tintedMesh(facetize(new SphereGeometry(1, 12, 8), SKIN, opts.linearOutput, 0, rng), `web-${i}`);
     web.scale.set(
-      (Math.abs(xb - xa) / 2) * 0.55,
-      (0.085 + 0.05 * shape.web * grad[i]) * H,
-      0.3 * H,
+      (Math.abs(xb - xa) / 2) * 0.45,
+      (0.055 + 0.035 * shape.web * grad[i]) * H,
+      0.18 * H,
     );
-    web.position.set((xa + xb) / 2, yRoot - 0.02 * H, mcpZ + 0.12 * H);
+    web.position.set((xa + xb) / 2, yRoot - 0.05 * H, mcpZ + 0.04 * H);
     root.add(web);
     addOutline(web);
   }
