@@ -1,6 +1,7 @@
 # 手部外部注入 API · 规格说明（供实现方）
 
-> 2026-09-12 · feat/hand-lowpoly 分支 · 状态：**待实现**（可行性已评估，本文档为实现规格）。
+> 2026-09-12 · feat/hand-lowpoly 分支 · 状态：**已实现**（A 期同步 API，commit `9ca48b0`；
+> 真机验证 22 项断言全过 + `shot-editor-barehand.mjs` 回归通过）。
 > 实现方应严格遵循本文档的「冲突规避约束」——手部几何层正在高频迭代，API 层必须只调用
 > 既有公开接口，不修改几何/数据内部。
 
@@ -52,6 +53,8 @@ export function registerHandApi(handView: HandRigView): void
 2. **DEV 守卫**：`registerHandApi` 内部 `if (!import.meta.env.DEV) return;`（沿袭 `__motionCube` 先例；生产 opt-in 留二期）。
 3. `playFrames` 的帧间插值**不做**（保持实现最小）；外部要平滑就自己密帧。
 4. 所有定时器句柄存模块级变量，`unregisterHandApi` 必须清理（防切页泄漏）。
+5. 实现偏差记录：`parsePose` 原为 `technique.ts` 模块私有函数，为实现「外部数据必须过它」
+   已加 `export`（仅可见性变更，零逻辑改动，不在禁改清单内）。
 
 ## 4. 冲突规避约束（硬性）
 
