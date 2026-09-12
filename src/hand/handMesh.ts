@@ -329,8 +329,10 @@ function buildFingerChain(
     const seg = def.segments[j];
     if (!seg) break; // 末梢关节（拇指 IP）：无后续段，不放关节球——指尖与四指统一为收口圆头
     const wHalf = (seg.width / 2) * H;
-    // 关节球：弯折兜底 + 隆起（MCP 最大，向指尖递减）
-    const bulge = shape.knuckleBulge * (j === 0 ? 0.98 : j === 1 ? 1 : 0.96);
+    // 关节球：弯折兜底 + 隆起（MCP 最大，向指尖递减）；
+    // 十四轮弱化：系数组 0.98/1.0/0.96→0.93/0.95/0.92（默认 bulge 1.1 下球径
+    // 1.02/1.05/1.01 半宽，仍 ≥ 段宽保弯折兜底；系数在代码侧，旧存档立即生效）
+    const bulge = shape.knuckleBulge * (j === 0 ? 0.93 : j === 1 ? 0.95 : 0.92);
     const ballMesh = tintedMesh(
       facetize(new SphereGeometry(wHalf * bulge, Math.max(F, 8), 4), SKIN, opts.linearOutput, shape.facetJitter, rng),
       `${name}-joint${j}`,
@@ -519,12 +521,18 @@ function buildPalm(
   return mesh;
 }
 
+/** 四指根下压（十四轮，×段半宽向掌内压入）：露出掌面的截面即指根清晰超椭圆
+ * （与掌面截面对齐），MCP 球前凸 1.08→0.72 半宽（凸起减半）。0.3 是弯曲封闭
+ * 下限——压入后球在面处截线半径须仍 ≈ 指壁（sqrt(R²−d²)≈w），更深则弯折开裂 */
+const ROOT_EMBED = 0.3;
+
 /**
- * 指根领圈（0.4.0 十三轮）：掌前缘面 ↔ 指根 MCP 球之间的静态凹圆角倒角。
- * 挂在掌侧（root 子节点，不随指弯）——MCP 球心即弯转轴、球面旋转不变，
- * 领圈 hug 球面在弯曲时依旧衔接；末环沉入球体内避免共面闪烁。
- * 足印横半径受 rxMax（掌壁+微凸裕量）钳制；相邻领圈允许交叠——交叠鞍谷
- * 即掌指隆起间的解剖凹谷，union 观感为连续掌指隆脊。
+ * 指根领圈（0.4.0 十三轮引入，十四轮改造）：掌前缘面上的指根窝倒角。
+ * 十四轮起四指根整体压入掌面（ROOT_EMBED），MCP 球大部没入掌内——领圈角色从
+ * 「抱球」变为「根窝」：面缘宽足印（近椭圆）逐站收细，**末环与指根截面同式同值**
+ * （同超椭圆指数/指面折痕比例，×0.985 沉入指内）——领圈与指壁截面对齐无缝。
+ * 挂在掌侧（root 子节点，不随指弯）——球心即弯转轴、球面旋转不变，压入深度
+ * 保持球在面处截线半径 ≈ 指壁，弯曲时依旧封闭；外侧受 rxMax（掌壁+裕量）钳制。
  */
 function buildKnuckleCollar(
   cx: number,
@@ -538,21 +546,38 @@ function buildKnuckleCollar(
   rng: () => number,
 ): Mesh {
   const F = Math.max(shape.facets, 8);
-  const rx = Math.max(Math.min(wHalf * 1.25, rxMax), 0.05 * wHalf);
-  const s = rx / (wHalf * 1.25); // 钳制比例同步作用于竖径，保持足印形状
-  const ry = wHalf * 0.94 * 1.25 * s;
-  // 凹圆角站环（wHalf 单位）：面缘宽足印 → 缓收 → 沉入球体（末环 < 球面截线半径）
+  const tHalf = wHalf * 0.94; // 与 buildFingerChain 同式
+  const nPad = 2 + shape.padFlat * 0.35;
+  const nBack = 2.3 + shape.padFlat * 0.5;
+  const rx = Math.max(Math.min(wHalf * 1.22, rxMax), 0.05 * wHalf);
+  // 站环插值：rim（面缘足印）→ fing（指根截面同式，沉入 0.985）
+  const rim = { a: rx, bPad: rx * 0.94, bBack: rx * 0.94, nP: 2.3, nB: 2.3 };
+  const fing = {
+    a: wHalf * 0.985,
+    bPad: tHalf * 0.86 * 0.985, // 指面折痕比例与指根环一致
+    bBack: tHalf * 0.985,
+    nP: nPad,
+    nB: nBack,
+  };
   const stations: Array<[number, number]> = [
-    [0, 1],
-    [0.18, 0.88],
-    [0.32, 0.8],
-    [0.46, 0.72],
+    [0, 0],
+    [0.18, 0.35],
+    [0.32, 0.7],
+    [0.46, 1],
   ];
-  const rings: Vec3[][] = stations.map(([dz, k]) =>
-    ringPoints(F, rx * k, ry * k, ry * k, 2.3, 2.3, cy, mcpZ + dz * wHalf).map(
-      (p) => [p[0] + cx, p[1], p[2]] as Vec3,
-    ),
-  );
+  const rings: Vec3[][] = stations.map(([dz, k]) => {
+    const lerp = (p: number, q: number): number => p + (q - p) * k;
+    return ringPoints(
+      F,
+      lerp(rim.a, fing.a),
+      lerp(rim.bPad, fing.bPad),
+      lerp(rim.bBack, fing.bBack),
+      lerp(rim.nP, fing.nP),
+      lerp(rim.nB, fing.nB),
+      cy,
+      mcpZ + dz * wHalf,
+    ).map((p) => [p[0] + cx, p[1], p[2]] as Vec3);
+  });
   const mesh = tintedMesh(
     facetize(loftGeometry(rings, false, false), SKIN, linearOutput, shape.facetJitter, rng),
     "knuckle-collar",
@@ -639,8 +664,8 @@ export function buildHandMesh(
     addOutline(web);
   }
 
-  // 指根领圈（十三轮）：掌面 ↔ MCP 球静态凹圆角，掌面与手指平滑相接；
-  // 外侧掌壁+0.03H 微凸裕量钳制，相邻领圈允许交叠成掌指隆脊
+  // 指根领圈（十四轮改造为根窝倒角）：面缘足印 → 指根截面同式收细（截面对齐）；
+  // 外侧掌壁+0.03H 裕量钳制，相邻领圈允许交叠成掌指隆脊
   {
     const halfW = (cfg.palm.width / 2) * H;
     for (let i = 0; i < FOUR.length; i++) {
@@ -657,16 +682,18 @@ export function buildHandMesh(
     }
   }
 
-  // 四指根：布局 × 指距，y 随横弓（archBell 期望数据单位输入）
+  // 四指根：布局 × 指距，y 随横弓（archBell 期望数据单位输入）；
+  // 十四轮：根位沿 −z 压入掌面 ROOT_EMBED×半宽（截面对齐 + MCP 球前凸减半）
   const fingers = {} as Record<FingerName, FingerNodes>;
   for (const name of FOUR) {
     const base = cfg.bases[name];
     const nodes = buildFingerChain(rig, name, H, shape, opts, addOutline, rng);
     const xData = base.x * cfg.fingerSpacing;
+    const wHalf0 = (rig.fingers[name].segments[0].width / 2) * H;
     nodes.root.position.set(
       xData * H * sideSign,
       base.y * H + shape.arch * H * archBell(xData / (cfg.palm.width / 2)),
-      cfg.palm.mcpZ * H,
+      cfg.palm.mcpZ * H - ROOT_EMBED * wHalf0,
     );
     root.add(nodes.root);
     fingers[name] = nodes;

@@ -6,7 +6,8 @@
 
 ## 当前状态
 
-- 版本 **0.3.8**（package.json 与 src-tauri/tauri.conf.json 同步）
+- 版本 **0.4.0**（package.json 与 src-tauri/tauri.conf.json 同步；2026-09-12
+  feat/hand-lowpoly 合并入 main 时带入，合并本身未 bump）
 - 基座整备（2026-09-06）：手部拇指重校、新应用图标、EBUSY 修复已并入 main；
   盲拧彳亍法与求解器进阶研究封存分支，详见下节「基座整备」
 - 求解器：CFOP / CFOP+（一步 ZBLL + 回退）/ Roux（LSE 4a+6E2C）三方法全绿
@@ -38,8 +39,8 @@
   ① zbll（cfop-adv 一步 ZBLL：覆盖 52.5%、命中均步 ≈ CFOP 无实际收益）；② 桥式
   高级（roux-adv，EOLR 路线研究半途而废）。回退方式 = 方法面板移除 cfop-adv /
   roux-adv 选项（底层公式库保留休眠），基座确认后执行。
-- ⬜ **手部遗留**：硬编码微调数字 `PALM_Y_OFFSET = -0.02`（掌腹略沉，直接归零
-  观感不好）——并入手部 low-poly 重构一并解决（见下节）。
+- ✅ **手部遗留（已随合并解决）**：硬编码微调数字 `PALM_Y_OFFSET = -0.02` 属旧
+  handGeometry.ts 冻结基线，该文件已随 50c2547 合并清理删除，遗留消灭。
 
 ### 手部模型 low-poly 重构（2026-09-11 立项 🚧，分支 feat/hand-lowpoly）
 
@@ -100,10 +101,11 @@
   （绑 ZBLL 示例 7 步公式，11 关键帧：接近→握持→腕部摆动+逐指拨动→释放，
   gen-samples.ts 生成管线，公式库「加载示例」合入）；④ 裸手检查脚本支持
   SPIKE_TEC 选指定手法。
-- ⬜ **外部注入 API**（可行性评估完成待拍板）：推荐 DEV 先行——
-  `window.__motionCubeHandAPI`（setPose/playFrames/setConfig/setHandType/…）转调
-  HandRigView，外部经 DevTools / tauri eval / 本地 WebSocket 推帧；数据一律过
-  parsePose 校验；生产暴露需设置页 opt-in。
+- 🚧 **外部注入 API**（A 期已实现，9ca48b0 随合并入 main）：`window.motionCubeHand`
+  （DEV 限定：setPose/playFrames/stop/clear/setHandType/setVisible/getState，姿态全过
+  parsePose 深度校验），实现方按 docs/hand-api-spec.md 硬约束交付、规格已标记已实现；
+  ⬜ 真机验证（DevTools 控制台驱动手部姿态/播放）；B 期（WebSocket 帧流、生产
+  opt-in）暂缓。
 - ✅ **真机验收第七轮（2026-09-12 反馈，已落地）**：① **拇指轴扶正**——诊断结论：
   轴本身与四指严格平行（刚体变换不变量，编辑器默认姿态在 #/hand-lab 新增「编辑器
   默认姿态」视图实证），「下撇不平行」观感主因 = 45° 对掌扭转把弯屈方向偏出指平面
@@ -161,7 +163,18 @@
   越界截断/乘子仅四指断言（默认一致性断言同步乘子语义）；verify-hand-mesh 极值
   改走 createRigFromConfig 同路径 + 领圈计数断言 + 极粗指极值。全验证绿
   （typecheck/build/verify×2/多角度连拍目检无裂缝无闪烁）。
-- ⬜ 待办：用户**真机定版**十二轮+十三轮手部观感（main 已含；feat/hand-lowpoly
+- ✅ **手部细化·十四轮（2026-09-12，main 直做）**：① **四指根同时下压**——
+  `ROOT_EMBED=0.3`（×段半宽沿 −z 压入掌面）：露出掌面的截面即指根清晰超椭圆
+  （与掌面**截面对齐**），MCP 球前凸 1.08→0.72 半宽（**凸起减半**）；0.3 为弯曲
+  封闭下限（压入后球在面处截线半径须仍 ≈ 指壁，更深则弯折开裂）；拇指不压
+  （大鱼际脊截面配平不动）。② **关节凸起再弱化**——系数组 0.98/1.0/0.96→
+  **0.93/0.95/0.92**（默认 bulge 1.1 下球径 1.02/1.05/1.01 半宽，仍 ≥ 段宽保弯折
+  兜底）；系数在代码侧，用户旧存档（bulge 1.1）**立即生效无需重置**。③ **领圈
+  改造为根窝倒角**——球缩小+下压后从「抱球」变「根窝」：面缘足印（近椭圆 1.22
+  半宽）逐站收细，**末环与指根截面同式同值**（同超椭圆指数/指面折痕比例 0.86，
+  ×0.985 沉入指内）——领圈与指壁字面截面对齐无缝。全验证绿（typecheck/build/
+  verify×2/八角度连拍目检：掌面四指干净截面露出、球状凸起消失、根窝倒角平滑）。
+- ⬜ 待办：用户**真机定版**十二轮~十四轮手部观感（main 已含；feat/hand-lowpoly
   分支保留至定版）；外部注入 API 真机验证（handApi.ts，#/editor DEV 下
   window.motionCubeHand）。
 
