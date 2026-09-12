@@ -539,7 +539,7 @@ export class HandCalibView {
   }
 }
 
-function disposeObject(obj: Object3D): void {
+export function disposeObject(obj: Object3D): void {
   const materials = new Set<Material>();
   obj.traverse((node) => {
     const drawable = node as unknown as {

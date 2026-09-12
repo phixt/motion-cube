@@ -486,11 +486,13 @@ function buildThenarRidge(
   return mesh;
 }
 
-/** 手掌：梯形平面放样（腕→掌指缘）+ 厚度梯度 + 横弓 + 掌心纵凹 */
+/** 手掌：梯形平面放样（腕→掌指缘）+ 厚度梯度 + 横弓 + 掌心纵凹；
+ * 前缘端面经 frontFaceZ 后收（十六轮：指线以下成斜坡，近梯形直立壁消除） */
 function buildPalm(
   cfg: HandRigConfig,
   shape: HandShapeParams,
   H: number,
+  frontFaceZ: (y: number) => number,
   linearOutput: boolean,
   addOutline: AddOutline,
   rng: () => number,
@@ -514,7 +516,10 @@ function buildPalm(
     station(0),
     station(0.55),
     station(0.82),
-    station(1).map((p) => [p[0], p[1] + frontArch(p[0] / H), p[2]] as Vec3),
+    // 前环：横弓 + 端面后收（frontFaceZ 按最终 y 取值，指线以下线性后收）
+    station(1)
+      .map((p) => [p[0], p[1] + frontArch(p[0] / H), p[2]] as Vec3)
+      .map((p) => [p[0], p[1], frontFaceZ(p[1])] as Vec3),
   ];
   const mesh = tintedMesh(facetize(loftGeometry(rings, true, true), SKIN, linearOutput, shape.facetJitter, rng), "palm");
   addOutline(mesh);
@@ -525,6 +530,13 @@ function buildPalm(
  * （与掌面截面对齐），MCP 球前凸 1.08→0.72 半宽（凸起减半）。0.3 是弯曲封闭
  * 下限——压入后球在面处截线半径须仍 ≈ 指壁（sqrt(R²−d²)≈w），更深则弯折开裂 */
 const ROOT_EMBED = 0.3;
+
+/** 掌前缘斜坡（十六轮）：指线以下端面线性后收——近梯形直立壁消除，指根掌侧
+ * 与掌面真正贴合（用户实证「近梯形不在末端下压就没和手指贴上」：端面横跨全掌高
+ * 而四指只占上半段，下半段悬空直立壁）。webs/肌凸/填充棱共用 frontFaceZ 定位 */
+const FRONT_RECLINE = 0.12; // 掌缘处端面后收量（×H）
+const FRONT_SLOPE_SPAN = 0.275; // 指线→掌缘的过渡跨度（×H）
+const FINGER_LINE = 0.05; // 指线高度（×H，掌面 y）——斜坡起点
 
 /** (y,z) 平面环（指根间填充棱用，截面 ⊥ 指行 x）：θ 增向自 +z 转向 +y
  * （自 +x 端看逆时针，与 loftGeometry「θ 逆时针外法线朝外」约定一致，
@@ -562,7 +574,7 @@ function buildKnuckleFiller(
   x0: number,
   x1: number,
   cy: number,
-  mcpZ: number,
+  frontFaceZ: (y: number) => number,
   H: number,
   shape: HandShapeParams,
   linearOutput: boolean,
@@ -574,6 +586,9 @@ function buildKnuckleFiller(
   const half = Math.abs(x1 - x0) / 2;
   const crestMid = 0.022 * H; // 两窝之间：浅凹谷底
   const crestEnd = 0.045 * H; // 没入根窝端：衔接窝锥面
+  // 底面随掌前缘斜坡（frontFaceZ 在环心高度取值）——端环在窝内无所谓，
+  // 中段环的底缘恰好贴坡不悬空
+  const zBase = frontFaceZ(cy - 0.02 * H) + 0.004 * H;
   const stations = 7;
   const rings: Vec3[][] = [];
   for (let i = 0; i < stations; i++) {
@@ -581,7 +596,7 @@ function buildKnuckleFiller(
     const x = x0 + (x1 - x0) * t;
     const u = Math.abs(x - mid) / half;
     const crest = crestMid + (crestEnd - crestMid) * u * u;
-    rings.push(ringYZ(F, x, cy - 0.02 * H, mcpZ - 0.004 * H, 0.045 * H, crest, 1.5));
+    rings.push(ringYZ(F, x, cy - 0.02 * H, zBase, 0.045 * H, crest, 1.5));
   }
   const mesh = tintedMesh(
     facetize(loftGeometry(rings, false, false), SKIN, linearOutput, shape.facetJitter, rng),
@@ -592,14 +607,15 @@ function buildKnuckleFiller(
 }
 
 /**
- * 指根掌侧肌凸（0.4.0 十五轮）：每指根窝下方（掌缘方向）的浅盘状肌肉隆起——
- * 类大鱼际但更弱（弧度小，露出掌面 ~0.016H）；扁椭球罩在掌前缘面上，下半没入
- * 掌体，上缘与根窝锥面相融，相邻肌凸之间留浅谷。
+ * 指根掌侧肌凸（0.4.0 十五轮，十六轮放大贴坡）：每指根窝下方（掌缘方向）的
+ * 浅盘状肌肉隆起——类大鱼际但更弱（弧度小，露出坡面 ~0.03H）；扁椭球罩在
+ * 掌前缘斜坡上并随坡倾斜（长轴对齐坡面法线，贴坡不悬空），上缘与根窝锥面相融，
+ * 相邻肌凸之间留浅谷。
  */
 function buildPalmarPad(
   cx: number,
   cy: number,
-  mcpZ: number,
+  zFace: number,
   wHalf: number,
   H: number,
   shape: HandShapeParams,
@@ -609,8 +625,9 @@ function buildPalmarPad(
 ): Mesh {
   const F = Math.max(shape.facets * 2, 16);
   const geo = new SphereGeometry(1, F, Math.max(4, Math.round(F / 3)));
-  geo.scale(1.05 * wHalf, 0.075 * H, 0.028 * H);
-  geo.translate(cx, cy - 0.12 * H, mcpZ - 0.012 * H);
+  geo.scale(1.15 * wHalf, 0.095 * H, 0.05 * H);
+  geo.rotateX(Math.atan(FRONT_RECLINE / FRONT_SLOPE_SPAN));
+  geo.translate(cx, cy - 0.11 * H, zFace - 0.006 * H);
   const mesh = tintedMesh(
     facetize(geo, SKIN, linearOutput, shape.facetJitter, rng),
     "palmar-pad",
@@ -693,6 +710,12 @@ export function buildHandMesh(
   };
   const shape: HandShapeParams = { ...cfg.shape, ...options.shape };
   const H = cfg.handScale;
+  const mcpZ = cfg.palm.mcpZ * H;
+  // 掌前缘端面 z(y)（十六轮）：指线以上保持 mcpZ（根窝/指根贴接区），以下线性
+  // 后收成斜坡——近梯形直立壁消除；webs/填充棱/肌凸共用本函数落坡定位
+  const frontFaceZ = (y: number): number =>
+    mcpZ -
+    FRONT_RECLINE * H * Math.min(1, Math.max(0, (FINGER_LINE * H - y) / (FRONT_SLOPE_SPAN * H)));
   const rng = mulberry32(20260911);
   const outlineMat = opts.withOutline ? new LineBasicMaterial({ color: OUTLINE, toneMapped: false }) : null;
   const addOutline: AddOutline = (mesh) => {
@@ -701,8 +724,8 @@ export function buildHandMesh(
   };
   const root = new Group();
 
-  // 手掌（绝对 z：腕 → mcpZ）
-  root.add(buildPalm(cfg, shape, H, opts.linearOutput, addOutline, rng));
+  // 手掌（绝对 z：腕 → mcpZ；前缘端面随 frontFaceZ 后收）
+  root.add(buildPalm(cfg, shape, H, frontFaceZ, opts.linearOutput, addOutline, rng));
 
   // 大鱼际：肌腹式纵脊（拇指根锚在其上）
   root.add(
@@ -719,10 +742,9 @@ export function buildHandMesh(
   );
 
   // 指蹼（0.4.0 十一轮定版）：内凹 U 谷棱柱——谷线顶低于指根球顶，只凹不凸；
-  // 后撤缩窄（z 至 mcpZ+0.14、弧半径收 0.5），y 随横弓
+  // 后撤缩窄（z 至 mcpZ+0.14、弧半径收 0.5），y 随横弓；z0 随斜坡（十六轮）
   const FOUR = ["index", "middle", "ring", "pinky"] as const;
   const grad = [0.8, 1, 0.7];
-  const mcpZ = cfg.palm.mcpZ * H;
   for (let i = 0; i < 3; i++) {
     const a = cfg.bases[FOUR[i]];
     const b = cfg.bases[FOUR[i + 1]];
@@ -742,7 +764,7 @@ export function buildHandMesh(
           yRoot - 0.14 * H, // 掌缘
           0.045 * H * grad[i], // 背侧凹深（中缝最深）
           0.035 * H,        // 掌侧凹深
-          mcpZ - 0.01 * H,
+          frontFaceZ(yRoot - 0.14 * H) - 0.005 * H, // 掌缘端扎根于斜坡
           mcpZ + 0.14 * H,
           6,
         ),
@@ -788,12 +810,14 @@ export function buildHandMesh(
     const xR = Math.max(a.x, b.x) * cfg.fingerSpacing * H * sideSign;
     const cxData = ((a.x + b.x) / 2) * cfg.fingerSpacing;
     const cy = Math.min(a.y, b.y) * H + shape.arch * H * archBell(cxData / (cfg.palm.width / 2));
-    root.add(buildKnuckleFiller(xL, xR, cy, mcpZ, H, shape, opts.linearOutput, addOutline, rng));
+    root.add(buildKnuckleFiller(xL, xR, cy, frontFaceZ, H, shape, opts.linearOutput, addOutline, rng));
   }
 
-  // 指根掌侧肌凸（十五轮）：每指窝下方浅盘状隆起（类大鱼际，弧度小）
+  // 指根掌侧肌凸（十五轮，十六轮放大贴坡）：每指窝下方浅盘状隆起（类大鱼际，弧度小）
   for (const r of roots) {
-    root.add(buildPalmarPad(r.cx, r.cy, mcpZ, r.wHalf, H, shape, opts.linearOutput, addOutline, rng));
+    root.add(
+      buildPalmarPad(r.cx, r.cy, frontFaceZ(r.cy - 0.1 * H), r.wHalf, H, shape, opts.linearOutput, addOutline, rng),
+    );
   }
 
   // 四指根：布局 × 指距，y 随横弓（archBell 期望数据单位输入）；

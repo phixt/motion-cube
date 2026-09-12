@@ -10,6 +10,7 @@ import WinTextBlock from "../../vendor/winui-on-web/components/WinTextBlock.vue"
 import WinToggleSwitch from "../../vendor/winui-on-web/components/WinToggleSwitch.vue";
 import { FINGER_ORDER, type FingerName } from "../../hand/HandRig";
 import { HandCalibView } from "../../hand/HandCalibView";
+import { HandOrbitView, type HandOrbitMode } from "../../hand/HandOrbitView";
 import {
   DEFAULT_HAND_CONFIG,
   loadHandRigConfig,
@@ -42,9 +43,17 @@ const statusText = ref("");
 const scaleReadout = ref("");
 const previewRef = ref<HTMLElement | null>(null);
 const sidePreviewRef = ref<HTMLElement | null>(null);
+const zoomRef = ref<HTMLElement | null>(null);
+/** 交互视图模式：static = 固定机位；dynamic = 拖拽旋转 + 滚轮缩放 */
+const zoomMode = ref<HandOrbitMode>("static");
+const setZoomMode = (m: HandOrbitMode): void => {
+  zoomMode.value = m;
+  calibZoom?.setMode(m);
+};
 const rulerEnabled = ref(loadSettings().rulerEnabled);
 let calib: HandCalibView | null = null;
 let calibSide: HandCalibView | null = null;
+let calibZoom: HandOrbitView | null = null;
 
 const applyRuler = (): void => {
   calib?.setRuler({ enabled: rulerEnabled.value, angle: cfg.value.rulerAngle });
@@ -77,6 +86,7 @@ let refreshRaf = 0;
 const doRefresh = (): void => {
   calib?.setConfig(cfg.value);
   calibSide?.setConfig(cfg.value);
+  calibZoom?.setConfig(cfg.value);
   const pinkyLen = cfg.value.fingers.pinky.reduce((s, seg) => s + seg.length, 0);
   scaleReadout.value = t("hand.scaleNote", { n: (pinkyLen * cfg.value.handScale).toFixed(2) });
 };
@@ -228,9 +238,10 @@ onMounted(() => {
   if (!previewRef.value || !sidePreviewRef.value) return;
   calib = new HandCalibView(previewRef.value, cfg.value, "top");
   calibSide = new HandCalibView(sidePreviewRef.value, cfg.value, "left");
+  if (zoomRef.value) calibZoom = new HandOrbitView(zoomRef.value, cfg.value);
   calib.setRulerChangeHandler(onRulerAngleChange);
   calibSide.setRulerChangeHandler(onRulerAngleChange);
-  (globalThis as { __motionCubeHandCalib?: unknown }).__motionCubeHandCalib = { calib, calibSide };
+  (globalThis as { __motionCubeHandCalib?: unknown }).__motionCubeHandCalib = { calib, calibSide, calibZoom };
   syncInputs();
   refreshNow();
   applyRuler();
@@ -245,8 +256,10 @@ onBeforeUnmount(() => {
   refreshRaf = 0;
   calib?.dispose();
   calibSide?.dispose();
+  calibZoom?.dispose();
   calib = null;
   calibSide = null;
+  calibZoom = null;
   delete (globalThis as { __motionCubeHandCalib?: unknown }).__motionCubeHandCalib;
 });
 </script>
@@ -267,6 +280,15 @@ onBeforeUnmount(() => {
             <div ref="sidePreviewRef" id="hand-calib-side-view" class="hand-preview"></div>
             <WinTextBlock class="hand-view-label" :Text="t('hand.viewLeft')" FontSize="12" />
           </div>
+        </div>
+        <div class="hand-view-box hand-view-box-wide">
+          <div class="zoom-toolbar">
+            <WinTextBlock class="hand-view-label" :Text="t('hand.viewZoom')" FontSize="12" />
+            <button class="zoom-btn" :class="{ on: zoomMode === 'static' }" @click="setZoomMode('static')">{{ t("hand.viewStatic") }}</button>
+            <button class="zoom-btn" :class="{ on: zoomMode === 'dynamic' }" @click="setZoomMode('dynamic')">{{ t("hand.viewDynamic") }}</button>
+            <WinTextBlock class="hand-view-label" :Text="t('hand.viewZoomHint')" FontSize="12" />
+          </div>
+          <div ref="zoomRef" id="hand-calib-zoom-view" class="hand-preview hand-preview-zoom"></div>
         </div>
         <WinTextBlock class="hand-unit-note" :Text="t('hand.rulerUnit')" FontSize="12" />
         <WinTextBlock class="page-note" :Text="t('hand.viewHint')" />
@@ -465,6 +487,36 @@ onBeforeUnmount(() => {
   display: block;
   margin-top: 4px;
   color: var(--text-tertiary);
+}
+
+.hand-view-box-wide {
+  flex-basis: 100%;
+}
+
+.hand-preview-zoom {
+  height: 340px;
+}
+
+.zoom-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.zoom-btn {
+  border: 1px solid var(--stroke-divider);
+  border-radius: 4px;
+  background: var(--ctrl-fill-default);
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding: 2px 10px;
+  cursor: pointer;
+}
+
+.zoom-btn.on {
+  background: var(--ctrl-solid-fill);
+  color: var(--text-primary);
 }
 
 .hand-unit-note {
