@@ -27,6 +27,11 @@ const gameOps = ["help.opDrag", "help.opKeys", "help.opFormula", "help.opSpeed"]
       <WinTextBlock class="help-h2" :Text="t('help.editorOps')" FontSize="17" FontWeight="SemiBold" />
       <WinTextBlock class="page-note" :Text="t('help.editorPlaceholder')" />
     </section>
+
+    <section class="help-section">
+      <WinTextBlock class="help-h2" :Text="t('help.handApi')" FontSize="17" FontWeight="SemiBold" />
+      <WinTextBlock :Text="t('help.handApiDesc')" />
+    </section>
   </div>
 </template>
 

@@ -194,9 +194,17 @@
   / **动态**（拖拽旋转 + 滚轮缩放，阻尼）切换，测量直姿与俯视/左视同配置源，
   dispose 完整；i18n zh/en 4 键。全验证绿（typecheck/build/verify×2/playtest
   十七截图/交互视图拖拽缩放实测）。
+- ✅ **双手显示（0.4.0 十七轮，2026-09-12，下一轮开工项）**：编辑器左右手同屏。
+  `HandRigView` 加可选镜像链接 `setMirror`——主手 `setPose` 自动以 `mirrorPose`
+  （HandRig.ts 新纯函数：位置 x 取反 + 四元数 M·R·M 镜像 + CMC 展收/对掌取反 +
+  bends 照搬）驱动对侧实例，**外部注入 API 驱动主手时镜像手同样跟随**；EditorPage
+  第二实例（手型恒取选择器对侧，onHandTypeChange 联动）+ 视口显隐组「双手显示/
+  恢复单手」开关（默认开，与隐藏手独立）；`defaultHandPose` 手位 x=±0.9 分立两侧
+  （原注释「坐标待手调」落地——x=0 时镜像手与主手完全重叠）。verify-data 补
+  mirrorPose 断言（含双次镜像还原）。镜像手随既定休朝向手指自然交叠为正确镜像
+  语义，真实手法播放时双手随姿态分离。
 - ⬜ 待办：用户**真机定版**十二轮~十六轮手部观感（main 已含；feat/hand-lowpoly
-  分支保留至定版）；外部注入 API 真机验证（handApi.ts，#/editor DEV 下
-  window.motionCubeHand）。
+  分支保留至定版）。
 
 ### 路线图重排（2026-09-11 用户裁定）
 
@@ -328,9 +336,11 @@
   应用渲染与页面状态；与外部注入 API（暂缓）共用底层能力。
 - ⬜ **标灰页小魔方默认转动了 U 的 bug**：标灰面板朝向小魔方默认不是还原态而是转了
   U——与其他自定义开始态（正放/倒放起始态）一起修。
-- ⬜ **注入 API 文档**：说明页（#/help）简要说明 `window.motionCubeHand` 用法；
-  README.md 提供指引，指向新建的独立说明文档（如 docs/hand-api-usage.md）——
-  三处一并完成（用户 2026-09-12）。
+- ✅ **注入 API 文档（2026-09-12 三件套完成）**：`docs/hand-api-usage.md`（方法表/
+  快速上手/双手显示关系/验证记录）+ 说明页（#/help）「开发者 · 手部注入 API（DEV）」
+  小节 + README「外部注入 API（DEV）」指引。✅ **API 真机验证通过**（Chrome 实测
+  DEV dev server）：getState / setPose（合法通过+非法拒绝）/ playFrames（playing 态）
+  / stop / setHandType / setVisible 全按预期。
 
 ### 技术债 / 长期
 - ✅ 调试后门 `window.__motionCube` DEV 守卫（59d7751：仅 `import.meta.env.DEV` 挂载）；无 CSP ⬜

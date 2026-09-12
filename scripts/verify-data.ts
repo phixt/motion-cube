@@ -51,7 +51,9 @@ import {
   clampBend,
   createDefaultPose,
   createDefaultRig,
+  defaultHandPose,
   FINGER_ORDER,
+  mirrorPose,
   type FingerName,
 } from "../src/hand/HandRig.ts";
 import {
@@ -319,6 +321,25 @@ check("timeline: 关键帧校验", () => {
   expect(validateKeyframes([{ frame: 0 }, { frame: 10 }]) === null, "升序应通过");
   expect(validateKeyframes([{ frame: 10 }, { frame: 5 }]) !== null, "倒序应报错");
   expect(validateKeyframes([{ frame: -1 }]) !== null, "负帧号应报错");
+});
+
+check("HandRig: mirrorPose 镜像语义（双手显示，十七轮）", () => {
+  const pose = defaultHandPose("right");
+  // 赋非对称位姿便于验证（四元数存储序 w,x,y,z）
+  pose.palm.transform.position = { x: 0.4, y: 0.2, z: 0.3 };
+  pose.palm.transform.quaternion = { w: 0.9, x: 0.1, y: 0.3, z: 0.27 };
+  pose.thumbCMC = { abduction: 20, elevation: 10, rotation: 30 };
+  const m = mirrorPose(pose);
+  expect(m.palm.transform.position.x === -0.4 && m.palm.transform.position.y === 0.2 && m.palm.transform.position.z === 0.3, "镜像位置仅 x 取反");
+  expect(
+    m.palm.transform.quaternion.w === 0.9 && m.palm.transform.quaternion.x === 0.1 &&
+    m.palm.transform.quaternion.y === -0.3 && m.palm.transform.quaternion.z === -0.27,
+    "镜像四元数 y/z 分量取反（M·R·M，M=diag(−1,1,1)）",
+  );
+  expect(m.thumbCMC.abduction === -20 && m.thumbCMC.elevation === 10 && m.thumbCMC.rotation === -30, "CMC 展收/对掌取反，抬离不变");
+  expect(JSON.stringify(m.bends) === JSON.stringify(pose.bends), "bends 对称照搬");
+  const back = mirrorPose(m);
+  expect(back.palm.transform.position.x === 0.4 && back.thumbCMC.abduction === 20, "双次镜像应还原");
 });
 
 check("timeline: 缓动与姿态插值", () => {

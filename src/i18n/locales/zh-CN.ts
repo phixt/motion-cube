@@ -272,6 +272,8 @@ export const zhCN: Record<string, string> = {
   "help.opSpeed": "速度滑块：动画播放速度",
   "help.editorOps": "动画编辑器说明",
   "help.editorPlaceholder": "待编辑器实现后补充",
+  "help.handApi": "开发者 · 手部注入 API（DEV）",
+  "help.handApiDesc": "开发构建下，动画编辑器页（#/editor）挂载 window.motionCubeHand，可用脚本直接驱动手部姿态与帧播放（setPose / playFrames / stop / clear / setHandType / setVisible / getState，全部返回 { ok, error? } 不抛异常；姿态格式与手法关键帧一致，双手显示时镜像手自动跟随）。生产构建不暴露。完整用法示例见仓库 docs/hand-api-usage.md。",
 
   // 动画编辑器页
   "editor.title": "动画编辑器",
@@ -329,6 +331,8 @@ export const zhCN: Record<string, string> = {
   "editor.showCube": "显示魔方",
   "editor.hideHand": "隐藏手",
   "editor.showHand": "显示手",
+  "editor.hideBothHands": "恢复单手",
+  "editor.showBothHands": "双手显示",
   "editor.toggleHint": "快捷键：Space 播放 / C 魔方显隐 / H 手显隐",
   "editor.viewToggle": "视口显隐",
   "editor.startState": "开始状态（自定义播放起始）",

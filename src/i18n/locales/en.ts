@@ -278,6 +278,8 @@ export const en: Record<string, string> = {
   "help.opSpeed": "Speed slider: animation playback speed",
   "help.editorOps": "Animation editor",
   "help.editorPlaceholder": "To be filled in once the editor ships",
+  "help.handApi": "Developer · Hand injection API (DEV)",
+  "help.handApiDesc": "In development builds, the editor page (#/editor) exposes window.motionCubeHand for scripting hand poses and frame playback directly (setPose / playFrames / stop / clear / setHandType / setVisible / getState; all return { ok, error? } without throwing; pose format matches technique keyframes; the mirrored hand follows automatically when dual-hand display is on). Not exposed in production builds. Full usage examples: docs/hand-api-usage.md in the repository.",
 
   // Animation editor page
   "editor.title": "Animation editor",
@@ -337,6 +339,8 @@ export const en: Record<string, string> = {
   "editor.showCube": "Show cube",
   "editor.hideHand": "Hide hand",
   "editor.showHand": "Show hand",
+  "editor.hideBothHands": "Single hand only",
+  "editor.showBothHands": "Show both hands",
   "editor.toggleHint": "Keys: Space play / C cube / H hand",
   "editor.viewToggle": "View toggles",
   "editor.startState": "Start states (custom play start)",

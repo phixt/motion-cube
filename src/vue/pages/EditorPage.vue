@@ -25,6 +25,7 @@ import {
 import {
   defaultHandPose,
   FINGER_ORDER,
+  oppositeHandType,
   type FingerName,
   type HandType,
   type Pose,
@@ -112,6 +113,7 @@ const selectedFormulaId = ref("");
 
 let player: CubePlayer | null = null;
 let handView: HandRigView | null = null;
+let handViewMirror: HandRigView | null = null; // 双手显示（0.4.0 十七轮）：对侧镜像手
 let timer: number | null = null;
 let viewIo: IntersectionObserver | null = null;
 let kickTimers: number[] = [];
@@ -123,6 +125,8 @@ const grayPanelEl = ref<HTMLElement | null>(null);
 /** 魔方/手显隐（快捷键 C/H + 侧边栏按钮） */
 const showCube = ref(true);
 const showHand = ref(true);
+/** 双手显示（十七轮）：对侧镜像手随主手姿态镜像驱动；默认开 */
+const showBothHands = ref(true);
 let grayOverlay: GrayOverlay | null = null;
 let grayPanelApi: ReturnType<typeof renderGrayPanel> | null = null;
 const maskVisible = ref(false);
@@ -289,6 +293,11 @@ const toggleShowCube = (): void => {
 const toggleShowHand = (): void => {
   showHand.value = !showHand.value;
   handView?.setVisible(showHand.value);
+  handViewMirror?.setVisible(showHand.value && showBothHands.value);
+};
+const toggleBothHands = (): void => {
+  showBothHands.value = !showBothHands.value;
+  handViewMirror?.setVisible(showHand.value && showBothHands.value);
 };
 
 /** 捕获当前魔方状态为 正放/倒放 起始态 */
@@ -777,7 +786,9 @@ function commit(fn: (t2: Technique) => Technique, keepInputs = false): void {
 }
 
 const onHandTypeChange = (e: Event): void => {
-  handView?.setHandType((e.target as HTMLSelectElement).value as HandType);
+  const v = (e.target as HTMLSelectElement).value as HandType;
+  handView?.setHandType(v);
+  handViewMirror?.setHandType(oppositeHandType(v)); // 镜像手取对侧
   renderPreview(); // 默认手位随手型更新（左右手镜像位置/朝向）
 };
 
@@ -1317,13 +1328,19 @@ onMounted(() => {
   });
   handView = new HandRigView(player);
   void handView.init();
+  // 双手显示（十七轮）：对侧镜像手同场景注入，姿态经 setMirror 随主手自动镜像
+  // （外部注入 API 驱动主手时同样跟随）
+  handViewMirror = new HandRigView(player, oppositeHandType((handTypeSelectEl.value?.value as HandType) ?? "right"));
+  void handViewMirror.init();
+  handView.setMirror(handViewMirror);
+  handViewMirror?.setVisible(showHand.value && showBothHands.value);
   grayOverlay = new GrayOverlay(player);
   void grayOverlay.init().then(() => grayOverlay?.requestApply(grayState.value));
   // 编辑器快捷键：游戏公式键已解绑（编辑器内无实际含义），仅保留编辑器功能键
   // （播放/魔方与手显隐/逐帧与跳关键帧步进，设置页可配置）
   window.addEventListener("keydown", onEditorKey);
   window.addEventListener("keyup", onEditorKey);
-  (globalThis as { __motionCubeEditor?: unknown }).__motionCubeEditor = { player, handView };
+  (globalThis as { __motionCubeEditor?: unknown }).__motionCubeEditor = { player, handView, handViewMirror };
   registerHandApi(handView); // DEV 外部注入 API（docs/hand-api-spec.md）
   renderAll();
   // 视口渲染兜底：cubing 的 TwistyPlayer 用 IntersectionObserver 懒初始化，
@@ -1434,6 +1451,7 @@ onBeforeUnmount(() => {
   grayOverlay = null;
   player = null;
   handView = null;
+  handViewMirror = null;
 });
 </script>
 
@@ -1607,6 +1625,7 @@ onBeforeUnmount(() => {
           <div v-show="groupOpen.toggle" class="sb-group-body">
             <WinButton id="editor-toggle-cube" :Content="showCube ? t('editor.hideCube') : t('editor.showCube')" @Click="toggleShowCube" />
             <WinButton id="editor-toggle-hand" :Content="showHand ? t('editor.hideHand') : t('editor.showHand')" @Click="toggleShowHand" />
+            <WinButton id="editor-toggle-both-hands" :Content="showBothHands ? t('editor.hideBothHands') : t('editor.showBothHands')" @Click="toggleBothHands" />
             <WinTextBlock class="page-note" :Text="t('editor.toggleHint')" FontSize="11" />
           </div>
         </div>

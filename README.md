@@ -22,6 +22,10 @@ npm run preview
 
 WinUI 控件预览页（壳与控件的独立验证载体）：`npm run dev` 后访问 `/preview.html`。
 
+## 外部注入 API（DEV）
+
+开发构建的动画编辑器页（`#/editor`）暴露 `window.motionCubeHand`，可用脚本直接驱动手部姿态与帧播放（`setPose` / `playFrames` / `stop` / `clear` / `setHandType` / `setVisible` / `getState`）。生产构建不暴露。用法示例见 [docs/hand-api-usage.md](docs/hand-api-usage.md)，规格与实现约束见 [docs/hand-api-spec.md](docs/hand-api-spec.md)。
+
 ## UI 设置（标题栏按钮）
 
 - **主题**：系统 / 浅色 / 深色（`html.theme-light` / `html.theme-dark`）

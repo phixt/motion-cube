@@ -82,6 +82,38 @@ export type Pose = {
   contacts: Contact[];
 }
 
+export const oppositeHandType = (t: HandType): HandType => (t === "right" ? "left" : "right");
+
+/**
+ * 跨掌面中线（世界 x=0）镜像姿态：右手姿态 ↔ 左手姿态（双手显示用）。
+ * 位置 x 取反；四元数按 x 镜像（存储序 w,x,y,z 中 y/z 分量取反——M·R·M，
+ * M=diag(−1,1,1)）；bends 关节弯屈对称照搬；contacts 解剖侧语义随对侧手型
+ * 的 sideSign 自动成立；CMC 展收/对掌取反（抬离不变）。
+ */
+export function mirrorPose(pose: Pose): Pose {
+  const mirrorT = (t: Transform): Transform => ({
+    position: { x: -t.position.x, y: t.position.y, z: t.position.z },
+    quaternion: {
+      w: t.quaternion.w,
+      x: t.quaternion.x,
+      y: -t.quaternion.y,
+      z: -t.quaternion.z,
+    },
+  });
+  return {
+    ...pose,
+    palm: {
+      transform: mirrorT(pose.palm.transform),
+      thumbBase: mirrorT(pose.palm.thumbBase),
+    },
+    thumbCMC: {
+      ...pose.thumbCMC,
+      abduction: -pose.thumbCMC.abduction,
+      rotation: -pose.thumbCMC.rotation,
+    },
+  };
+}
+
 export const DEFAULT_BEND_RANGE = { min: 90, max: 180 };
 
 /**
@@ -180,12 +212,13 @@ export function createDefaultPose(rig: HandRig): Pose {
 export function defaultHandPose(handType: HandType = "right"): Pose {
   const pose = createDefaultPose(createDefaultRig(handType));
   // 用户指定基准：右手 Z=-2.2 掌心朝视线；左手 Z=2.2，掌心朝右手掌心（相对），
-  // 即掌背朝视线、拇指朝上。坐标待手调。
+  // 即掌背朝视线、拇指朝上。十七轮双手显示配套：x=±0.9 分立魔方两侧——镜像手
+  // （mirrorPose 跨 x=0）不再与主手重叠（原注释「坐标待手调」落地）。
   if (handType === "left") {
-    pose.palm.transform.position = { x: 0, y: 0, z: 2.2 };
+    pose.palm.transform.position = { x: -0.9, y: 0, z: 2.2 };
     pose.palm.transform.quaternion = { w: 0.5, x: 0.5, y: -0.5, z: -0.5 };
   } else {
-    pose.palm.transform.position = { x: 0, y: 0, z: -2.2 };
+    pose.palm.transform.position = { x: 0.9, y: 0, z: -2.2 };
     pose.palm.transform.quaternion = { w: 0.5, x: -0.5, y: -0.5, z: 0.5 };
   }
   return pose;

@@ -24,6 +24,7 @@ import {
   type HandRig,
   type HandType,
   type Pose,
+  mirrorPose,
 } from "./HandRig";
 import { buildHandMesh, meshSurfaceOffset, type FingerNodes } from "./handMesh";
 import { createRigFromConfig, loadHandRigConfig, type HandRigConfig } from "./handRigStore";
@@ -47,6 +48,8 @@ export class HandRigView {
   private pose: Pose | null = null;
   private dirty = false;
   private userVisible = true;
+  /** 镜像手（0.4.0 十七轮双手显示）：本实例 setPose 时自动以镜像姿态驱动对侧实例 */
+  private mirror: HandRigView | null = null;
 
   constructor(
     private readonly player: CubePlayer,
@@ -96,6 +99,13 @@ export class HandRigView {
     this.dirty = true;
     this.applyPose();
     void this.requestRender();
+    // 镜像手跟随（含外部注入 API 驱动路径）；对侧实例不再级联（mirror.mirror 恒空）
+    if (this.mirror) this.mirror.setPose(pose ? mirrorPose(pose) : null);
+  }
+
+  /** 关联镜像手（双手显示）：主手 setPose 自动镜像驱动对侧；null 解除关联 */
+  setMirror(other: HandRigView | null): void {
+    this.mirror = other;
   }
 
   /** 手部显隐（编辑器快捷键 M 之外的 H；与姿态无关，独立控制） */
