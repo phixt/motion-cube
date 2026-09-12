@@ -1,15 +1,14 @@
 <script setup lang="ts">
 /**
- * #/hand-lab 手部 A/B 对照（low-poly 重构调试页，不进侧栏）。
- * 左：旧 buildHandGeometry（圆柱方案，feat/hand-lowpoly 起点冻结基线）；
- * 右：新 buildHandMesh（截面放样方案）。同一标定配置 + 默认姿态
- * （bend 级联 + 拇指 CMC 三轴），缓慢自转便于绕视对比；dispose 完整（真机教训）。
+ * #/hand-lab 手部调试页（low-poly 方案，不进侧栏）。
+ * buildHandMesh（截面放样方案）单视图：标定配置 + 姿态切换
+ * （测量直姿 / 编辑器默认姿态），缓慢自转便于绕视；dispose 完整（真机教训）。
+ * （旧 buildHandGeometry 圆柱方案已随合并清理删除，A/B 对照使命完成。）
  */
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { Group, PerspectiveCamera, Scene, WebGLRenderer } from "three";
 import { defaultHandPose, FINGER_ORDER, type FingerName, type HandRig, type Pose } from "../../hand/HandRig";
 import { createRigFromConfig, loadHandRigConfig, type HandRigConfig } from "../../hand/handRigStore";
-import { buildHandGeometry } from "../../hand/handGeometry"; // 冻结旧方案（A 基线，合并前删除）
 import { buildHandMesh } from "../../hand/handMesh";
 import { CUBE_UNIT_WORLD } from "../../hand/HandRigView";
 
@@ -112,39 +111,29 @@ class HandLabView {
   }
 }
 
-const oldRef = ref<HTMLElement | null>(null);
 const newRef = ref<HTMLElement | null>(null);
-let viewOld: HandLabView | null = null;
 let viewNew: HandLabView | null = null;
 
 function buildHands(): void {
-  if (!oldRef.value || !newRef.value) return;
-  viewOld?.dispose();
+  if (!newRef.value) return;
   viewNew?.dispose();
   const cfg = loadHandRigConfig();
   const editorPose = defaultHandPose("right");
   const apply = poseMode.value === "editor"
     ? (h: HandLike) => applyEditorPose(h, editorPose)
     : (h: HandLike, rig: HandRig) => applyRestPose(h, rig, cfg);
-  // A：旧圆柱方案（handGeometry.ts 冻结基线）
-  const rigA = createRigFromConfig(cfg, "right");
-  const oldHand = buildHandGeometry(cfg, rigA, 1, true, false, false);
-  apply(oldHand as unknown as HandLike, rigA);
-  // B：新 low-poly 放样方案（handMesh.ts）
+  // 新 low-poly 放样方案（handMesh.ts）
   const rigB = createRigFromConfig(cfg, "right");
   const newHand = buildHandMesh(cfg, rigB, 1, { withMarks: true, linearOutput: false });
   apply(newHand as unknown as HandLike, rigB);
-  viewOld = new HandLabView(oldRef.value, oldHand.root);
   viewNew = new HandLabView(newRef.value, newHand.root);
-  (globalThis as { __motionCubeHandLab?: unknown }).__motionCubeHandLab = { viewOld, viewNew };
+  (globalThis as { __motionCubeHandLab?: unknown }).__motionCubeHandLab = { view: viewNew };
 }
 
 onMounted(buildHands);
 
 onBeforeUnmount(() => {
-  viewOld?.dispose();
   viewNew?.dispose();
-  viewOld = null;
   viewNew = null;
   delete (globalThis as { __motionCubeHandLab?: unknown }).__motionCubeHandLab;
 });
@@ -152,21 +141,16 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="hand-lab-page">
-    <div class="lab-title">手部 A/B 对照 · #/hand-lab（low-poly 重构调试页）</div>
+    <div class="lab-title">手部调试 · #/hand-lab（low-poly 截面放样方案）</div>
     <div class="lab-note">
-      左 = 旧圆柱方案（冻结基线）｜右 = 新截面放样方案（0.4.0）。同一标定配置，缓慢自转。
-      姿态：
+      标定配置实时加载（0.4.0），缓慢自转。姿态：
       <button class="lab-mode" :class="{ on: poseMode === 'rest' }" @click="poseMode = 'rest'; buildHands()">测量直姿</button>
       <button class="lab-mode" :class="{ on: poseMode === 'editor' }" @click="poseMode = 'editor'; buildHands()">编辑器默认姿态</button>
     </div>
     <div class="lab-views">
       <div class="lab-box">
-        <div ref="oldRef" class="lab-canvas"></div>
-        <div class="lab-tag">旧 · buildHandGeometry</div>
-      </div>
-      <div class="lab-box">
         <div ref="newRef" class="lab-canvas"></div>
-        <div class="lab-tag">新 · buildHandMesh（low-poly）</div>
+        <div class="lab-tag">buildHandMesh（low-poly）</div>
       </div>
     </div>
   </div>

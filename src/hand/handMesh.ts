@@ -13,7 +13,7 @@
  *   FingerNodes.segments 仍是接触点锚点（len/radius 语义不变，新增 thickness 供腹背侧
  *   接触偏移贴合新剖面）；
  * - 坐标系不变：数据单位 × handScale，+Z 指尖 / +Y 指背 / +X 拇指侧（右手，sideSign 镜像）；
- * - 旧 handGeometry.ts 冻结不动，仅供 #/hand-lab A/B 对照。
+ * - 旧 handGeometry.ts 圆柱方案已删除（2026-09 合并清理），#/hand-lab 保留单视图调试页。
  */
 import {
   BufferAttribute,
@@ -32,7 +32,7 @@ import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeom
 import type { FingerName, HandRig } from "./HandRig";
 import type { HandRigConfig, HandShapeParams } from "./handRigStore";
 
-/** 肤色/标记/描边（与旧 handGeometry.ts 同值；旧文件冻结故此处独立声明） */
+/** 肤色/标记/描边（沿用旧圆柱方案数值，此处独立声明） */
 export const SKIN = 0xe4d4bd;
 export const PAD = 0x4ade80;
 export const BACK = 0xf59e0b;
