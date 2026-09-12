@@ -20,6 +20,21 @@
 - Vite 8 + Vue 3.5 + TypeScript + cubing.js（3D 魔方）+ three.js（手模型）+ WinUIonWeb 壳。
 - 数据持久化全在 localStorage（settings/keymap/editorKeymap/library/handRig）。
 - 编辑器以 3D 视图为中心 + 左侧 PS 风格侧边栏；页面不滚动（详情区内部滚动）。
+- **目录与文档**：README 有「项目结构」速查树；`docs/todo.md` 是唯一进度/待办总账
+  （每轮落地后更新台账）；`docs/hand-api-usage.md` / `docs/hand-api-spec.md` 是注入
+  API 用法与硬约束规格。
+- **手部（three.js low-poly，src/hand/）**：`handMesh.ts` 截面放样几何（超椭圆剖面 +
+  掌前缘斜坡 frontFaceZ + 根窝/填充棱/掌侧肌凸/大鱼际纵脊）；`HandRig.ts`（双手默认位
+  ±1.95 贴面拇指上 + `mirrorPose` 镜像纯函数）；`handRigStore`（v4 shape 参数，
+  handScale 默认 1.85，fingerWidth 仅乘四指）；`HandOrbitView`（标定页可交互视图）。
+  **双手显示**：编辑器 handLeft/handRight 双实例，关键帧显式 left/right 双轨
+  （`TechniqueKeyframe {frame,left,right}`，旧档 {pose,mirror?} 解析迁移，默认不镜像
+  关联）；**主位手规则**——双手=右手主位（公式右撇子基准，默认编辑右手），单手=默认
+  左手且左手即主位（面板可换，换后即主位）。
+- **外部注入 API**：`window.motionCubeHand`（DEV 限定，`src/hand/handApi.ts`）——
+  setPose/playFrames 对称驱动双手（左=右镜像），setHandType=单手显示切换、
+  setVisible(true) 恢复双手；实现方硬约束（禁改 handMesh/HandRig 类型/HandRigView
+  签名/playtest 断言）见 docs/hand-api-spec.md；真机验证已通过。
 - **内置公式库**：`data/samples/cuberoot-algs.json`（爬自 api.cuberoot.me，241 个
   case：2-look-oll/oll/2-look-pll/pll/f2l + 2-look-cmll/cmll/eo4a/lse-eolr）由
   `scripts/gen-cuberoot-algs.mjs` 生成（含最小 54 贴纸引擎语义校验）；访问器
@@ -32,6 +47,9 @@
   真实魔方，重放校验 isUniform）；GamePage「求解」面板（方法切换/阶段展示/演示）。
   验证：`node scripts/smoke-solver.ts` / `scripts/smoke-solver-edge.ts`（tsx）、
   `scripts/playtest-solver.mjs`。
+- **验证套件**：`npm run typecheck` / `npm run build` / `npx tsx scripts/verify-data.ts`
+  （手法数据契约+迁移）/ `npx tsx scripts/verify-hand-mesh.ts`（手部几何自检：镜像/
+  绕向/极值）+ playtest（下行）。渲染类改动必须真机验证后再提交。
 - playtest：`node scripts/playtest-ui.mjs`（先起 dev server，SPIKE_URL 指向非 5173 端口）。
 - **reference/（gitignore，全程不入库，仅本地参考）**：`3-style-v5/三盲三循环818-魔方根.xlsx`
   （3-Style V5 盲拧三循环 818 条，中文版，已替旧彳亍法档）、`mihlefeld-alg-trainers/`

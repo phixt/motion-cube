@@ -1,6 +1,6 @@
 # Motion Cube
 
-魔方动作播放 / 编辑 / 查看工具：3D 魔方操控（cubing.js）、公式库 / 手法库管理、手法动画编辑器、手部模型标定。
+魔方动作播放 / 编辑 / 查看工具：3D 魔方操控（cubing.js）、公式库 / 手法库管理、手法动画编辑器（双手同屏，左右手独立编辑）、手部模型标定、内置求解器（CFOP / CFOP+ / Roux 分步演示与解法底选择）。
 
 > **许可证**：本项目以 [GNU GPL v3](LICENSE) 授权（因包含 GPL-3.0 的 WinUIonWeb 控件源码）。
 
@@ -8,7 +8,35 @@
 
 - Vite 8 + TypeScript + Vue 3.5（vue-router 4，hash 路由）
 - UI：WinUI 风格控件（[WinUIonWeb](https://github.com/Furry-Xiyi/WinUIonWeb) vendored，GPL-3.0，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)）
-- 3D：cubing.js（TwistyPlayer 魔方）+ three.js（手部模型）
+- 3D：cubing.js（TwistyPlayer 魔方）+ three.js（low-poly 手部模型，双手显示）
+- 桌面版：Tauri 2（NSIS 打包，tag 触发 Release CI）
+
+## 项目结构
+
+```
+motion-cube/
+├─ src/
+│  ├─ app/                 # 应用装配（App.ts：路由表 / 壳布局 / 启动引导）
+│  ├─ preview/             # WinUI 控件预览入口（preview.html）
+│  ├─ vue/pages/           # 页面：Start / Game（求解+演示）/ Library / Editor（手法编辑器）
+│  │                       #   HandCalib（手部标定）/ HandLab / Keymap / Help / RenderDemo
+│  ├─ vue/components/ composables/ styles/
+│  ├─ cube/                # CubePlayer（cubing.js 封装）+ render/（自建 three 渲染层）
+│  │                       #   + solver/（纯 TS 求解器：engine / search / algs / f2lTable / cfop / roux）
+│  ├─ hand/                # three.js 手部：handMesh（low-poly 截面放样几何）/ HandRig /
+│  │                       #   HandRigView / HandOrbitView / handRigStore / handApi（注入 API）
+│  ├─ data/                # technique.ts（手法 / 关键帧数据契约）+ 公式库 algDb / libraryStore
+│  ├─ timeline/ input/ notation/ game/ i18n/ ui/ styles/
+│  └─ vendor/winui-on-web  # WinUIonWeb 控件源码（vendored）
+├─ data/samples/           # 内置公式库 cuberoot-algs.json + 示例手法库 library.json
+├─ docs/                   # todo.md（进度 / 待办总账）+ hand-api-usage / hand-api-spec / params 等
+├─ scripts/                # 验证与截图工具（verify-* / smoke-* / playtest-* / shot-* / gen-*）
+├─ tools/icon-lab/         # 应用图标生成工具
+├─ src-tauri/              # Tauri 桌面壳（Rust；NSIS 打包；应用图标）
+└─ .github/workflows/      # CI（typecheck / build / verify / playtest）+ Release（tag 触发）
+```
+
+数据持久化全在 localStorage（settings / keymap / editorKeymap / library / handRig 等）；进度与待办以 [docs/todo.md](docs/todo.md) 为唯一总账。
 
 ## 开发
 
@@ -24,7 +52,7 @@ WinUI 控件预览页（壳与控件的独立验证载体）：`npm run dev` 后
 
 ## 外部注入 API（DEV）
 
-开发构建的动画编辑器页（`#/editor`）暴露 `window.motionCubeHand`，可用脚本直接驱动手部姿态与帧播放（`setPose` / `playFrames` / `stop` / `clear` / `setHandType` / `setVisible` / `getState`）。生产构建不暴露。用法示例见 [docs/hand-api-usage.md](docs/hand-api-usage.md)，规格与实现约束见 [docs/hand-api-spec.md](docs/hand-api-spec.md)。
+开发构建的动画编辑器页（`#/editor`）暴露 `window.motionCubeHand`，可用脚本直接驱动手部姿态与帧播放（`setPose` / `playFrames` / `stop` / `clear` / `setHandType` / `setVisible` / `getState`）。双手同屏为默认：`setPose` / `playFrames` 同时驱动左右手（左手为右手镜像）；`setHandType("left" | "right")` 切换单手显示，`setVisible(true)` 恢复双手。生产构建不暴露。用法示例见 [docs/hand-api-usage.md](docs/hand-api-usage.md)，规格与实现约束见 [docs/hand-api-spec.md](docs/hand-api-spec.md)。
 
 ## UI 设置（标题栏按钮）
 
