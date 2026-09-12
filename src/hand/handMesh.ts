@@ -28,6 +28,7 @@ import {
   SphereGeometry,
   Vector3,
 } from "three";
+import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import type { FingerName, HandRig } from "./HandRig";
 import type { HandRigConfig, HandShapeParams } from "./handRigStore";
 
@@ -36,6 +37,8 @@ export const SKIN = 0xe4d4bd;
 export const PAD = 0x4ade80;
 export const BACK = 0xf59e0b;
 export const OUTLINE = 0x2b2b33;
+/** 指甲色（较肤色更浅的暖米，偏白口径一致） */
+export const NAIL = 0xf0dcbd;
 /** 标记球 / 接触点中心到段表面的径向间隙（数据单位） */
 export const MARK_GAP = 0.05;
 /** 指腹（绿）/指背（橙）标记球半径（数据单位） */
@@ -223,58 +226,6 @@ function loftGeometry(rings: Vec3[][], capStart: boolean, capEnd: boolean): Buff
   return mergeGeometries(parts);
 }
 
-/**
- * 指蹼 U 形谷棱柱（真机验收 2026-09-11：旧菱形填充呈怪凸起，改「拆解 V 逼近 U」）：
- * XY 截面 = U 谷线（两侧高、谷底低，θ π→2π 下半圆弧采样）+ 底边，沿 Z 从 z0（没入
- * 掌面）到 z1；谷面条带外法线朝谷口，前端帽外法线 +Z。端头由指根关节球遮盖。
- */
-function webGussetGeometry(
-  xL: number,
-  xR: number,
-  yTop: number,
-  yBottom: number,
-  R: number,
-  z0: number,
-  z1: number,
-  arcSegs: number,
-): BufferGeometry {
-  const cx = (xL + xR) / 2;
-  const arc = (th0: number, th1: number): Vec3[] => {
-    const pts: Vec3[] = [];
-    for (let k = 0; k <= arcSegs; k++) {
-      const th = th0 + ((th1 - th0) * k) / arcSegs;
-      pts.push([cx + R * Math.cos(th), yTop + R * Math.sin(th), 0]);
-    }
-    return pts;
-  };
-  const curveLR = arc(Math.PI, 2 * Math.PI); // 左→右经谷底
-  const ring0 = curveLR.map((p) => [p[0], p[1], z0] as Vec3);
-  const ring1 = curveLR.map((p) => [p[0], p[1], z1] as Vec3);
-  // 谷面条带（法线朝谷口）
-  const wall: number[] = [];
-  for (let k = 0; k < ring0.length - 1; k++) {
-    wall.push(...ring0[k], ...ring1[k], ...ring1[k + 1]);
-    wall.push(...ring0[k], ...ring1[k + 1], ...ring0[k + 1]);
-  }
-  // 前帽：轮廓 = 底边左→右 + 谷线右→左（CCW），扇形三角化
-  const cap: number[] = [];
-  const outline: Vec3[] = [
-    [xL, yBottom, z1],
-    [xR, yBottom, z1],
-    ...arc(2 * Math.PI, Math.PI).map((p) => [p[0], p[1], z1] as Vec3),
-  ];
-  const c: Vec3 = [0, 0, z1];
-  for (const p of outline) {
-    c[0] += p[0] / outline.length;
-    c[1] += p[1] / outline.length;
-  }
-  for (let k = 0; k < outline.length; k++) {
-    const k2 = (k + 1) % outline.length;
-    cap.push(...c, ...outline[k], ...outline[k2]);
-  }
-  return mergeGeometries([positionsToGeometry(wall), positionsToGeometry(cap)]);
-}
-
 /** 掌指横弓 / 指根随动：中部（中指 x≈0）向背侧弓起（掌心凹），边缘归零 */
 function archBell(xn: number): number {
   const t = Math.max(-1, Math.min(1, xn));
@@ -296,8 +247,9 @@ function buildFingerChain(
 ): FingerNodes {
   const def = rig.fingers[name];
   const F = shape.facets;
-  const nPad = 2 + shape.padFlat * 2.2;
-  const nBack = 2.2;
+  // 剖面（0.4.0 九轮）：指面微凸（n 略大于 2），指背更平滑、凸更小（n 更大趋平）
+  const nPad = 2 + shape.padFlat * 0.35;
+  const nBack = 2.3 + shape.padFlat * 0.5;
   const root = new Group();
   const joints: Group[] = [];
   const segments: SegmentNode[] = [];
@@ -311,9 +263,9 @@ function buildFingerChain(
     if (!seg) break; // 末梢关节（拇指 IP）：无后续段，不放关节球——指尖与四指统一为收口圆头
     const wHalf = (seg.width / 2) * H;
     // 关节球：弯折兜底 + 隆起（MCP 最大，向指尖递减）
-    const bulge = shape.knuckleBulge * (j === 0 ? 1 : j === 1 ? 0.92 : 0.85);
+    const bulge = shape.knuckleBulge * (j === 0 ? 1 : j === 1 ? 0.94 : 0.88);
     const ballMesh = tintedMesh(
-      facetize(new SphereGeometry(wHalf * bulge, Math.max(F, 6), 3), SKIN, opts.linearOutput, shape.facetJitter, rng),
+      facetize(new SphereGeometry(wHalf * bulge, Math.max(F, 8), 4), SKIN, opts.linearOutput, shape.facetJitter, rng),
       `${name}-joint${j}`,
     );
     joint.add(ballMesh);
@@ -324,8 +276,8 @@ function buildFingerChain(
     // 纵向站环加密（曲线顺滑）+ 段体后延过盈嵌入父关节球（弯折不裂缝、连接紧密）
     const back = 0.24 * wHalf;
     const rings: Vec3[][] = [
-      ringPoints(F, wHalf * 0.9, tHalf * 0.9, nPad, nBack, 0, -back),
-      ringPoints(F, wHalf * 0.98, tHalf * 0.98, nPad, nBack, 0, 0),
+      ringPoints(F, wHalf * 0.88, tHalf * 0.88, nPad, nBack, 0, -back),
+      ringPoints(F, wHalf * 0.95, tHalf * 0.95, nPad, nBack, 0, 0),
       ringPoints(F, wHalf * shape.shaftTaper, tHalf * shape.shaftTaper, nPad, nBack, 0, len * 0.4),
       ringPoints(F, wHalf * shape.shaftTaper, tHalf * shape.shaftTaper, nPad, nBack, 0, len * 0.75),
     ];
@@ -340,12 +292,28 @@ function buildFingerChain(
       const apex: Vec3 = [0, 0, len + len * 0.18];
       geo = mergeGeometries([loftGeometry(rings, false, false), fanGeometry(tipRing, apex, true)]);
     } else {
-      rings.push(ringPoints(F, wHalf * 0.9, tHalf * 0.9, nPad, nBack, 0, len));
+      rings.push(ringPoints(F, wHalf * 0.86, tHalf * 0.86, nPad, nBack, 0, len)); // 节端微收腰
       geo = loftGeometry(rings, false, false);
     }
     const mesh = tintedMesh(facetize(geo, SKIN, opts.linearOutput, shape.facetJitter, rng), `${name}-seg${j}`);
     joint.add(mesh);
     addOutline(mesh);
+    if (isLast) {
+      // 指甲（0.4.0 九轮）：末节背侧浅色圆角片，随指尖收口微俯
+      const nail = tintedMesh(
+        facetize(
+          new RoundedBoxGeometry(wHalf * shape.tipTaper * 1.35, 0.035 * H, len * 0.36, 2, 0.014 * H),
+          NAIL,
+          opts.linearOutput,
+          0,
+          rng,
+        ),
+        `${name}-nail`,
+      );
+      nail.position.set(0, tHalf * 0.62 + 0.01 * H, len * 0.78);
+      nail.rotation.x = 0.14;
+      joint.add(nail);
+    }
     if (opts.withMarks) {
       // 腹/背标记球：偏移贴合剖面厚度 + 间隙
       const off = tHalf * shape.shaftTaper + MARK_GAP * H;
@@ -382,6 +350,7 @@ function buildThenarRidge(
   shape: HandShapeParams,
   H: number,
   sideSign: number,
+  thumbWHalf: number,
   linearOutput: boolean,
   addOutline: AddOutline,
   rng: () => number,
@@ -391,8 +360,10 @@ function buildThenarRidge(
   const mcpZ = cfg.palm.mcpZ * H;
   const halfW = (cfg.palm.width / 2) * H;
   const zHeel = mcpZ - len + 0.02 * H; // 掌根（略内收避免与掌跟面共面 z-fighting）
-  // 前缘适配后退的拇指根（0.4.0 七轮）：脊前端不超过拇指根后方 0.18，避免在拇指根
-  // 前方悬出一段「搁板」——削减大鱼际以贴合拇指根后移
+  // 前缘适配后退的拇指根（0.4.0 七轮）+ 末环与拇指根截面对齐（九轮）：脊末端直接
+  // 采用拇指根段的截面尺寸与圆心，经漏斗渐变汇入——接缝处无台阶
+  const tcX = cfg.thumbCorner.x * H * sideSign;
+  const tcY = cfg.thumbCorner.y * H;
   const zCap = cfg.thumbCorner.z * H + 0.18 * H;
   const zFront = Math.min(
     zHeel + len * Math.min(cfg.thenar.length, 1.05) * 0.92,
@@ -401,17 +372,35 @@ function buildThenarRidge(
   const aMax = cfg.thenar.width * H * 0.45; // 外突半径（横冠军径）
   const b = cfg.thenar.height * H * 0.55; // 竖向半径
   const yC = -0.05 * H + cfg.thenar.y * H; // 略偏掌侧 + 配置竖向微调
-  const stations = [0, 0.2, 0.4, 0.6, 0.8, 1]; // 纵向 6 站环：肌腹曲线顺滑
-  const rings: Vec3[][] = stations.map((t) => {
-    const z = zHeel + (zFront - zHeel) * t;
-    // 掌侧壁 x 随 palmTaper 渐宽（与掌体放样同口径）
-    const wallX = halfW * (shape.palmTaper + (1 - shape.palmTaper) * t);
-    const belly = Math.sin(Math.PI * t) ** 0.8; // 肌腹：两端收、中段最鼓
-    const a = aMax * (0.3 + 0.7 * belly);
-    return ringPoints(F, a, b, 2.4, 2.4, yC, z).map(
-      (p) => [p[0] + sideSign * (wallX + a * 0.35), p[1], p[2]] as Vec3,
-    );
+  const wallAt = (t: number): number => halfW * (shape.palmTaper + (1 - shape.palmTaper) * t);
+  const bellyAt = (t: number): number => Math.sin(Math.PI * t) ** 0.8; // 肌腹：两端收、中段最鼓
+  type RingSpec = { cx: number; cy: number; a: number; b: number; z: number };
+  const spec = (t: number): RingSpec => {
+    const a = aMax * (0.3 + 0.7 * bellyAt(t));
+    return { cx: sideSign * (wallAt(t) + a * 0.45), cy: yC, a, b, z: zHeel + (zFront - zHeel) * t };
+  };
+  // 拇指根目标截面：与拇指根段体同尺寸同圆心
+  const target: RingSpec = { cx: tcX, cy: tcY, a: thumbWHalf * 1.12, b: thumbWHalf * 0.98, z: zFront };
+  const toward = (s: RingSpec, k: number): RingSpec => ({
+    cx: s.cx + (target.cx - s.cx) * k,
+    cy: s.cy + (target.cy - s.cy) * k,
+    a: s.a + (target.a - s.a) * k,
+    b: s.b + (target.b - s.b) * k,
+    z: s.z + (target.z - s.z) * k,
   });
+  const stations: RingSpec[] = [
+    spec(0),
+    spec(0.25),
+    spec(0.5),
+    spec(0.72),
+    toward(spec(0.72), 0.55),
+    toward(spec(0.72), 1),
+  ];
+  const rings: Vec3[][] = stations.map((st) =>
+    ringPoints(F, st.a, st.b, 2.3, 2.3, st.cy, st.z).map(
+      (p) => [p[0] + st.cx, p[1], p[2]] as Vec3,
+    ),
+  );
   const mesh = tintedMesh(
     facetize(loftGeometry(rings, true, true), SKIN, linearOutput, shape.facetJitter, rng),
     "thenar",
@@ -434,7 +423,7 @@ function buildPalm(
   const halfT = (cfg.palm.height / 2) * H;
   const len = cfg.palm.length * H;
   const mcpZ = cfg.palm.mcpZ * H;
-  const nShape = 3.1; // 近圆角矩形
+  const nShape = 2.85; // 近椭圆角矩形（截面整体化）
   // 前环逐点横弓：中部向背侧（+y）弓起，掌心凹
   const frontArch = (xData: number): number => shape.arch * H * archBell(xData / (cfg.palm.width / 2));
   // 纵向 4 站环（腕→掌中→近缘→掌指缘）：宽/厚/掌心凹连续插值，曲线顺滑
@@ -481,9 +470,21 @@ export function buildHandMesh(
   root.add(buildPalm(cfg, shape, H, opts.linearOutput, addOutline, rng));
 
   // 大鱼际：肌腹式纵脊（拇指根锚在其上）
-  root.add(buildThenarRidge(cfg, shape, H, sideSign, opts.linearOutput, addOutline, rng));
+  root.add(
+    buildThenarRidge(
+      cfg,
+      shape,
+      H,
+      sideSign,
+      (cfg.fingers.thumb[0].width / 2) * H,
+      opts.linearOutput,
+      addOutline,
+      rng,
+    ),
+  );
 
-  // 指蹼：相邻四指根间 U 形谷（谷底低、两侧高，端头没入指根关节球），y 随横弓
+  // 指蹼（0.4.0 九轮重做）：指根间圆角药丸条——背/掌两侧观感一致（此前 U 谷棱柱
+  // 仅单面有、横断面边界平直），全曲面无直边；顶面在指间自然形成 U 形谷，y 随横弓
   const FOUR = ["index", "middle", "ring", "pinky"] as const;
   const grad = [0.8, 1, 0.7];
   const mcpZ = cfg.palm.mcpZ * H;
@@ -492,31 +493,16 @@ export function buildHandMesh(
     const b = cfg.bases[FOUR[i + 1]];
     const xa = a.x * cfg.fingerSpacing * H * sideSign;
     const xb = b.x * cfg.fingerSpacing * H * sideSign;
-    const xL = Math.min(xa, xb);
-    const xR = Math.max(xa, xb);
     const cxData = ((a.x + b.x) / 2) * cfg.fingerSpacing;
     const yRoot =
       Math.min(a.y, b.y) * H + shape.arch * H * archBell(cxData / (cfg.palm.width / 2));
-    const R = ((xR - xL) / 2) * (0.3 + 0.6 * shape.web) * grad[i];
-    const web = tintedMesh(
-      facetize(
-        webGussetGeometry(
-          xL,
-          xR,
-          yRoot + 0.03 * H,
-          yRoot - 0.25 * H,
-          R,
-          mcpZ - 0.01 * H,
-          mcpZ + 0.2 * H,
-          6,
-        ),
-        SKIN,
-        opts.linearOutput,
-        0,
-        rng,
-      ),
-      `web-${i}`,
+    const web = tintedMesh(facetize(new SphereGeometry(1, 12, 8), SKIN, opts.linearOutput, 0, rng), `web-${i}`);
+    web.scale.set(
+      (Math.abs(xb - xa) / 2) * 0.55,
+      (0.085 + 0.05 * shape.web * grad[i]) * H,
+      0.3 * H,
     );
+    web.position.set((xa + xb) / 2, yRoot - 0.02 * H, mcpZ + 0.12 * H);
     root.add(web);
     addOutline(web);
   }

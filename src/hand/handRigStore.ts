@@ -36,7 +36,7 @@ export type HandShapeParams = {
   shaftTaper: number;
   /** 指尖收口：末段端部宽 = 段宽 × 此系数 */
   tipTaper: number;
-  /** 指腹侧扁平度 0（圆）–1（平）：腹侧超椭圆指数随之升高 */
+  /** 指背扁平度 0（近圆）–1（平）：指面保持微凸，指背随之趋平（九轮语义反转） */
   padFlat: number;
   /** 掌指横弓：掌指缘中部（中指根）向背侧弓起量（数据单位），指根随动 */
   arch: number;
@@ -52,7 +52,7 @@ export type HandShapeParams = {
 
 export const DEFAULT_SHAPE: HandShapeParams = {
   facets: 15,
-  knuckleBulge: 1.18,
+  knuckleBulge: 1.22,
   shaftTaper: 0.92,
   tipTaper: 0.66,
   padFlat: 0.35,

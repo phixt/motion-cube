@@ -76,7 +76,7 @@ export const zhCN: Record<string, string> = {
   "hand.shapeBulge": "关节隆起",
   "hand.shapeShaft": "段腰收窄",
   "hand.shapeTip": "指尖收口",
-  "hand.shapePadFlat": "指腹扁平",
+  "hand.shapePadFlat": "指背扁平",
   "hand.shapeArch": "掌横弓",
   "hand.shapePalmTaper": "掌梯形",
   "hand.shapePalmCup": "掌心凹",

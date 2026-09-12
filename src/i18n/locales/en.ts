@@ -76,7 +76,7 @@ export const en: Record<string, string> = {
   "hand.shapeBulge": "Knuckle bulge",
   "hand.shapeShaft": "Shaft taper",
   "hand.shapeTip": "Tip taper",
-  "hand.shapePadFlat": "Pad flatness",
+  "hand.shapePadFlat": "Back flatness",
   "hand.shapeArch": "Palm arch",
   "hand.shapePalmTaper": "Palm taper",
   "hand.shapePalmCup": "Palm cup",
