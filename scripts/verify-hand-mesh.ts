@@ -137,15 +137,20 @@ for (const e of extremes) {
   noNaN(res, `极值[${e.name}]`);
 }
 
-// ---- 3) 指根领圈存在（掌面↔MCP球凹圆角，十三轮） ----
+// ---- 3) 指根掌侧组件存在（领圈/填充棱/肌凸，十三~十五轮） ----
 {
   const res = buildHandMesh(DEFAULT_HAND_CONFIG, createRigFromConfig(DEFAULT_HAND_CONFIG, "right"), 1);
-  let collars = 0;
+  const counts: Record<string, number> = { "knuckle-collar": 0, "knuckle-filler": 0, "palmar-pad": 0 };
   res.root.traverse((o) => {
     const m = o as unknown as { isMesh?: boolean; userData?: { part?: string } };
-    if (m.isMesh && m.userData?.part === "knuckle-collar") collars++;
+    if (m.isMesh && m.userData?.part && m.userData.part in counts) counts[m.userData.part]++;
   });
-  expect(collars === 4, `四指根领圈应为 4（实得 ${collars}）`);
+  expect(counts["knuckle-collar"] === 4, `四指根领圈应为 4（实得 ${counts["knuckle-collar"]}）`);
+  expect(counts["knuckle-filler"] === 3, `指根间填充棱应为 3（实得 ${counts["knuckle-filler"]}）`);
+  expect(counts["palmar-pad"] === 4, `指根掌侧肌凸应为 4（实得 ${counts["palmar-pad"]}）`);
+  // 绕向：填充棱/肌凸最 +z 的三角面外法线应朝 +z（掌面外侧）
+  checkWindingZ(res, "knuckle-filler", "default", 0.3);
+  checkWindingZ(res, "palmar-pad", "default", 0.3);
 }
 
 console.log(failed === 0 ? "verify-hand-mesh: ALL PASS ✓" : `verify-hand-mesh: ${failed} FAIL`);

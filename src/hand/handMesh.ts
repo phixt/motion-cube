@@ -526,6 +526,99 @@ function buildPalm(
  * 下限——压入后球在面处截线半径须仍 ≈ 指壁（sqrt(R²−d²)≈w），更深则弯折开裂 */
 const ROOT_EMBED = 0.3;
 
+/** (y,z) 平面环（指根间填充棱用，截面 ⊥ 指行 x）：θ 增向自 +z 转向 +y
+ * （自 +x 端看逆时针，与 loftGeometry「θ 逆时针外法线朝外」约定一致，
+ * 放样方向 +x）——截面为圆角三角感 superellipse（n<2 顶点朝 +z）= 三棱柱读法 */
+function ringYZ(
+  F: number,
+  cx: number,
+  cy: number,
+  zBase: number,
+  ry: number,
+  rz: number,
+  n: number,
+): Vec3[] {
+  const pts: Vec3[] = [];
+  for (let i = 0; i < F; i++) {
+    const th = (i / F) * Math.PI * 2;
+    const c = Math.cos(th);
+    const s = Math.sin(th);
+    pts.push([
+      cx,
+      cy + ry * Math.sign(c) * Math.abs(c) ** (2 / n),
+      zBase + rz * Math.sign(s) * Math.abs(s) ** (2 / n),
+    ]);
+  }
+  return pts;
+}
+
+/**
+ * 指根间填充棱（0.4.0 十五轮）：相邻指根窝之间的细化三棱柱——截面为 (y,z) 平面
+ * 顶点朝 +z 的圆角三角（n=1.5），沿指行方向 x 放样 7 站；脊线在两窝之间浅凹
+ * （关节的凹陷），端环没入相邻根窝锥面与关节球，掌面侧 V 缺口由此填平。
+ * x0<x1 由调用方保证（镜像手取 min/max）。
+ */
+function buildKnuckleFiller(
+  x0: number,
+  x1: number,
+  cy: number,
+  mcpZ: number,
+  H: number,
+  shape: HandShapeParams,
+  linearOutput: boolean,
+  addOutline: AddOutline,
+  rng: () => number,
+): Mesh {
+  const F = Math.max(shape.facets, 10);
+  const mid = (x0 + x1) / 2;
+  const half = Math.abs(x1 - x0) / 2;
+  const crestMid = 0.022 * H; // 两窝之间：浅凹谷底
+  const crestEnd = 0.045 * H; // 没入根窝端：衔接窝锥面
+  const stations = 7;
+  const rings: Vec3[][] = [];
+  for (let i = 0; i < stations; i++) {
+    const t = i / (stations - 1);
+    const x = x0 + (x1 - x0) * t;
+    const u = Math.abs(x - mid) / half;
+    const crest = crestMid + (crestEnd - crestMid) * u * u;
+    rings.push(ringYZ(F, x, cy - 0.02 * H, mcpZ - 0.004 * H, 0.045 * H, crest, 1.5));
+  }
+  const mesh = tintedMesh(
+    facetize(loftGeometry(rings, false, false), SKIN, linearOutput, shape.facetJitter, rng),
+    "knuckle-filler",
+  );
+  addOutline(mesh);
+  return mesh;
+}
+
+/**
+ * 指根掌侧肌凸（0.4.0 十五轮）：每指根窝下方（掌缘方向）的浅盘状肌肉隆起——
+ * 类大鱼际但更弱（弧度小，露出掌面 ~0.016H）；扁椭球罩在掌前缘面上，下半没入
+ * 掌体，上缘与根窝锥面相融，相邻肌凸之间留浅谷。
+ */
+function buildPalmarPad(
+  cx: number,
+  cy: number,
+  mcpZ: number,
+  wHalf: number,
+  H: number,
+  shape: HandShapeParams,
+  linearOutput: boolean,
+  addOutline: AddOutline,
+  rng: () => number,
+): Mesh {
+  const F = Math.max(shape.facets * 2, 16);
+  const geo = new SphereGeometry(1, F, Math.max(4, Math.round(F / 3)));
+  geo.scale(1.05 * wHalf, 0.075 * H, 0.028 * H);
+  geo.translate(cx, cy - 0.12 * H, mcpZ - 0.012 * H);
+  const mesh = tintedMesh(
+    facetize(geo, SKIN, linearOutput, shape.facetJitter, rng),
+    "palmar-pad",
+  );
+  addOutline(mesh);
+  return mesh;
+}
+
 /**
  * 指根领圈（0.4.0 十三轮引入，十四轮改造）：掌前缘面上的指根窝倒角。
  * 十四轮起四指根整体压入掌面（ROOT_EMBED），MCP 球大部没入掌内——领圈角色从
@@ -664,22 +757,43 @@ export function buildHandMesh(
     addOutline(web);
   }
 
-  // 指根领圈（十四轮改造为根窝倒角）：面缘足印 → 指根截面同式收细（截面对齐）；
-  // 外侧掌壁+0.03H 裕量钳制，相邻领圈允许交叠成掌指隆脊
-  {
-    const halfW = (cfg.palm.width / 2) * H;
-    for (let i = 0; i < FOUR.length; i++) {
-      const name = FOUR[i];
-      const base = cfg.bases[name];
-      const xData = base.x * cfg.fingerSpacing;
-      const cx = xData * H * sideSign;
-      const cy = base.y * H + shape.arch * H * archBell(xData / (cfg.palm.width / 2));
-      const wHalf = (rig.fingers[name].segments[0].width / 2) * H;
-      const wallLimit = halfW - Math.abs(cx) + 0.03 * H;
-      root.add(
-        buildKnuckleCollar(cx, cy, mcpZ, wHalf, wallLimit, shape, opts.linearOutput, addOutline, rng),
-      );
-    }
+  // 指根领圈（十四轮根窝倒角；十五轮加邻指钳制 0.46×窝距——窝间留出谷位，
+  // 由填充棱衔接）：外侧受掌壁+0.03H 裕量钳制
+  const halfW = (cfg.palm.width / 2) * H;
+  const roots = FOUR.map((name) => {
+    const base = cfg.bases[name];
+    const xData = base.x * cfg.fingerSpacing;
+    return {
+      name,
+      cx: xData * H * sideSign,
+      cy: base.y * H + shape.arch * H * archBell(xData / (cfg.palm.width / 2)),
+      wHalf: (rig.fingers[name].segments[0].width / 2) * H,
+    };
+  });
+  roots.forEach((r, i) => {
+    const wallLimit = halfW - Math.abs(r.cx) + 0.03 * H;
+    const gapL = i > 0 ? Math.abs(r.cx - roots[i - 1].cx) : Infinity;
+    const gapR = i < roots.length - 1 ? Math.abs(r.cx - roots[i + 1].cx) : Infinity;
+    const rxMax = Math.min(wallLimit, 0.46 * Math.min(gapL, gapR));
+    root.add(
+      buildKnuckleCollar(r.cx, r.cy, mcpZ, r.wHalf, rxMax, shape, opts.linearOutput, addOutline, rng),
+    );
+  });
+
+  // 指根间填充棱（十五轮）：掌面侧相邻根窝之间的细化三棱柱，脊线浅凹=关节的凹陷
+  for (let i = 0; i < 3; i++) {
+    const a = cfg.bases[FOUR[i]];
+    const b = cfg.bases[FOUR[i + 1]];
+    const xL = Math.min(a.x, b.x) * cfg.fingerSpacing * H * sideSign;
+    const xR = Math.max(a.x, b.x) * cfg.fingerSpacing * H * sideSign;
+    const cxData = ((a.x + b.x) / 2) * cfg.fingerSpacing;
+    const cy = Math.min(a.y, b.y) * H + shape.arch * H * archBell(cxData / (cfg.palm.width / 2));
+    root.add(buildKnuckleFiller(xL, xR, cy, mcpZ, H, shape, opts.linearOutput, addOutline, rng));
+  }
+
+  // 指根掌侧肌凸（十五轮）：每指窝下方浅盘状隆起（类大鱼际，弧度小）
+  for (const r of roots) {
+    root.add(buildPalmarPad(r.cx, r.cy, mcpZ, r.wHalf, H, shape, opts.linearOutput, addOutline, rng));
   }
 
   // 四指根：布局 × 指距，y 随横弓（archBell 期望数据单位输入）；
