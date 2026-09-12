@@ -9,7 +9,9 @@
   bump 7f43162——内容=手部 low-poly 细化十二~十六轮 + 双手显示/独立编辑/主位手规则
   十七~十九轮 + 外部注入 API A 期与文档；本地编译已交付，发布由用户执行）
 - 求解器：CFOP / CFOP+（一步 ZBLL+回退）/ Roux（LSE 4a+6E2C）三方法全绿；一步
-  ZBLL 覆盖 52.5%（未覆盖回退 OLL+PLL）；ZBLS 305 条接入 solve 链；解法底多选
+  ZBLL 库完整 **493/493**（case 级覆盖 100%；52.5%/926 为已废弃轨道级错口径，实际
+  问题在命中率口径）；ZBLS 有效全集 **302**（O 组 3 条全槽已解已决议剔除——剔除与
+  端到端验证在 feat/zbll-import-verify 分支，main 数据仍为 305）；解法底多选
   （整块旋转 + 中心 relabel，逐底求解取最短，34/34 验证）
 - 技术栈：Vite 8 + Vue 3.5 + cubing.js（TwistyPlayer + cubing/alg）+ three.js（手模型）
 
@@ -43,9 +45,17 @@
   仅参照不做数据源，reference/ 已入库）；zbll 问题在命中率口径非库完整性（493/493）；
   桥式高级推导相对容易。
 - ⬜ 3-Style V5 深度解析 + 公式库重新形式化接入。
-- ⬜ ZBLL 覆盖率验证重启（现行口径 926/1944 轨；feat/zbll-import-verify 封存待重启）。
+- ⬜ **公式线分支并回+重启**：`feat/zbll-import-verify`（已封存）内含——口径冻结
+  （主口径=库完整性 493/493；verify-zbll-coverage 重写、删 coverage-zbll.mts、新增
+  find-zbls-diff-3）+ ZBLS 剔 O 组（305→302，留档 docs/archived/）+ 轮样本验证
+  `verify-zbls-rounds.ts` A–E 全绿（D：493 端到端全解回）+ **Y_TO_FR 回滚**（已证实
+  局限：非 FR 缺槽时 ZBLS 查表脱靶、静默回退 = 0.3.8 生产行为；F 段转报告型）+
+  32 条「棱 home 角乱」建表局限。重启 = 并回 main（main 仍跑旧 926/1944 工具与
+  305 数据）→ 修建表-查表口径（命中率为真实收益问题；路线图优先级：桥式高级 >
+  cfop 高级 > 盲拧）。
 - ⬜ EOLR 一步表命中率 ~0（lse-eolr 46 case 仅收全 EO 22 条，需改 EO 分类匹配）。
-- ⬜ cfop-adv 剩余（补全 ZBLL 库——双源并集闭包为唯一突破路径但风险中高 / EO 预置
+- ⬜ cfop-adv 剩余（「补全 ZBLL 库/双源并集闭包」议题已被口径冻结终结——库完整
+  493/493，真实问题在建表-查表命中率，见上「分支并回+重启」项 / EO 预置
   并入首步；深工程暂缓）；CFOP 进阶集（快速十字+高级 F2L）；Roux 进阶集（4b+4c
   合并一步、EOLR 之上）；降群/ZZ。
 - ⬜ 新集合爬取：复用 `scripts/gen-cuberoot-algs.mjs` 管线，加进 SETS 即自动清洗校验。
