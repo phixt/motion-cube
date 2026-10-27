@@ -111,8 +111,11 @@
   面板统一到单一真相源：帧号移动后输入框不再回弹（60→30 读回 30），缓动改到面板显示帧
   （帧0=linear / 帧30=easeIn / 帧120=linear），无关键帧的帧改缓动显式提示「第 N 帧没有关键帧，缓动未生效」。
   **残余双真相已收口**：`seekFromEvent()` 原先只写 `previewFrame` 不刷新面板输入框（三个输入框无
-  v-model，值只由 `renderSelected()` 写）→ 手动拖标尺后面板仍显示上一个关键帧的帧号；现已在
-  seek 路径补 `renderSelected()`。〔EditorPage.vue:863-895,588-590,237-248〕
+  v-model，值只由 `renderSelected()` 写）→ 手动拖标尺后面板仍显示上一个关键帧的帧号（真实用户可
+  触发：pointerdown 被 preventDefault → 兼容性 mousedown 被吞 → 聚焦中的帧号框不失焦 →
+  renderPreview 的「不覆盖正在输入的框」保护生效）；现已在 seek 路径补 `renderSelected(true)`
+  （只回填帧身份字段，姿态数值仍由 renderPreview 同步，不打断连续输入）。
+  〔EditorPage.vue:863-895,588-590,237-250〕
 - ⬜ **灰面板隐藏时仍每帧全量重建**（54 贴纸材质 + 54 SVG 多边形 + 回读 DOM 求包围盒）
   → 修：onRecreate 改名 onRenderScheduled + dirty 标志 + 隐藏时跳过 + 包围盒不回读 DOM。
   〔GrayOverlay.ts:30-45 / grayPanel.ts:261-351 / session.ts:55-57〕
@@ -140,6 +143,11 @@
 - ✅ **vite dev 端口 5173 占用用户端口**（已修）：项目约定 5174；tauri 侧已用
   `--port 5174 --strictPort` 绕过，vite 侧没有。修：vite.config.ts 改 **5174**
   （附注释说明 5173 留给用户预览）+ README 开发段端口同步。〔vite.config.ts:8 / README.md:45〕
+- ⬜ **关键帧面板溢出侧栏、吃掉标尺左侧的点击**（第二批核验时发现，未修）：
+  面板开启时 `#kf-edit-panel` 高 1372px > 侧栏 779px，content 溢到主列，
+  `elementFromPoint(标尺左侧)` 返回 `.pose-edit` → 真实鼠标点在标尺左段根本触发不了 seek
+  （回归脚本只能用「在 #tl-ruler 上派发 pointerdown」）。修：给 .editor-sidebar/.kf-edit-panel
+  加 max-height + 内部滚动。〔EditorPage.vue 样式段〕
 - ⬜ **多标签页互相覆盖**：全仓无 `storage` 事件监听（仅 vendored 收藏夹有），编辑器会把
   过期的整库快照写回 → 修：library/settings/keymap 加 storage 监听。
 - ⬜ **「加载内置公式库」静默覆盖用户对内置行的修改**（mergeLibrary incoming-wins，id 固定

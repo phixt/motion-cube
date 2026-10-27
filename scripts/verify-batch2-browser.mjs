@@ -914,13 +914,22 @@ async function scenarioG(page) {
   assert(total > 0, "读不到时间线总帧数（#tl-meta）", ev.join("；"));
   // 标尺的「像素 ↔ 帧」映射不能假设 = 宽度×frame/total（可见窗口/缩放会变），
   // 改用关键帧标记的真实位置做两点标定，再取「两相邻关键帧中间的无关键帧帧」来验证分支。
+  // 【坐标系坑（已修）】应用在 <html> 上加了全局 CSS 缩放（motion-cube.uiScale，默认 1.5）：
+  //   el.offsetLeft 是【布局 px】，PointerEvent.clientX 是【视口 px】，两者差一个缩放系数。
+  //   之前用 offsetLeft 标定却当成 clientX 用 → seek 落点被缩成「目标帧/1.5」（15 → 10），
+  //   而断言只看「落点是否有关键帧」→ 落点错位也没被发现（还被误判成产品问题）。
+  //   现在统一用 getBoundingClientRect（视口 px，与产品 seekFromEvent 同一坐标系），
+  //   并显式断言「落点 = 目标帧」。
   const ruler = await page.$eval("#tl-ruler", (el) => {
     const r = el.getBoundingClientRect();
-    return { left: r.left, top: r.top, width: r.width, height: r.height };
+    return { left: r.left, top: r.top, width: r.width, height: r.height, styleWidth: el.style.width };
   });
   const markers = await page.$$eval("#tl-ruler .tl-kf", (els) =>
     els
-      .map((el) => ({ frame: Number(el.dataset.frame), x: el.offsetLeft + el.offsetWidth / 2 }))
+      .map((el) => {
+        const b = el.getBoundingClientRect();
+        return { frame: Number(el.dataset.frame), x: b.left + b.width / 2 };
+      })
       .filter((m) => Number.isFinite(m.frame))
       .sort((a, b) => a.frame - b.frame),
   );
@@ -934,19 +943,21 @@ async function scenarioG(page) {
     if (mid > a.frame && mid < b.frame && !framesAfter.includes(mid)) { target = mid; break; }
   }
   assert(target !== null, "找不到夹在两个关键帧之间的无关键帧帧（标记=" + JSON.stringify(markers) + "）", ev.join("；"));
-  // 两点标定：像素 x = a.x + (frame - a.frame) * (b.x - a.x) / (b.frame - a.frame)
+  // 两点标定（视口 px，与产品 seekFromEvent 同坐标系）：
+  //   x = a.x + (frame - a.frame) * (b.x - a.x) / (b.frame - a.frame)
   const lo = markers.filter((m) => m.frame < target).pop() ?? markers[0];
   const hi = markers.find((m) => m.frame > target) ?? markers[markers.length - 1];
   const px = lo.x + ((target - lo.frame) * (hi.x - lo.x)) / (hi.frame - lo.frame);
   // 直接在 #tl-ruler 上派发 pointerdown：标尺容器 .tl-wrap 是横向滚动容器，
-  // 绝对像素点击可能落到可视区外（此时页面状态不变，断言会误判成产品问题）。
-  await page.evaluate((contentPx) => {
+  // 真实点击可能落在可视区外（此时页面状态不变，断言会误判成产品问题）。
+  // clientX 用【视口 px】——产品 seekFromEvent 也用 getBoundingClientRect 换算，两者同坐标系。
+  await page.evaluate((vpX) => {
     const el = document.getElementById("tl-ruler");
     if (!el) throw new Error("#tl-ruler 不存在");
     const r = el.getBoundingClientRect();
     el.dispatchEvent(
       new PointerEvent("pointerdown", {
-        clientX: r.left + contentPx,
+        clientX: vpX,
         clientY: r.top + 6,
         bubbles: true,
         cancelable: true,
@@ -956,8 +967,29 @@ async function scenarioG(page) {
     );
   }, px);
   await sleep(350);
+  // 播放头（#tl-playhead 的 left = previewFrame × pxPerFrame，布局 px；pxPerFrame = 标尺布局宽/总帧）
+  // 是「面板显示帧」的单一真相源 → 先读播放头，再比对面板显示帧。
+  const pxPerFrame = parseFloat(ruler.styleWidth || "0") / Math.max(1, total);
+  const playheadFrame = await page.evaluate((ppf) => {
+    const ph = document.getElementById("tl-playhead");
+    if (!ph || !(ppf > 0)) return null;
+    return Math.round(parseFloat(ph.style.left || "0") / ppf);
+  }, pxPerFrame);
   const frame3 = Number(await valOf(page, "#kf-frame"));
-  ev.push("标尺 seek 目标帧=" + target + "（像素标定 " + Math.round(px) + "）→ 面板显示帧=" + frame3 + "（时间线总长 " + total + " 帧）");
+  ev.push(
+    "标尺 seek 目标帧=" + target + "（视口像素 " + Math.round(px) + "）→ 播放头帧=" + playheadFrame +
+      " 面板显示帧=" + frame3 + "（时间线总长 " + total + " 帧）",
+  );
+  assert(
+    playheadFrame === target,
+    "标尺 seek 落点错位：目标帧 " + target + "，实际播放头在 " + playheadFrame + "（像素标定与坐标系不一致）",
+    ev.join("；"),
+  );
+  assert(
+    frame3 === target,
+    "seek 后关键帧面板帧号没有跟随播放头（面板=" + frame3 + "，播放头=" + playheadFrame + "）——P1-4 单一真相源未覆盖 seek 路径",
+    ev.join("；"),
+  );
   assert(!framesAfter.includes(frame3), "seek 落点 " + frame3 + " 恰有关键帧，无法验证「无关键帧」分支", ev.join("；"));
   await selectOption(page, "#kf-easing", "easeOut");
   await sleep(400);

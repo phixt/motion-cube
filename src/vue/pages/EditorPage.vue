@@ -244,7 +244,9 @@ const seekFromEvent = (clientX: number, track: HTMLElement): void => {
   // 播放头是面板的单一真相源：seek 后必须把面板输入框刷成新帧
   // （否则面板仍显示上一个关键帧的帧号——「帧/拍/缓动」会作用到错误的帧，
   //  且「该帧没有关键帧」的提示会指向陈旧帧号）。P1-4 收口。
-  renderSelected();
+  // keepInputs=true：只回填「帧/拍/缓动/删除」这类帧身份字段，姿态数值交给下面的
+  // renderPreview 同步（它对「正在输入的框」有保护）——seek 不打断用户连续输入。
+  renderSelected(true);
   renderPreview();
 };
 

@@ -70,7 +70,9 @@
   **浏览器回归矩阵**：`node scripts/verify-batch2-browser.mjs`（A–H 八项：库加载容错/
   帧重映射/帧号上限/手部单例/绕向+镜像/API 所有权+循环/关键帧面板/快照+复制；支持
   `--only=A,B`；任一 FAIL 退出码非 0）。**dev server 只能用 localhost**（vite 监听 IPv6
-  ::1，`127.0.0.1:5174` 会 ECONNREFUSED）。
+  ::1，`127.0.0.1:5174` 会 ECONNREFUSED）。**写浏览器脚本时注意坐标空间**：应用在 `<html>` 上有
+  全局 CSS 缩放（`motion-cube.uiScale` 默认 1.5）——`offsetLeft` 是布局 px、`clientX` 是视口 px，
+  差 1.5 倍；像素↔帧标定必须用 `getBoundingClientRect()`（与产品同一坐标系），否则落点会差 1.5 倍。
 - **reference/（gitignore，全程不入库，仅本地参考）**：`3-style-v5/三盲三循环818-魔方根.xlsx`
   （3-Style V5 盲拧三循环 818 条，中文版，已替旧彳亍法档）、`mihlefeld-alg-trainers/`
   （Alg-Trainers 仓库原始 JSON：3x3-ZBLL 472 条 / 3x3-ZBLS 302 条，含 a[] 算法+s 打乱）、
