@@ -35,6 +35,9 @@ jobs:
       - name: Verify hand mesh
         run: npx tsx scripts/verify-hand-mesh.ts
 
+      - name: Verify hand rig store (config singleton / migration defaults)
+        run: npx tsx scripts/verify-hand-store.ts
+
       - name: Solver + render + coverage smoke (native Node, strip-types)
         # node scripts/*.ts 直跑（Node 22 strip-types，无 tsx/esbuild 依赖，Linux 可跑）
         run: |

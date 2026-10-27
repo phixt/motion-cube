@@ -5,7 +5,9 @@ import { fileURLToPath } from "node:url";
 export default defineConfig({
   plugins: [vue()],
   server: {
-    port: 5173,
+    // 5173 是用户日常预览端口（项目约定）——本项目 dev server 一律用 5174
+    // （tauri 侧已用 --port 5174 --strictPort；此处对齐，避免抢占用户端口）
+    port: 5174,
     watch: {
       // 忽略编辑器原子写临时目录（.<name>.<pid>.<uuid>.tmpdir\）——目录段名以 .tmpdir 结尾，
       // chokidar 对这类目录建 watch 时 Windows 上 EBUSY，导致 dev 每次编辑崩溃。

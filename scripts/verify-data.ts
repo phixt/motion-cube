@@ -32,13 +32,17 @@ import {
 import { parseMoves } from "../src/notation/alg.ts";
 import {
   EMPTY_LIBRARY,
+  loadLibrary,
   mergeLibrary,
+  parseLibraryDataTolerant,
+  saveLibrary,
   serializeLibraryData,
   deserializeLibraryData,
   removeCategoryFromLib,
   removeFormulaFromLib,
   type LibraryData,
 } from "../src/data/libraryStore.ts";
+import { externalDrive, frameAtElapsed, pickFrameIndex, releaseExternalDrive } from "../src/hand/handApi.ts";
 import { SAMPLE_FORMULAS, SAMPLE_LIBRARY, SAMPLE_TECHNIQUES } from "../src/data/samples.ts";
 import {
   createTechnique,
@@ -341,7 +345,13 @@ check("HandRig: mirrorPose 镜像语义（双手显示，十七轮）", () => {
     m.palm.transform.quaternion.y === -0.3 && m.palm.transform.quaternion.z === -0.27,
     "镜像四元数 y/z 分量取反（M·R·M，M=diag(−1,1,1)）",
   );
-  expect(m.thumbCMC.abduction === -20 && m.thumbCMC.elevation === 10 && m.thumbCMC.rotation === -30, "CMC 展收/对掌取反，抬离不变");
+  // 审计 P0-7：CMC **不**在此取反——HandRigView.applyPose 已按手型 sideSign 镜像
+  // （abduction×sideSign、−rotation×sideSign），此处再取反即双重取反，镜像拇指朝向错；
+  // 抬离（elevation）本就是 Y 轴镜像不变量。
+  expect(
+    m.thumbCMC.abduction === 20 && m.thumbCMC.elevation === 10 && m.thumbCMC.rotation === 30,
+    "CMC 展收/对掌/抬离均不取反（手性由渲染侧 sideSign 负责，P0-7）",
+  );
   expect(JSON.stringify(m.bends) === JSON.stringify(pose.bends), "bends 对称照搬");
   const back = mirrorPose(m);
   expect(back.palm.transform.position.x === 0.4 && back.thumbCMC.abduction === 20, "双次镜像应还原");
@@ -581,6 +591,153 @@ check("stickering: 底色旋转设置均为合法记法", () => {
     const alg = baseFaceSetupAlg(face);
     expect(parseMoves(alg || "U U'").ok, `底色 ${face} 的旋转 ${alg} 应合法`);
   }
+});
+
+// ---------- 库加载容错（P0-8）与注入 API 循环/所有权（P1-2 / P1-1） ----------
+// 最小 localStorage stub（libraryStore 只在调用期访问 localStorage）
+const LIB_KEY = "motion-cube.library";
+const mem = new Map<string, string>();
+const memoryStorage = {
+  getItem: (k: string): string | null => (mem.has(k) ? mem.get(k) ?? null : null),
+  setItem: (k: string, v: string): void => {
+    mem.set(k, String(v));
+  },
+  removeItem: (k: string): void => {
+    mem.delete(k);
+  },
+  clear: (): void => {
+    mem.clear();
+  },
+  key: (i: number): string | null => [...mem.keys()][i] ?? null,
+  get length(): number {
+    return mem.size;
+  },
+};
+(globalThis as unknown as { localStorage: typeof memoryStorage }).localStorage = memoryStorage;
+
+const BAD_TECHNIQUE = { id: "bad-tech", name: "坏手法", formulaId: "x", frameRate: 60, keyframes: "not-an-array" };
+
+check("library: loadLibrary 正常库与旧口径逐字段一致（回归）", () => {
+  const raw = serializeLibraryData(SAMPLE_LIBRARY);
+  mem.set(LIB_KEY, raw);
+  const r = loadLibrary();
+  expect(r.error === null && r.rejected.length === 0, `正常库不应报错：${String(r.error)} / ${r.rejected.length}`);
+  expect(
+    JSON.stringify(r.data) === JSON.stringify(deserializeLibraryData(raw)),
+    "loadLibrary 结果应与 deserializeLibraryData 逐字段一致",
+  );
+  expect(
+    r.data.formulas.length === SAMPLE_LIBRARY.formulas.length &&
+      r.data.techniques.length === SAMPLE_LIBRARY.techniques.length &&
+      r.data.categories.length === SAMPLE_LIBRARY.categories.length,
+    "正常库条目数应保持不变",
+  );
+});
+
+check("library: 一条坏手法只跳过该条，其余条目全保留（P0-8）", () => {
+  const raw = JSON.stringify({
+    version: 1,
+    categories: SAMPLE_LIBRARY.categories,
+    formulas: SAMPLE_LIBRARY.formulas,
+    techniques: [...SAMPLE_LIBRARY.techniques, BAD_TECHNIQUE],
+  });
+  mem.set(LIB_KEY, raw);
+  const r = loadLibrary();
+  expect(r.error === null, `坏单条不应升级为整包错误：${String(r.error)}`);
+  expect(r.rejected.length === 1, `应只跳过 1 条：${r.rejected.length}`);
+  expect(r.rejected[0].index === SAMPLE_LIBRARY.techniques.length, `坏条目下标应为末位：${r.rejected[0].index}`);
+  expect(r.rejected[0].reason.length > 0, "被拒条目应带原因");
+  // 关键：绝不整库清空
+  expect(r.data.techniques.length === SAMPLE_LIBRARY.techniques.length, `好手法应全部保留：${r.data.techniques.length}`);
+  expect(r.data.formulas.length === SAMPLE_LIBRARY.formulas.length, "公式应全部保留");
+  expect(r.data.categories.length === SAMPLE_LIBRARY.categories.length, "分类应全部保留");
+  expect(JSON.stringify(r.data.techniques) === JSON.stringify(SAMPLE_LIBRARY.techniques), "保留的手法内容应与原件一致");
+  expect(r.data.techniques.length > 0, "坏数据不得导致整库清空");
+});
+
+check("library: 坏公式同样只跳过该条", () => {
+  const raw = JSON.stringify({
+    version: 1,
+    categories: [],
+    formulas: [...SAMPLE_LIBRARY.formulas, { id: "bad-formula", name: "坏公式", moves: "R U ???", tags: [] }],
+    techniques: [],
+  });
+  mem.set(LIB_KEY, raw);
+  const r = loadLibrary();
+  expect(r.error === null, `坏单条不应升级为整包错误：${String(r.error)}`);
+  expect(r.rejected.length === 1, `应只跳过 1 条公式：${r.rejected.length}`);
+  expect(r.data.formulas.length === SAMPLE_LIBRARY.formulas.length, "好公式应全部保留");
+});
+
+check("library: 整包 JSON 损坏 → error 非 null 且不静默（P0-8）", () => {
+  mem.set(LIB_KEY, "{ this is not json");
+  const r = loadLibrary();
+  expect(r.error !== null, "JSON 损坏必须返回 error（禁止静默返回空库）");
+  expect(parseLibraryDataTolerant("{ this is not json").error !== null, "容错入口对坏 JSON 也应返回 error");
+  expect(r.data.formulas.length === 0 && r.data.techniques.length === 0, "整包不可读时 data 为空库");
+  expect(r.data !== EMPTY_LIBRARY, "空库应为新对象，不得复用 EMPTY_LIBRARY 单例");
+  // 严格口径仍抛错（导入/合并路径不受影响）
+  let threw = false;
+  try {
+    deserializeLibraryData("{ this is not json");
+  } catch {
+    threw = true;
+  }
+  expect(threw, "deserializeLibraryData 应保持严格口径（坏包抛错）");
+});
+
+check("library: 空存储 → 空库且无错误", () => {
+  mem.clear();
+  const r = loadLibrary();
+  expect(r.error === null && r.rejected.length === 0, "空存储不应报错");
+  expect(r.data.formulas.length === 0 && r.data.techniques.length === 0, "空存储应得到空库");
+  // saveLibrary 往返（正常路径不变）
+  saveLibrary(SAMPLE_LIBRARY);
+  const back = loadLibrary();
+  expect(back.error === null && back.data.formulas.length === SAMPLE_LIBRARY.formulas.length, "saveLibrary 后应可正常读回");
+});
+
+check("handApi: frameAtElapsed 循环按跨度取模（P1-2）", () => {
+  const at = (sec: number, loop: boolean) => frameAtElapsed(0, 24, sec, 24, loop);
+  // 第 1 周期内线性推进（绝对帧号语义不变）
+  expect([0, 0.25, 0.5, 0.75].map((s) => at(s, true)).join(",") === "0,6,12,18", "循环第 1 周期推进异常");
+  // 跨周期回绕：旧实现会永久停在 24
+  expect(at(1, true) === 0, `1 周期末应回绕到首帧：${at(1, true)}`);
+  expect(at(2, true) === 0, `2 周期末应回绕到首帧：${at(2, true)}`);
+  expect(at(1.25, true) === 6 && at(2.5, true) === 12, "第 2/3 周期推进异常");
+  // 非 loop：到达即停语义不变（夹到末帧）
+  expect(at(0.5, false) === 12, "非 loop 中段应线性推进");
+  expect(at(0.999, false) < 24, "非 loop 未到末帧前不应停下");
+  expect(at(5, false) === 24, "非 loop 应夹到末帧");
+  // 单帧片段（span===0）：恒为始帧，不除零
+  expect(frameAtElapsed(100, 100, 3.7, 24, true) === 100, "单帧片段（loop）应恒为始帧");
+  expect(frameAtElapsed(100, 100, 3.7, 24, false) === 100, "单帧片段（非 loop）应恒为始帧");
+});
+
+check("handApi: pickFrameIndex 末帧占周期末 1 帧（P1-2 loop 末帧可见）", () => {
+  const f = [0, 15, 30];
+  // 常规：取「帧号 ≤ target 的最后一帧」
+  expect(pickFrameIndex(f, 0, true) === 0, "target=0 应取首帧");
+  expect(pickFrameIndex(f, 14.9, true) === 0, "target<15 应取首帧");
+  expect(pickFrameIndex(f, 15, true) === 1, "target=15 应取第 2 帧");
+  expect(pickFrameIndex(f, 20, true) === 1, "target=20 应取第 2 帧");
+  // loop：取模区间 [first,last) 会吃掉末帧 → 周期最后 1 帧必须留给末帧
+  expect(pickFrameIndex(f, 29, true) === 2, "loop 下周期末 1 帧应取末帧（否则末帧永远不显示）");
+  expect(pickFrameIndex(f, 29.99, true) === 2, "loop 下接近周期末应取末帧");
+  expect(pickFrameIndex(f, 0.5, true) === 0, "回绕后应回到首帧");
+  // 非 loop：末帧由「到末帧即停」分支负责，这里不得抢
+  expect(pickFrameIndex(f, 29, false) === 1, "非 loop 下不应抢末帧");
+  expect(pickFrameIndex(f, 30, false) === 2, "非 loop 下 target=末帧应取末帧");
+  // 单帧片段
+  expect(pickFrameIndex([7], 7, true) === 0, "单帧片段应取唯一帧");
+  expect(pickFrameIndex([], 0, true) === 0, "空数组应安全返回 0");
+});
+
+check("handApi: externalDrive 契约 + releaseExternalDrive（P1-1）", () => {
+  expect(typeof externalDrive === "object" && externalDrive.active === false, "externalDrive 初始应为 { active: false }");
+  externalDrive.active = true;
+  releaseExternalDrive();
+  expect(!externalDrive.active, "releaseExternalDrive 应置 active=false");
 });
 
 if (failures) {

@@ -88,7 +88,11 @@ export const oppositeHandType = (t: HandType): HandType => (t === "right" ? "lef
  * 跨掌面中线（世界 x=0）镜像姿态：右手姿态 ↔ 左手姿态（双手显示用）。
  * 位置 x 取反；四元数按 x 镜像（存储序 w,x,y,z 中 y/z 分量取反——M·R·M，
  * M=diag(−1,1,1)）；bends 关节弯屈对称照搬；contacts 解剖侧语义随对侧手型
- * 的 sideSign 自动成立；CMC 展收/对掌取反（抬离不变）。
+ * 的 sideSign 自动成立。
+ *
+ * ⚠ CMC **不**在此取反（审计 P0-7）：HandRigView.applyPose 已按手型侧面镜像
+ * 展收/对掌（abduction×sideSign、−rotation×sideSign），此处再取反即双重取反，
+ * 镜像出来的拇指朝向是错的（实测偏差 0.85）。抬离本就是 Y 轴镜像不变量。
  */
 export function mirrorPose(pose: Pose): Pose {
   const mirrorT = (t: Transform): Transform => ({
@@ -106,11 +110,7 @@ export function mirrorPose(pose: Pose): Pose {
       transform: mirrorT(pose.palm.transform),
       thumbBase: mirrorT(pose.palm.thumbBase),
     },
-    thumbCMC: {
-      ...pose.thumbCMC,
-      abduction: -pose.thumbCMC.abduction,
-      rotation: -pose.thumbCMC.rotation,
-    },
+    thumbCMC: { ...pose.thumbCMC },
   };
 }
 

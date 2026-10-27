@@ -2,9 +2,19 @@
  * verify-hand-mesh.ts — low-poly 手部网格生成器自检（npx tsx 运行，无 DOM）。
  * 检查：双手构建无 NaN、包围盒合理、左右镜像对称、接触锚点结构、
  * 绕向（掌前缘/指尖外法线朝 +Z）、顶点色存在且合法、极值造型参数不炸。
+ * 第二批审计回归（REVIEW-2026-10 P0-6 / P0-7）：
+ *  - 左右手**同一部件**法线外向度同号（左手放样件绕向翻转会变号）；
+ *  - mirrorPose(右手姿态) 得到的左手拇指世界方向 = 右手拇指方向的 X 镜像。
  */
-import { Box3 } from "three";
-import { createDefaultRig, FINGER_ORDER } from "../src/hand/HandRig.ts";
+import { Box3, Quaternion, Vector3 } from "three";
+import {
+  createDefaultRig,
+  defaultHandPose,
+  mirrorPose,
+  FINGER_ORDER,
+  type HandType,
+  type Pose,
+} from "../src/hand/HandRig.ts";
 import { createRigFromConfig, DEFAULT_HAND_CONFIG } from "../src/hand/handRigStore.ts";
 import { buildHandMesh, type HandMeshResult } from "../src/hand/handMesh.ts";
 
@@ -151,6 +161,170 @@ for (const e of extremes) {
   // 绕向：填充棱/肌凸最 +z 的三角面外法线应朝 +z（掌面外侧）
   checkWindingZ(res, "knuckle-filler", "default", 0.3);
   checkWindingZ(res, "palmar-pad", "default", 0.3);
+}
+
+// ---- 4) 左右手同一部件「法线外向度」同号（REVIEW-2026-10 P0-6 回归） ----
+/**
+ * 面积加权法线外向度：O = Σ A·n̂·(面心 − 部件中心) / Σ A，部件中心取顶点均值。
+ * 体积/管状件外法线朝外时 O>0；镜像手放样站序反转（x0>x1）导致绕向翻转时 O 变号，
+ * 正是审计 P0-6 的症状（右手填充棱 +0.18 / 左手 −0.18）。用局部坐标即可：绕向是
+ * 网格自身属性，与父节点变换无关。
+ */
+function partOutwardness(res: HandMeshResult, part: string): number | null {
+  let found = false;
+  let num = 0;
+  let den = 0;
+  res.root.traverse((o) => {
+    const mesh = o as unknown as {
+      isMesh?: boolean;
+      userData?: { part?: string };
+      geometry?: { getAttribute(n: string): { array: ArrayLike<number> } | undefined };
+    };
+    if (!mesh.isMesh || mesh.userData?.part !== part) return;
+    const arr = mesh.geometry?.getAttribute("position")?.array;
+    if (!arr || arr.length < 9) return;
+    found = true;
+    const n = arr.length / 3;
+    let ox = 0;
+    let oy = 0;
+    let oz = 0;
+    for (let i = 0; i < n; i++) {
+      ox += arr[i * 3] / n;
+      oy += arr[i * 3 + 1] / n;
+      oz += arr[i * 3 + 2] / n;
+    }
+    for (let t = 0; t + 8 < arr.length; t += 9) {
+      const ax = arr[t], ay = arr[t + 1], az = arr[t + 2];
+      const bx = arr[t + 3], by = arr[t + 4], bz = arr[t + 5];
+      const cx = arr[t + 6], cy = arr[t + 7], cz = arr[t + 8];
+      const e1x = bx - ax, e1y = by - ay, e1z = bz - az;
+      const e2x = cx - ax, e2y = cy - ay, e2z = cz - az;
+      const nx = e1y * e2z - e1z * e2y;
+      const ny = e1z * e2x - e1x * e2z;
+      const nz = e1x * e2y - e1y * e2x;
+      const len = Math.hypot(nx, ny, nz);
+      if (len < 1e-12) continue;
+      const mx = (ax + bx + cx) / 3 - ox;
+      const my = (ay + by + cy) / 3 - oy;
+      const mz = (az + bz + cz) / 3 - oz;
+      num += (len / 2) * ((nx * mx + ny * my + nz * mz) / len);
+      den += len / 2;
+    }
+  });
+  if (!found || den === 0) return null;
+  return num / den;
+}
+
+function partsOf(res: HandMeshResult): string[] {
+  const set = new Set<string>();
+  res.root.traverse((o) => {
+    const m = o as unknown as { isMesh?: boolean; userData?: { part?: string } };
+    if (m.isMesh && m.userData?.part) set.add(m.userData.part);
+  });
+  return [...set].sort();
+}
+
+{
+  const right = buildHandMesh(DEFAULT_HAND_CONFIG, createRigFromConfig(DEFAULT_HAND_CONFIG, "right"), 1);
+  const left = buildHandMesh(DEFAULT_HAND_CONFIG, createRigFromConfig(DEFAULT_HAND_CONFIG, "left"), -1);
+  const pr = partsOf(right);
+  const pl = partsOf(left);
+  expect(pr.join(",") === pl.join(","), `左右手部件集合应一致（右 ${pr.length} / 左 ${pl.length}）`);
+  const H = DEFAULT_HAND_CONFIG.handScale;
+  const detail: string[] = [];
+  let compared = 0;
+  for (const part of pr) {
+    const or = partOutwardness(right, part);
+    const ol = partOutwardness(left, part);
+    expect(or !== null && ol !== null, `${part}: 应能计算法线外向度`);
+    if (or === null || ol === null) continue;
+    // 薄贴片（指腹/指背/指甲标记）在其自身中心两侧法线相抵，外向度≈0，不做符号判定
+    if (Math.abs(or) < 0.004 * H) continue;
+    compared++;
+    detail.push(`${part}: 右=${or.toFixed(3)} 左=${ol.toFixed(3)}`);
+    expect(
+      or * ol > 0,
+      `左右手同一部件法线外向度应同号（绕向一致）：${part} 右=${or.toFixed(3)} 左=${ol.toFixed(3)}`,
+    );
+  }
+  expect(compared >= 10, `应比较到足量实体部件（实得 ${compared}）`);
+  if (failed > 0) console.error(`  （外向度明细：${detail.join("；")}）`);
+}
+
+// ---- 5) mirrorPose → 左手拇指世界方向应为右手方向的 X 镜像（REVIEW-2026-10 P0-7 回归） ----
+/**
+ * 复刻 HandRigView.applyPose（src/hand/HandRigView.ts:132-158）的拇指变换链，用 three.js
+ * 真实计算世界方向（不是只比原始参数）：
+ *   root ← palm.transform 的 position/quaternion；
+ *   thumbRoot ← thumbBase 的 position/quaternion，位置再加 thumbCorner×sideSign；
+ *   thumbDof ← CMC 三轴：x=−elevation（Y 镜像不变）、y=+abduction×sideSign、z=−rotation×sideSign。
+ * 取 thumbDof 的世界 +Z 作为拇指根方向（两侧同一算法；手掌 group 的均匀缩放不影响方向）。
+ * ⚠ 与 applyPose 同步维护：上面这条顺序若改，本函数必须同步。
+ */
+const degToRad = (d: number) => (d * Math.PI) / 180;
+function thumbWorldFrame(handType: HandType, pose: Pose): { dir: Vector3; quat: Quaternion } {
+  const sideSign = handType === "right" ? 1 : -1;
+  const H = DEFAULT_HAND_CONFIG.handScale;
+  const res = buildHandMesh(
+    DEFAULT_HAND_CONFIG,
+    createRigFromConfig(DEFAULT_HAND_CONFIG, handType),
+    sideSign,
+    { withMarks: false, linearOutput: true },
+  );
+  const palm = pose.palm.transform;
+  res.root.position.set(palm.position.x, palm.position.y, palm.position.z);
+  res.root.quaternion.set(palm.quaternion.x, palm.quaternion.y, palm.quaternion.z, palm.quaternion.w);
+  const tb = pose.palm.thumbBase;
+  const tc = DEFAULT_HAND_CONFIG.thumbCorner;
+  res.thumbRoot.position.set(
+    tb.position.x + tc.x * H * sideSign,
+    tb.position.y + tc.y * H,
+    tb.position.z + tc.z * H,
+  );
+  res.thumbRoot.quaternion.set(tb.quaternion.x, tb.quaternion.y, tb.quaternion.z, tb.quaternion.w);
+  res.thumbDof.rotation.set(
+    degToRad(-pose.thumbCMC.elevation),
+    degToRad(pose.thumbCMC.abduction * sideSign),
+    degToRad(-pose.thumbCMC.rotation * sideSign),
+  );
+  res.thumbDof.updateWorldMatrix(true, false);
+  return {
+    dir: res.thumbDof.getWorldDirection(new Vector3()),
+    quat: res.thumbDof.getWorldQuaternion(new Quaternion()),
+  };
+}
+
+{
+  const cmcPose = (): Pose => {
+    const p = defaultHandPose("right");
+    p.thumbCMC = { abduction: 25, elevation: 18, rotation: 40 };
+    return p;
+  };
+  const cases: Array<{ name: string; pose: Pose }> = [
+    { name: "编辑器默认手位", pose: defaultHandPose("right") },
+    { name: "CMC 三轴非零", pose: cmcPose() },
+  ];
+  for (const { name, pose } of cases) {
+    const rightFrame = thumbWorldFrame("right", pose);
+    const leftFrame = thumbWorldFrame("left", mirrorPose(pose));
+    const want = new Vector3(-rightFrame.dir.x, rightFrame.dir.y, rightFrame.dir.z);
+    expect(Math.abs(rightFrame.dir.length() - 1) < 1e-9, `P0-7 ${name}: 右手拇指方向应为单位向量`);
+    expect(Math.abs(leftFrame.dir.length() - 1) < 1e-9, `P0-7 ${name}: 左手拇指方向应为单位向量`);
+    const dev = leftFrame.dir.distanceTo(want);
+    expect(
+      dev < 1e-3,
+      `P0-7 ${name}: mirrorPose 后左手拇指世界方向应为右手方向的 X 镜像（偏差 ${dev.toFixed(4)}；左手 ${leftFrame.dir.toArray().map((v) => v.toFixed(3)).join(",")} vs 期望 ${want.toArray().map((v) => v.toFixed(3)).join(",")}）`,
+    );
+    // 整帧镜像（额外把「对掌自转」也纳入：绕自身长轴的旋转不改变 +Z 方向，单靠方向抓不到）：
+    // 左手 CMC 世界朝向应 = Mx·右手朝向·Mx（Mx=diag(−1,1,1)，det=−1 → 轴取 −Mx·n，
+    // 四元数即 negate y/z = mirrorPose 的取反形式），±q 同解。
+    const qWant = new Quaternion(rightFrame.quat.x, -rightFrame.quat.y, -rightFrame.quat.z, rightFrame.quat.w); // 构造序 (x,y,z,w)
+    const qDot = Math.abs(leftFrame.quat.dot(qWant));
+    expect(
+      qDot > 1 - 1e-6,
+      `P0-7 ${name}: 左手 CMC 世界朝向应为右手朝向的 X 镜像（|cos 偏差|=${(1 - qDot).toExponential(2)}）`,
+    );
+  }
 }
 
 console.log(failed === 0 ? "verify-hand-mesh: ALL PASS ✓" : `verify-hand-mesh: ${failed} FAIL`);

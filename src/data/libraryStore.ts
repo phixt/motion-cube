@@ -14,14 +14,31 @@ export const EMPTY_LIBRARY: LibraryData = { version: 1, categories: [], formulas
 
 const KEY = "motion-cube.library";
 
-export function loadLibrary(): LibraryData {
+/** 被跳过的坏条目：index 为所在数组下标（categories / formulas / techniques 各自计） */
+export type LibraryRejectedEntry = { index: number; reason: string };
+
+/** 库加载结果：error 非 null 表示整包不可读（此时 data 为空库，调用方必须提示并禁止写回） */
+export type LibraryLoadResult = {
+  data: LibraryData;
+  error: string | null;
+  rejected: LibraryRejectedEntry[];
+};
+
+const reasonOf = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
+const emptyLibrary = (): LibraryData => ({ version: 1, categories: [], formulas: [], techniques: [] });
+
+/** 读取本地库：坏条目逐条跳过（记入 rejected），整包不可读才返回 error —— 绝不静默清库。
+ * 调用方拿到 error 非 null 时必须显式提示，并且【禁止】把该 data 写回（否则永久丢数据）。 */
+export function loadLibrary(): LibraryLoadResult {
+  let raw: string | null;
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return EMPTY_LIBRARY;
-    return deserializeLibraryData(raw);
-  } catch {
-    return EMPTY_LIBRARY;
+    raw = localStorage.getItem(KEY);
+  } catch (e) {
+    return { data: emptyLibrary(), error: `读取本地存储失败：${reasonOf(e)}`, rejected: [] };
   }
+  if (!raw) return { data: emptyLibrary(), error: null, rejected: [] };
+  return parseLibraryDataTolerant(raw);
 }
 
 export function saveLibrary(data: LibraryData): void {
@@ -32,45 +49,91 @@ export function serializeLibraryData(data: LibraryData): string {
   return JSON.stringify(data, null, 2);
 }
 
-/** 解析库 JSON：{ version, formulas?, techniques? }；任一条目非法则抛错 */
+/** 解析库 JSON：{ version, categories?, formulas?, techniques? }；任一条目非法则抛错（严格口径，导入/合并用） */
 export function deserializeLibraryData(text: string): LibraryData {
+  const r = parseLibraryDataTolerant(text);
+  if (r.error) throw new Error(r.error);
+  if (r.rejected.length > 0) {
+    const { index, reason } = r.rejected[0];
+    const more = r.rejected.length > 1 ? `（共 ${r.rejected.length} 条）` : "";
+    throw new Error(`库中存在非法条目${more}：第 ${index + 1} 条 ${reason}`);
+  }
+  return r.data;
+}
+
+function parseCategoryEntry(item: unknown): Category {
+  const c = item as Record<string, unknown> | null;
+  if (!c || typeof c !== "object" || typeof c.id !== "string" || typeof c.name !== "string") {
+    throw new Error("分类条目非法");
+  }
+  if (c.name.length > MAX_CATEGORY_NAME_LENGTH) {
+    throw new Error(`分类名过长（最多 ${MAX_CATEGORY_NAME_LENGTH} 字符）：${c.name.slice(0, 32)}…`);
+  }
+  if (c.parentId !== null && typeof c.parentId !== "string") throw new Error("分类 parentId 非法");
+  return { id: c.id, name: c.name, parentId: (c.parentId as string | null) ?? null };
+}
+
+/** 容错解析（P0-8）：逐条 try/catch，坏的跳过并记入 rejected，好的保留；
+ * error 仅在【整包不可读】时非 null（JSON 损坏 / 顶层结构非法 / 数组字段类型非法 /
+ * 分类树校验失败），此时 data 为空库——调用方必须提示，禁止把空库写回。 */
+export function parseLibraryDataTolerant(text: string): LibraryLoadResult {
+  const failed = (message: string, rejected: LibraryRejectedEntry[] = []): LibraryLoadResult => ({
+    data: emptyLibrary(),
+    error: message,
+    rejected,
+  });
   let raw: unknown;
   try {
     raw = JSON.parse(text);
-  } catch {
-    throw new Error("JSON 解析失败");
+  } catch (e) {
+    return failed(`JSON 解析失败：${reasonOf(e)}`);
   }
-  const obj = raw as { categories?: unknown; formulas?: unknown; techniques?: unknown } | null;
-  if (!obj || typeof obj !== "object") throw new Error("结构非法");
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return failed("结构非法：库必须为对象");
+  const obj = raw as { categories?: unknown; formulas?: unknown; techniques?: unknown };
+  const rejected: LibraryRejectedEntry[] = [];
+
   const categories: Category[] = [];
   if (obj.categories !== undefined) {
-    if (!Array.isArray(obj.categories)) throw new Error("categories 必须为数组");
-    for (const item of obj.categories) {
-      const c = item as Record<string, unknown> | null;
-      if (!c || typeof c !== "object" || typeof c.id !== "string" || typeof c.name !== "string") {
-        throw new Error("分类条目非法");
+    if (!Array.isArray(obj.categories)) return failed("categories 必须为数组");
+    obj.categories.forEach((item, index) => {
+      try {
+        categories.push(parseCategoryEntry(item));
+      } catch (e) {
+        rejected.push({ index, reason: `分类：${reasonOf(e)}` });
       }
-      if (c.name.length > MAX_CATEGORY_NAME_LENGTH) {
-        throw new Error(`分类名过长（最多 ${MAX_CATEGORY_NAME_LENGTH} 字符）：${c.name.slice(0, 32)}…`);
-      }
-      if (c.parentId !== null && typeof c.parentId !== "string") throw new Error("分类 parentId 非法");
-      categories.push({ id: c.id, name: c.name, parentId: (c.parentId as string | null) ?? null });
-    }
+    });
     try {
       validateCategoryTree(categories);
     } catch (e) {
-      throw new Error(e instanceof CategoryError ? e.message : String(e));
+      // 分类树坏了保留会出孤儿/环：整包按不可读处理（调用方必须提示）
+      return failed(`分类树非法：${e instanceof CategoryError ? e.message : reasonOf(e)}`, rejected);
     }
   }
-  const formulas = parseFormulaEntries(Array.isArray(obj.formulas) ? obj.formulas : []);
+
+  const formulas: Formula[] = [];
+  if (obj.formulas !== undefined) {
+    if (!Array.isArray(obj.formulas)) return failed("formulas 必须为数组");
+    obj.formulas.forEach((item, index) => {
+      try {
+        formulas.push(...parseFormulaEntries([item]));
+      } catch (e) {
+        rejected.push({ index, reason: `公式：${reasonOf(e)}` });
+      }
+    });
+  }
+
   const techniques: Technique[] = [];
   if (obj.techniques !== undefined) {
-    if (!Array.isArray(obj.techniques)) throw new Error("techniques 必须为数组");
-    for (const item of obj.techniques) {
-      techniques.push(deserializeTechnique(JSON.stringify(item)));
-    }
+    if (!Array.isArray(obj.techniques)) return failed("techniques 必须为数组");
+    obj.techniques.forEach((item, index) => {
+      try {
+        techniques.push(deserializeTechnique(JSON.stringify(item)));
+      } catch (e) {
+        rejected.push({ index, reason: `手法：${reasonOf(e)}` });
+      }
+    });
   }
-  return { version: 1, categories, formulas, techniques };
+  return { data: { version: 1, categories, formulas, techniques }, error: null, rejected };
 }
 
 /** 兼容旧的"仅公式"格式：{ formulas: [...] } */

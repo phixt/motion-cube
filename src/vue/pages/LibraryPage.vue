@@ -22,9 +22,9 @@ import {
 import { createFormula, FormulaError } from "../../data/formula";
 import {
   deserializeFormulasOnly,
-  deserializeLibraryData,
   loadLibrary,
   mergeLibrary,
+  parseLibraryDataTolerant,
   removeCategoryFromLib,
   removeFormulaFromLib,
   removeTechniqueFromLib,
@@ -34,7 +34,7 @@ import {
   type LibraryData,
 } from "../../data/libraryStore";
 import { SAMPLE_LIBRARY } from "../../data/samples";
-import { BUILTIN_LIBRARY } from "../../data/algDb";
+import { BUILTIN_LIBRARY, BUILTIN_LIBRARY_REJECTED } from "../../data/algDb";
 import { useI18n } from "../i18n";
 
 const { t } = useI18n();
@@ -42,8 +42,19 @@ const { t } = useI18n();
 const TAG_SUGGESTIONS = ["CFOP", "Roux", "ZZ", "单手", "脚拧"];
 const MAX_TAGS = 4;
 
-const lib = ref<LibraryData>(loadLibrary());
-const statusText = ref("");
+// P0-8：loadLibrary 返回 { data, error, rejected }；坏条目已逐条跳过（计入 rejected），
+// error 非 null 才代表整包不可读（此时 data 为空库 —— 绝不能写回，否则用户数据被永久抹掉）
+const libLoaded = loadLibrary();
+const lib = ref<LibraryData>(libLoaded.data);
+const libLoadError = ref<string | null>(libLoaded.error);
+const libRejectedCount = ref(libLoaded.rejected.length);
+const statusText = ref(
+  libLoadError.value !== null
+    ? t("library.libLoadError", { error: libLoadError.value })
+    : libRejectedCount.value > 0
+      ? t("library.libLoadSkipped", { n: libRejectedCount.value })
+      : "",
+);
 const editingId = ref<string | null>(null);
 const fName = ref("");
 const fTags = ref("");
@@ -91,8 +102,19 @@ const setStatus = (s: string): void => {
   statusText.value = s;
 };
 
-const persist = (): void => {
+/** P0-8：整库加载失败（error 非 null）时拒绝一切写回——
+ *  否则会把「加载失败得到的空库」存进 localStorage，用户公式/手法被永久抹掉
+ *  （与编辑器页 canPersistLibrary 同一口径）。 */
+const blockIfLoadFailed = (): boolean => {
+  if (libLoadError.value === null) return false;
+  setStatus(t("library.libSaveBlocked"));
+  return true;
+};
+
+const persist = (): boolean => {
+  if (blockIfLoadFailed()) return false;
   saveLibrary(lib.value);
+  return true;
 };
 
 const addTagsFromInput = (): void => {
@@ -130,6 +152,7 @@ const resetForm = (): void => {
 };
 
 const submitFormula = (): void => {
+  if (blockIfLoadFailed()) return; // P0-8：整库不可读时拒绝写回
   try {
     addTagsFromInput();
     const formula = createFormula({
@@ -160,21 +183,25 @@ const startEdit = (id: string): void => {
 };
 
 const removeFormula = (id: string): void => {
+  if (blockIfLoadFailed()) return; // P0-8：整库不可读时拒绝写回
   lib.value = removeFormulaFromLib(lib.value, id);
   persist();
 };
 
 const removeTechnique = (id: string): void => {
+  if (blockIfLoadFailed()) return; // P0-8：整库不可读时拒绝写回
   lib.value = removeTechniqueFromLib(lib.value, id);
   persist();
 };
 
 const removeCategory = (id: string): void => {
+  if (blockIfLoadFailed()) return; // P0-8：整库不可读时拒绝写回
   lib.value = removeCategoryFromLib(lib.value, id);
   persist();
 };
 
 const addCategory = (): void => {
+  if (blockIfLoadFailed()) return; // P0-8：整库不可读时拒绝写回
   try {
     const parentId = catParent.value || null;
     const cat = createCategory({ name: catName.value, parentId }, lib.value.categories);
@@ -188,15 +215,23 @@ const addCategory = (): void => {
 };
 
 const loadSamples = (): void => {
+  if (blockIfLoadFailed()) return; // P0-8：整库不可读时拒绝写回
   lib.value = mergeLibrary(lib.value, SAMPLE_LIBRARY);
   persist();
   setStatus(t("library.importOk", { n: SAMPLE_LIBRARY.formulas.length, m: SAMPLE_LIBRARY.techniques.length }));
 };
 
 const loadBuiltin = (): void => {
+  if (blockIfLoadFailed()) return; // P0-8：整库不可读时拒绝写回
   lib.value = mergeLibrary(lib.value, BUILTIN_LIBRARY);
   persist();
-  setStatus(t("library.importOk", { n: BUILTIN_LIBRARY.formulas.length, m: 0 }));
+  // 被拒条目（记法非法）显式上报，不静默丢弃
+  const k = BUILTIN_LIBRARY_REJECTED.length;
+  setStatus(
+    k > 0
+      ? t("library.importBuiltinSkipped", { n: BUILTIN_LIBRARY.formulas.length, k })
+      : t("library.importBuiltin", { n: BUILTIN_LIBRARY.formulas.length }),
+  );
 };
 
 const onFileChange = async (e: Event): Promise<void> => {
@@ -204,18 +239,30 @@ const onFileChange = async (e: Event): Promise<void> => {
   const file = input.files?.[0];
   if (!file) return;
   const text = await file.text();
-  try {
-    lib.value = mergeLibrary(lib.value, deserializeLibraryData(text));
-    setStatus(t("library.importOk", { n: lib.value.formulas.length, m: lib.value.techniques.length }));
-  } catch {
+  // P0-8：逐条容错——导入文件里个别坏条目只跳过该条，不让整份导入失败
+  const parsed = parseLibraryDataTolerant(text);
+  if (parsed.error === null) {
+    lib.value = mergeLibrary(lib.value, parsed.data);
+    // 导入成功 → 库重新可读：解除「整库损坏」状态，后续保存不再被拒
+    libLoadError.value = null;
+    const n = lib.value.formulas.length;
+    const m = lib.value.techniques.length;
+    setStatus(
+      parsed.rejected.length > 0
+        ? t("library.importSkipped", { n, m, k: parsed.rejected.length })
+        : t("library.importOk", { n, m }),
+    );
+    persist(); // 显式导入即用户意图：允许用导入结果替换掉整包损坏的旧库
+  } else {
     try {
       lib.value = mergeLibrary(lib.value, deserializeFormulasOnly(text));
+      libLoadError.value = null; // 仅公式导入成功 → 库重新可读
       setStatus(t("library.importOk", { n: lib.value.formulas.length, m: lib.value.techniques.length }));
+      persist();
     } catch (e2) {
       setStatus(t("library.importFail", { error: e2 instanceof Error ? e2.message : String(e2) }));
     }
   }
-  persist();
   input.value = "";
 };
 

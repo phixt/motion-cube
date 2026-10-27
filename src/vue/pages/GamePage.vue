@@ -28,7 +28,14 @@ const status = ref("");
  *  演示播放与打乱共用同一 s/步 语义（消灭 420ms 与 1000ms 两套基准的旧遗留）。 */
 const speed = ref(1.0);
 const scrambleSpeed = ref(0.33); // 默认 ≈ 3x（1000ms/3）
+/** 显示日志上限：移动日志只渲染最近 N 步（纯展示，**不参与持久化**） */
+const LOG_LIMIT = 24;
 const moves = ref<string[]>([]);
+/** 进度序列（完整、不截断）：进度快照的**唯一**写入源（P1-7）。
+ *  与显示日志 moves 彻底解耦——旧实现把 24 条封顶的显示日志当持久化来源，走超 24 步后
+ *  恢复只还原最后 24 步（魔方回到错误的中间状态）。取值 = player.currentAlg，即「当前魔方
+ *  状态」的完整表达（含打乱/应用公式/逐步动作），恢复即按它整段重放。 */
+const progressAlg = ref("");
 
 const solveMethod = ref<methodOpts.SolverBase>("cfop");
 const solveOptions = ref<methodOpts.SolverOptions>(methodOpts.loadSolverOptions());
@@ -86,10 +93,15 @@ const copyScramble = async (): Promise<void> => {
 };
 
 const copySolve = async (): Promise<void> => {
-  if (!solveResult.value || !solveResult.value.moves.length) return;
-  // 「解法以所选底为基础」：复制公式带整块旋转前缀（= 标准魔方上先旋转到底再执行的完整公式）
-  const setup = solveResult.value.setupAlg;
-  const full = (setup ? setup + " " : "") + solveResult.value.moves.join(" ");
+  const res = solveResult.value;
+  if (!res || !res.moves.length) return;
+  // 复制口径 = 演示口径（P1-8）：setupAlg（整块旋转到底）→ moves（解法）→ endAlg（收尾整块
+  // 旋转）。旧实现漏掉 endAlg，复制出的公式终点朝向与屏幕演示不一致——标准 D 底时 endAlg
+  // 恰为空所以看不出来，非 D 全局底（红/蓝底等）必现。
+  const full = [res.setupAlg, res.moves.join(" "), res.endAlg]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(" ");
   status.value = (await copyText(full)) ? t("hud.copied") : t("hud.copyFail");
 };
 
@@ -105,20 +117,27 @@ const cancelDemo = (): void => {
 
 let session: GameSession | null = null;
 
+/** 显示日志：只留最近 LOG_LIMIT 步；快照走 progressAlg（完整序列），两者互不影响 */
 const logMove = (move: string): void => {
   moves.value.push(move);
-  if (moves.value.length > 24) moves.value.splice(0, moves.value.length - 24);
+  if (moves.value.length > LOG_LIMIT) moves.value.splice(0, moves.value.length - LOG_LIMIT);
   void nextTick(() => {
     if (moveLogEl.value) moveLogEl.value.scrollLeft = moveLogEl.value.scrollWidth;
   });
 };
 
+/** 把 player 的完整序列同步到进度序列（= 快照写入源） */
+const syncProgress = (): void => {
+  progressAlg.value = session?.player.currentAlg ?? "";
+};
+
 onMounted(() => {
   if (!stageEl.value || !grayPanelEl.value) return;
   session = createGameSession(stageEl.value, grayPanelEl.value, {
-    onMove: (m) => { cancelDemo(); logMove(m); },
-    onUndo: () => { cancelDemo(); moves.value.pop(); },
-    onReset: () => { cancelDemo(); moves.value = []; },
+    onMove: (m) => { cancelDemo(); logMove(m); syncProgress(); },
+    // session 的 undo/reset 先回调 hook、再改 player 序列 → nextTick 读「改之后」的完整序列
+    onUndo: () => { cancelDemo(); moves.value.pop(); void nextTick(syncProgress); },
+    onReset: () => { cancelDemo(); moves.value = []; void nextTick(syncProgress); },
     onStatus: (s) => (status.value = s),
     onPlaying: (p) => (playing.value = p),
   });
@@ -129,11 +148,14 @@ onMounted(() => {
 // 进度快照：进入游戏恢复上次达成步骤
   const snap = loadSnapshot();
   if (snap) {
-    session.player.setMoves(snap.alg);
+    // 恢复口径：整段完整序列（与快照写入源同源）；显示日志只回填最近 LOG_LIMIT 步
+    const parsed = parseMoves(snap.alg);
+    const restored = parsed.ok ? parsed.normalized : snap.alg;
+    session.player.setMoves(restored);
     // cubing 惰性渲染：恢复状态后强制重绘（走 CubePlayer 抽象接口）
     void session.player.requestRender();
-    const parsed = parseMoves(snap.alg);
-    moves.value = parsed.ok ? parsed.normalized.split(/\s+/).filter(Boolean) : [];
+    progressAlg.value = restored;
+    moves.value = restored.split(/\s+/).filter(Boolean).slice(-LOG_LIMIT);
     status.value = "已恢复上次进度";
   }
 });
@@ -148,7 +170,10 @@ const applyAlg = (): void => {
   cancelDemo();
   const normalized = session?.applyAlg(algText.value);
   scrambleAlg.value = "";
-  if (normalized !== null && normalized !== undefined) algText.value = normalized;
+  if (normalized !== null && normalized !== undefined) {
+    algText.value = normalized;
+    syncProgress(); // 应用公式后完整序列 = 新公式（快照随之更新，不再停留在旧进度）
+  }
 };
 const togglePlay = (): void => session?.togglePlay();
 const reset = (): void => {
@@ -156,6 +181,7 @@ const reset = (): void => {
   session?.player.reset();
   moves.value = [];
   scrambleAlg.value = "";
+  syncProgress();
   status.value = t("hud.statusReset");
 };
 const toggleGray = (): void => session?.gray.togglePanel();
@@ -163,12 +189,9 @@ const toggleGray = (): void => session?.gray.togglePanel();
 // speed = 每步秒数（s/步）；cubing tempoScale = 1/s（基准 1000ms@1.00s/步）
 watch(speed, (v) => session?.setSpeed(1 / (v || 1)));
 
-// 每步达成后自动保存快照（复用编辑器/tauri 持久）
-watch(
-  moves,
-  (m) => saveSnapshot(m.join(" ")),
-  { deep: true },
-);
+// 每步达成后自动保存快照（复用编辑器/tauri 持久）：只监听完整进度序列（字符串，非深监听，
+// 每步一次轻量落盘），与 24 条封顶的显示日志彻底解耦（P1-7）
+watch(progressAlg, (alg) => saveSnapshot(alg));
 
 const clearProgress = (): void => {
   cancelDemo();
@@ -176,6 +199,7 @@ const clearProgress = (): void => {
   session?.player.reset();
   moves.value = [];
   scrambleAlg.value = "";
+  syncProgress();
 };
 
 /** 生成随机打乱（20 步，与 WCA 同风格）并逐步播放。
@@ -194,15 +218,21 @@ const scrambleCube = async (): Promise<void> => {
   // 打乱动画实时速度 = 1/s（cubing tempoScale）；步间隔 = s/步 × 1000ms（播完再下一步）
   session.player.setSpeed(1 / scrambleSpeed.value);
   const delay = Math.max(60, scrambleSpeed.value * 1000);
+  let applied = 0;
   for (const mv of scr.split(" ")) {
-    if (demoToken !== myToken) return;
+    if (demoToken !== myToken) break;
     session.player.applyMove(mv);
+    applied++;
     await new Promise<void>((r) => {
       sleepResolve = r;
       setTimeout(() => { if (sleepResolve === r) sleepResolve = null; r(); }, delay);
     });
   }
-  if (demoToken !== myToken) return;
+  if (demoToken !== myToken) {
+    // 被打断：公式条只保留**真正执行过**的步，保持「展示口径 = 实际执行序列」
+    scrambleAlg.value = scr.split(" ").slice(0, applied).join(" ");
+    return;
+  }
   demoRunning.value = false;
   session.player.pause(); // 停在打乱态
   session.player.setSpeed(1 / speed.value); // 恢复演示滑条速度（防打乱倍速残留）
@@ -387,6 +417,11 @@ const demoSolve = async (): Promise<void> => {
           <span class="stage-algs" v-if="s.algs && s.algs.length">{{ s.algs.join(" · ") }}</span>
           <span class="stage-moves">{{ s.moves.join(" ") || "–" }}</span>
           <span class="stage-count">{{ s.moves.length }}</span>
+        </li>
+        <li v-if="solveResult.endAlg" class="solve-stage solve-stage-rotate">
+          <span class="stage-short">{{ t("solve.rotateEnd") }}</span>
+          <span class="stage-moves">{{ solveResult.endAlg }}</span>
+          <span class="stage-count">({{ solveResult.endAlg.split(" ").length }})</span>
         </li>
       </ul>
       <div class="solve-actions">

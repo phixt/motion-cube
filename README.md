@@ -42,7 +42,7 @@ motion-cube/
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173
+npm run dev        # http://localhost:5174
 npm run typecheck  # vue-tsc 严格检查
 npm run build      # vue-tsc + vite build
 npm run preview

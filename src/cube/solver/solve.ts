@@ -110,14 +110,19 @@ const relabelByCenter = (s: State): State => {
 };
 
 /** 全部 24 个整块旋转朝向：对每个面 f 用 baseFaceSetupAlg(f)（修方向后：把 f 色面位转到 D）
- *  作底朝向，再绕 D 轴（z 轴）自转 4 分位。覆盖「f 色在 D × 4 自转」= 完整 24 朝向。 */
+ *  作底朝向，再绕 D 轴自转 4 分位。覆盖「f 色在 D × 4 自转」= 完整 24 朝向。
+ *
+ * ⚠ 自转必须用 **y**（绕 U/D 轴）而不是 z（绕 F 轴）——z 会把底色一起转走，
+ *   24 个条目去重后只剩 16 种朝向，8 种缺失 → finishRotBetween 找不到匹配 →
+ *   endAlg 返回 ""、演示收尾停在错误朝向（2026-10-27 修正）。
+ *   回归断言见 scripts/smoke-solver-edge.ts（24 朝向必须全部可达）。 */
 const WHOLE_ROT24: string[] = (() => {
   const out: string[] = [];
   for (const f of FACES) {
     const setup = baseFaceSetupAlg(f);
-    for (const spin of ["", "z", "z2", "z'"]) {
-      // 关键：f=D 时 setup="",拼接必须无前导空格（直接产出 "" / "z" / "z2" / "z'"）——
-      // 旧实现产出 " z"，调用方 split(" ") 得到空串步，MOVES[""] 不存在而崩溃。
+    for (const spin of ["", "y", "y2", "y'"]) {
+      // 关键：f=D 时 setup="",拼接必须无前导空格（直接产出 "" / "y" / "y2" / "y'"）——
+      // 旧实现产出 " y"，调用方 split(" ") 得到空串步，MOVES[""] 不存在而崩溃。
       out.push(setup ? (spin ? setup + " " + spin : setup) : spin);
     }
   }
@@ -133,8 +138,11 @@ const centerColors = (s: State): string => {
 /** 求把「真实还原终点 T」整块旋转到「目标朝向 target（=所选底朝向 solved）」的唯一整块旋转。
  *  实证：标准全局底视角下 T 已=solved·setupAlg ⇒ 返回 ""；非标准全局底视角（如红底实态、
  *  st 已带整块前缀）下 T=标准 solved·整块前缀组合，自动补出那一步——统一覆盖两种视角，
- *  这正是「方案 A 的实证正确版」（旧的「setupAlg 静态逆」premise 实测不成立，已废弃）。 */
-function finishRotBetween(T: State, target: State): string {
+ *  这正是「方案 A 的实证正确版」（旧的「setupAlg 静态逆」premise 实测不成立，已废弃）。
+ *
+ *  导出供回归断言使用（scripts/smoke-solver-edge.ts）：24 种整块朝向必须两两可达，
+ *  否则 endAlg 会返回 ""，演示收尾停在错误朝向。 */
+export function finishRotBetween(T: State, target: State): string {
   const tc = centerColors(target);
   for (const g of WHOLE_ROT24) {
     if (centerColors(applyAlg(T, g)) === tc) return g;

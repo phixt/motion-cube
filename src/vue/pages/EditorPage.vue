@@ -17,7 +17,9 @@ import { loadLibrary, saveLibrary, upsertTechniqueInLib } from "../../data/libra
 import {
   createTechnique,
   removeKeyframe,
+  TechniqueError,
   upsertKeyframe,
+  validateTechnique,
   type Easing,
   type StepMapping,
   type Technique,
@@ -31,7 +33,12 @@ import {
   type Pose,
 } from "../../hand/HandRig";
 import { HandRigView } from "../../hand/HandRigView";
-import { registerHandApi, unregisterHandApi } from "../../hand/handApi";
+import {
+  externalDrive,
+  registerHandApi,
+  releaseExternalDrive,
+  unregisterHandApi,
+} from "../../hand/handApi";
 import { bindingKey, type EditorAction } from "../../input/keymap";
 import { invertMoves, parseMoves, splitCompoundMove } from "../../notation/alg";
 import { loadEditorActionKeys, loadSettings } from "../../settings";
@@ -41,6 +48,7 @@ import {
   DEFAULT_FRAME_RATE,
   interpolatePose,
   keyframeSegment,
+  MAX_KEYFRAME_FRAME,
   type EasingFn,
 } from "../../timeline/Timeline";
 import { useI18n } from "../i18n";
@@ -53,6 +61,9 @@ const TL_ZOOM_MAX = 16;
 const pxPerFrame = ref(6);
 const AUTO_PATH_STEP = 15; // 自动路径中间关键帧间隔（帧）
 const SNAP_STEP = 1 / 3; // 吸附步长：1/3 块边长（sticker 网格）
+/** 刻度数量硬上限（P1-3）：总帧数再大也只生成这么多刻度，杜绝海量 DOM 卡死 */
+const RULER_MAX_TICKS = 400;
+const BEAT_MAX_TICKS = 400;
 // 每动作默认时长（秒）：编辑器默认步时 0.3s（"正常动作"），与 cubing 基准 1s 分离；
 // 播放时 tempoScale = 1.0 / 步时，动画精确匹配
 const STEP_DEFAULT_SEC = 0.3;
@@ -65,14 +76,53 @@ const PLAY_SPEED_PRESETS = [0.25, 0.5, 0.75, 1, 1.5, 2, 4] as const;
 const playSpeed = ref(1);
 /** 拍：1 拍 = 默认步时（0.3s），随 frameRate 换算帧数 */
 const beatFrames = computed(() => Math.round(STEP_DEFAULT_SEC * (tech.value?.frameRate ?? 60)));
+/** 总帧号预算（P1-3）：stepMapping 末帧 + 关键帧末帧都不得超过此上限 */
+const frameBudget = MAX_KEYFRAME_FRAME;
+/** 其它步骤已占用的帧数（不含待改的那一步）→ 改这一步时剩余的帧预算 */
+const otherStepsFrames = (exclude: number | null): number => {
+  const sm = tech.value?.stepMapping ?? [];
+  return sm.reduce((sum, m, i) => (i === exclude ? sum : sum + (m.endFrame - m.startFrame)), 0);
+};
+/** 单步时长上限（秒）：单选时按「剩余帧预算」算，输入框 max 与提交前校验共用同一口径 */
+const maxStepSec = computed(() => {
+  const fr = tech.value?.frameRate ?? DEFAULT_FRAME_RATE;
+  const sel = selectedSteps.value;
+  const idx = sel.length === 1 ? sel[0] : null;
+  const others = otherStepsFrames(idx);
+  return Math.max(0.1, (frameBudget - others) / fr);
+});
+/** 批量设置时长上限（秒）：N 个选中步骤同时改成该时长，总帧数仍须在预算内 */
+const maxBatchStepSec = computed(() => {
+  const fr = tech.value?.frameRate ?? DEFAULT_FRAME_RATE;
+  const sel = selectedSteps.value;
+  const others = otherStepsFrames(null);
+  const n = Math.max(1, sel.length);
+  return Math.max(0.1, (frameBudget - others) / (n * fr));
+});
+/** 「拍」输入上限：帧号上限换算成拍 */
+const maxBeat = computed(() => MAX_KEYFRAME_FRAME / Math.max(1, beatFrames.value));
 
-const lib = ref(loadLibrary());
+/** 库加载结果（P0-8）：error 非 null = 整包不可读（data 为空库，必须禁止写回）；
+ *  rejected = 逐条跳过并记录的坏数据。绝不静默清库。 */
+const libLoaded = loadLibrary();
+const lib = ref(libLoaded.data);
+const libLoadError = ref<string | null>(libLoaded.error);
+const libRejectedCount = ref(libLoaded.rejected.length);
 const tech = ref<Technique | null>(null);
-const selectedFrame = ref<number | null>(null);
 const playing = ref(false);
 const loopPlay = ref(false); // 播放循环开关（默认不循环）
 const reversePlay = ref(false); // 倒放开关
 const previewFrame = ref(0);
+/** 关键帧面板「当前编辑帧」单一真相源 = previewFrame（P1-4）。
+ *  面板的帧号/拍/缓动/删除/数值全部读写它；selectedFrame 仅作兼容别名，
+ *  读写都落到 previewFrame，避免「两个字段各改各的」导致的回弹与静默失效。 */
+const selectedFrame = computed<number | null>({
+  get: () => (tech.value ? previewFrame.value : null),
+  set: (frame) => {
+    if (frame === null || !Number.isFinite(frame)) return;
+    previewFrame.value = frame;
+  },
+});
 const statusText = ref("");
 /** 倒放逆序执行指针：已逆序执行到第几步（从 formulaMoves.length 递减到 0） */
 let revApplied = 0;
@@ -96,6 +146,8 @@ const emptyHintEl = ref<HTMLElement | null>(null);
 const newNameEl = ref<HTMLInputElement | null>(null);
 const tlMetaEl = ref<HTMLElement | null>(null);
 const kfFrameEl = ref<HTMLInputElement | null>(null);
+/** 「拍」输入框：与「帧」输入框同源（都回填 previewFrame 派生的真实值） */
+const kfBeatEl = ref<HTMLInputElement | null>(null);
 const kfEasingEl = ref<HTMLSelectElement | null>(null);
 const kfDeleteEl = ref<HTMLButtonElement | null>(null);
 const kfPoseXEl = ref<HTMLInputElement | null>(null);
@@ -187,7 +239,12 @@ const seekFromEvent = (clientX: number, track: HTMLElement): void => {
   const total = Math.max(totalFrames.value, minTimelineFrames.value);
   const frame = Math.max(0, Math.round(((clientX - rect.left) / Math.max(rect.width, 1)) * total));
   previewFrame.value = Math.min(frame, total);
+  takeHandDrive(); // 移动播放头 → 归还手部所有权（P1-1）
   syncCubeToFrame(previewFrame.value);
+  // 播放头是面板的单一真相源：seek 后必须把面板输入框刷成新帧
+  // （否则面板仍显示上一个关键帧的帧号——「帧/拍/缓动」会作用到错误的帧，
+  //  且「该帧没有关键帧」的提示会指向陈旧帧号）。P1-4 收口。
+  renderSelected();
   renderPreview();
 };
 
@@ -276,6 +333,7 @@ const stepFrames = (dir: 1 | -1, jumpKf: boolean): void => {
   } else {
     previewFrame.value = Math.min(total, Math.max(0, previewFrame.value + dir));
   }
+  takeHandDrive(); // 移动播放头 → 归还手部所有权（P1-1）
   syncCubeToFrame(previewFrame.value);
   renderPreview();
 };
@@ -325,17 +383,21 @@ function applyHandVisibility(): void {
 }
 const toggleShowHand = (): void => {
   showHand.value = !showHand.value;
+  takeHandDrive(); // 切换显隐 → 归还手部所有权（P1-1）
   applyHandVisibility();
+  renderPreview(); // 归还后立即用编辑器姿态重绘双手
 };
 const toggleBothHands = (): void => {
   showBothHands.value = !showBothHands.value;
   // 主位规则：双手=右手主位（默认编辑）；单手=默认左手（可经面板换右手）
   focusHand.value = showBothHands.value ? "right" : "left";
+  takeHandDrive(); // 切换手型 → 归还手部所有权（P1-1）
   applyHandVisibility();
   renderPreview(); // 面板数值随主位手刷新 + 双手重喂轨
 };
 const setFocusHand = (h: "left" | "right"): void => {
   focusHand.value = h;
+  takeHandDrive(); // 切换手型 → 归还手部所有权（P1-1）
   applyHandVisibility();
   renderPreview();
 };
@@ -444,26 +506,51 @@ const sortedKeyframes = computed(() =>
   tech.value ? [...tech.value.keyframes].sort((a, b) => a.frame - b.frame) : [],
 );
 
-/** 时间线刻度（时间制）：主刻度 1s、次刻度 1/5s，随 frameRate 换算帧号 */
+/** 时间线刻度（时间制）：主刻度 1s、次刻度 1/5s，随 frameRate 换算帧号。
+ *  P1-3：不再逐帧遍历整条时间线——刻度数超过硬上限时按「整秒」档位自适应加粗，
+ *  极端总长再退化为等分档，保证 tick 数恒 ≤ RULER_MAX_TICKS。 */
 const rulerTicks = computed(() => {
   const fr = tech.value?.frameRate ?? 60;
-  const ticks: { frame: number; major: boolean }[] = [];
   const total = totalFrames.value;
-  const majorEvery = Math.max(1, Math.round(fr));
-  const minorEvery = Math.max(1, Math.round(fr / 5));
-  for (let f = 0; f <= total; f++) {
-    if (f % majorEvery === 0) ticks.push({ frame: f, major: true });
-    else if (f % minorEvery === 0) ticks.push({ frame: f, major: false });
+  const majorEvery = Math.max(1, Math.round(fr)); // 1s
+  const minorEvery = Math.max(1, Math.round(fr / 5)); // 0.2s
+  const maxTicks = RULER_MAX_TICKS;
+  let step: number;
+  let allMajor = false;
+  if (total / minorEvery + 1 <= maxTicks) {
+    step = minorEvery;
+  } else if (total / majorEvery + 1 <= maxTicks) {
+    step = majorEvery;
+  } else {
+    const ladder = [2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+    const fit = ladder.map((m) => majorEvery * m).find((c) => total / c + 1 <= maxTicks);
+    if (fit) {
+      step = fit;
+    } else {
+      step = Math.max(1, Math.ceil(total / maxTicks));
+    }
+    allMajor = true; // 加粗后每条都带秒标签
+  }
+  const ticks: { frame: number; major: boolean }[] = [];
+  for (let f = 0; f <= total; f += step) {
+    // 主刻度判定不能只看 f % majorEvery（步长变了就不再整除 majorEvery），
+    // 改为「到最近 majorEvery 边界距离 < step/2 即为主刻度」，保持每 1s 一条主刻度。
+    const rem = ((f % majorEvery) + majorEvery) % majorEvery;
+    const major = allMajor || rem < step / 2 || rem >= majorEvery - step / 2;
+    ticks.push({ frame: f, major });
   }
   return ticks;
 });
 
-/** 拍网格刻度（每 1 拍一条，0.3s） */
+/** 拍网格刻度（每 1 拍一条，0.3s；P1-3 同样受硬上限约束，且防 beatFrames=0 死循环） */
 const beatTicks = computed(() => {
   const ticks: { frame: number; beat: number }[] = [];
   const total = totalFrames.value;
-  for (let f = 0; f <= total; f += beatFrames.value) {
-    ticks.push({ frame: f, beat: beatFrames.value > 0 ? f / beatFrames.value : 0 });
+  const beat = beatFrames.value;
+  if (!Number.isFinite(beat) || beat < 1) return ticks;
+  const stride = Math.max(1, Math.ceil((total / beat + 1) / BEAT_MAX_TICKS)) * beat;
+  for (let f = 0; f <= total; f += stride) {
+    ticks.push({ frame: f, beat: f / beat });
   }
   return ticks;
 });
@@ -474,18 +561,82 @@ const beatOfSelected = computed(() => {
   return frame === null || beatFrames.value <= 0 ? "" : (frame / beatFrames.value).toFixed(2);
 });
 
-/** 拍 → 帧号并更新选中关键帧（复用帧号变更语义） */
-const onKfBeatChange = (e: Event): void => {
+/** 当前编辑帧（播放头）上的关键帧 → 目标帧（「帧」与「拍」两个入口共用，
+ *  P1-4 单一真相源）。目标非法 / 超上限 / 已被占用 / 重映射冲突一律拒绝写入并
+ *  给出含帧号的诊断；成功后播放头随关键帧一起移动，输入框不再视觉回弹。 */
+const moveEditingKeyframe = (target: number): void => {
+  if (!tech.value) return;
   const src = shownFrame();
-  if (!tech.value || src === null) return;
-  const beat = Number((e.target as HTMLInputElement).value);
-  if (!Number.isFinite(beat) || beat < 0) {
-    renderSelected();
+  if (src === null) return;
+  if (!Number.isInteger(target) || target < 0) {
+    statusText.value = t("editor.kfFail", { error: t("editor.frameInvalid") });
+    renderAll();
     return;
   }
-  const target = Math.round(beat * beatFrames.value);
-  onKfFrameChangeFrom(target, src);
+  if (target > MAX_KEYFRAME_FRAME) {
+    statusText.value = t("editor.kfFail", {
+      error: t("editor.frameTooLarge", { max: MAX_KEYFRAME_FRAME }),
+    });
+    renderAll();
+    return;
+  }
+  const kf = tech.value.keyframes.find((k) => k.frame === src);
+  if (!kf) {
+    statusText.value = t("editor.kfAtFrameMissing", { frame: src });
+    renderAll();
+    return;
+  }
+  if (target === src) {
+    renderAll();
+    return;
+  }
+  if (tech.value.keyframes.some((k) => k.frame === target)) {
+    statusText.value = t("editor.kfFail", { error: t("editor.frameOccupied", { frame: target }) });
+    renderAll();
+    return;
+  }
+  const prev = previewFrame.value;
+  previewFrame.value = target; // 先移播放头：commit 内的 renderAll 直接按新帧回填输入框
+  if (!commit((t2) => removeKeyframe(upsertKeyframe(t2, { ...kf, frame: target }), src))) {
+    previewFrame.value = prev; // 拒绝写入 → 播放头与输入框一起回退
+    renderAll();
+    return;
+  }
+  syncCubeToFrame(target);
+  renderAll();
 };
+
+/** 拍 → 帧号（与帧号入口同一路径，行为一致） */
+const onKfBeatChange = (e: Event): void => {
+  if (!tech.value || shownFrame() === null) return;
+  const raw = (e.target as HTMLInputElement).value.trim();
+  const beat = Number(raw);
+  // 空输入 / 非法值 / 帧率过低（1 拍不足 1 帧）→ 拒绝并回填真实值（与帧入口同口径）
+  if (raw === "" || !Number.isFinite(beat) || beat < 0 || beatFrames.value < 1) {
+    statusText.value = t("editor.kfFail", { error: t("editor.frameInvalid") });
+    renderAll();
+    return;
+  }
+  moveEditingKeyframe(Math.round(beat * beatFrames.value));
+};
+
+/** 关键帧帧号重映射（P0-9）：两个关键帧塌陷到同一帧时抛带帧号的诊断错误，
+ *  由 commit() 捕获 → 拒绝写入；绝不允许非法手法进入时间线/库。 */
+function remapKeyframes(
+  keyframes: readonly TechniqueKeyframe[],
+  remap: (frame: number) => number,
+  message: (origA: number, origB: number, frame: number) => string,
+): TechniqueKeyframe[] {
+  const mapped = keyframes.map((k) => ({ ...k, frame: remap(k.frame) }));
+  const firstAt = new Map<number, number>(); // 新帧号 → 最先落到这里的原帧号
+  mapped.forEach((k, i) => {
+    const orig = keyframes[i].frame;
+    const first = firstAt.get(k.frame);
+    if (first !== undefined) throw new TechniqueError(message(first, orig, k.frame));
+    firstAt.set(k.frame, orig);
+  });
+  return mapped;
+}
 
 /** 按秒等比重映射全部帧数据（拍/动作联动：0.3s 的动作帧数随 frameRate 变化，时长不变） */
 function rescaleFrames(t2: Technique, oldFr: number, newFr: number): Technique {
@@ -493,7 +644,9 @@ function rescaleFrames(t2: Technique, oldFr: number, newFr: number): Technique {
   return {
     ...t2,
     frameRate: newFr,
-    keyframes: t2.keyframes.map((k) => ({ ...k, frame: remap(k.frame) })),
+    keyframes: remapKeyframes(t2.keyframes, remap, (a, b, f) =>
+      t("editor.rescaleCollide", { a, b, f }),
+    ),
     stepMapping: t2.stepMapping.map((m) => ({
       ...m,
       startFrame: remap(m.startFrame),
@@ -510,7 +663,8 @@ function rescaleFrames(t2: Technique, oldFr: number, newFr: number): Technique {
 /** 切换 frameRate（预设挡位，最高 1000）：全时间线按秒重映射，避免极高帧率光速完成 */
 const onFrameRateChange = (e: Event): void => {
   if (!tech.value) return;
-  const fr = Number((e.target as HTMLSelectElement).value);
+  const select = e.target as HTMLSelectElement;
+  const fr = Number(select.value);
   if (!Number.isFinite(fr) || fr <= 0) {
     renderAll();
     return;
@@ -518,27 +672,16 @@ const onFrameRateChange = (e: Event): void => {
   const oldFr = tech.value.frameRate;
   if (oldFr === fr) return;
   playing.value = false; // 播放中切换帧率会与步进/魔方状态脱同步，先停止
-  const sel = selectedFrame.value;
   const pv = previewFrame.value;
-  commit((t2) => rescaleFrames(t2, oldFr, fr));
-  // 选中关键帧与播放头保持同一时间位置（帧号按秒等比换算）
-  if (sel !== null) selectedFrame.value = Math.round((sel / oldFr) * fr);
+  // P0-9：重映射后若关键帧帧号塌陷 → commit 拒绝写入并抛出含帧号的提示
+  if (!commit((t2) => rescaleFrames(t2, oldFr, fr))) {
+    select.value = String(oldFr); // 拒绝写入 → 选择框回退到实际帧率（避免显示与数据脱节）
+    renderAll();
+    return;
+  }
+  // 播放头保持同一时间位置（帧号按秒等比换算）
   previewFrame.value = Math.round((pv / oldFr) * fr);
   syncCubeToFrame(previewFrame.value);
-  renderAll(); // 重渲染面板摘要/数值（selectedFrame 已按新帧率换算）
-};
-
-const onKfFrameChangeFrom = (target: number, src: number = shownFrame() ?? -1): void => {
-  if (!tech.value || src < 0) return;
-  const kf = tech.value.keyframes.find((k) => k.frame === src);
-  if (!kf) return;
-  commit((t2) => {
-    const moved = upsertKeyframe(t2, { ...kf, frame: target });
-    return removeKeyframe(moved, src);
-  });
-  selectedFrame.value = target;
-  previewFrame.value = target;
-  syncCubeToFrame(target);
   renderAll();
 };
 
@@ -589,39 +732,116 @@ function shownFrame(): number | null {
   return tech.value ? previewFrame.value : null;
 }
 
-/** 单轨插值：取各关键帧的指定手轨道，同段同缓动插值（十八轮显式 left/right 双轨） */
-function trackPose(get: (kf: TechniqueKeyframe) => Pose): Pose | null {
-  if (!tech.value || tech.value.keyframes.length === 0) return null;
-  if (tech.value.keyframes.length === 1) return get(tech.value.keyframes[0]);
+/** 把姿态转成【普通对象】快照（脱 Vue 响应式代理）。
+ *  关键帧姿态取自 tech.value（Vue 深层 reactive），其 Proxy 一旦交给 setPose 被外部消费者
+ *  序列化（CDP / Tauri IPC）就会变成 {}（表现为「手部姿态为空」）——故这里统一拍平。 */
+function plainPose(p: Pose): Pose {
+  const t = p.palm.transform;
+  const tb = p.palm.thumbBase;
+  const bends = {} as Pose["bends"];
+  for (const name of FINGER_ORDER) {
+    const arr = p.bends[name] ?? [];
+    bends[name] = Array.from(arr);
+  }
+  return {
+    palm: {
+      transform: {
+        position: { x: t.position.x, y: t.position.y, z: t.position.z },
+        quaternion: { w: t.quaternion.w, x: t.quaternion.x, y: t.quaternion.y, z: t.quaternion.z },
+      },
+      thumbBase: {
+        position: { x: tb.position.x, y: tb.position.y, z: tb.position.z },
+        quaternion: { w: tb.quaternion.w, x: tb.quaternion.x, y: tb.quaternion.y, z: tb.quaternion.z },
+      },
+    },
+    bends,
+    thumbCMC: {
+      abduction: p.thumbCMC.abduction,
+      elevation: p.thumbCMC.elevation,
+      rotation: p.thumbCMC.rotation,
+    },
+    contacts: (p.contacts ?? []).map((c) => ({ ...c })),
+  };
+}
+
+/** 姿态结构自检：缺 palm/bends/thumbCMC 的残缺对象（脏数据 / 半成品关键帧）
+ *  一律视为「取不到姿态」——绝不把残缺对象喂给 setPose（否则手部被清空成空姿态）。 */
+function isPoseUsable(p: Pose | null | undefined): p is Pose {
+  if (!p || typeof p !== "object") return false;
+  const palm = (p as { palm?: { transform?: { position?: unknown; quaternion?: unknown } } }).palm?.transform;
+  if (!palm || !palm.position || !palm.quaternion) return false;
+  if (!Array.isArray((p as { bends?: { thumb?: unknown } }).bends?.thumb)) return false;
+  const cmc = (p as { thumbCMC?: unknown }).thumbCMC;
+  return !!cmc && typeof cmc === "object";
+}
+
+/** 单轨插值：取各关键帧的指定手轨道，同段同缓动插值（十八轮显式 left/right 双轨）。
+ *  broken=true 表示「关键帧存在但姿态残缺」——上层据此跳过 setPose（不覆盖手部），
+ *  与「没有关键帧」（pose=null, broken=false，回退默认手位）区分开。 */
+function trackPose(get: (kf: TechniqueKeyframe) => Pose): { pose: Pose | null; broken: boolean } {
+  if (!tech.value || tech.value.keyframes.length === 0) return { pose: null, broken: false };
   const sorted = sortedKeyframes.value;
-  const seg = keyframeSegment(sorted, previewFrame.value);
-  if (!seg) return get(sorted[0]);
-  if (seg.a === seg.b) return get(seg.a);
-  const eased = applyEasing((seg.a.easing ?? "linear") as EasingFn, seg.local);
-  return interpolatePose(get(seg.a), get(seg.b), eased);
+  const raw = (kf: TechniqueKeyframe): Pose | null => {
+    const p = get(kf);
+    if (!isPoseUsable(p)) return null;
+    return plainPose(p); // 脱响应式代理：外部序列化不会变成 {}
+  };
+  let pose: Pose | null = null;
+  if (sorted.length === 1) {
+    pose = raw(sorted[0]);
+  } else {
+    const seg = keyframeSegment(sorted, previewFrame.value);
+    if (!seg) {
+      pose = raw(sorted[0]);
+    } else if (seg.a === seg.b) {
+      pose = raw(seg.a);
+    } else {
+      const a = raw(seg.a);
+      const b = raw(seg.b);
+      if (a && b) {
+        const eased = applyEasing((seg.a.easing ?? "linear") as EasingFn, seg.local);
+        pose = interpolatePose(a, b, eased);
+        if (!isPoseUsable(pose)) pose = null;
+      }
+    }
+  }
+  // 关键帧存在却取不到可用姿态 → broken（跳过 setPose，不拿残缺/空对象覆盖手部）
+  const broken = pose === null && tech.value.keyframes.length > 0;
+  return { pose, broken };
+}
+
+/** 取某一轨的姿态（含「取不到」的诊断信息） */
+function lookupPose(side: "left" | "right"): { pose: Pose | null; broken: boolean } {
+  return trackPose((kf) => (side === "left" ? kf.left : kf.right));
 }
 
 function previewLeftPose(): Pose | null {
-  return trackPose((kf) => kf.left);
+  return lookupPose("left").pose;
 }
 function previewRightPose(): Pose | null {
-  return trackPose((kf) => kf.right);
+  return lookupPose("right").pose;
 }
 
-/** 编辑面板显示姿态：按编辑手取对应轨道的插值姿态；无关键帧时回退默认手位，
- *  保证数值监控常驻显示（details 已并入面板） */
+/** 编辑面板显示姿态：按编辑手取对应轨道的插值姿态。
+ *  - 无关键帧 → 回退默认手位（数值监控常驻显示）
+ *  - 关键帧存在但姿态残缺（broken）→ 返回 null（面板留空，绝不展示错误数值） */
 function shownPose(): Pose | null {
   if (shownFrame() === null) return null;
-  return focusHand.value === "right"
-    ? previewRightPose() ?? defaultHandPose("right")
-    : previewLeftPose() ?? defaultHandPose("left");
+  const side = focusHand.value === "right" ? "right" : "left";
+  const r = lookupPose(side);
+  if (r.pose) return r.pose;
+  if (r.broken) return null;
+  return side === "right" ? defaultHandPose("right") : defaultHandPose("left");
 }
 
 function renderSelected(keepInputs = false): void {
   const frame = shownFrame();
   const kf = frame === null ? null : tech.value?.keyframes.find((k) => k.frame === frame);
   const displayPose = shownPose();
+  // 「帧」与「拍」两个入口共用同一真相源（previewFrame）：这里统一回填，
+  // 拒绝写入 / 移动关键帧后输入框都显示真实值（不出现「视觉回弹」）。
   if (kfFrameEl.value) kfFrameEl.value.value = frame !== null ? String(frame) : "";
+  if (kfBeatEl.value) kfBeatEl.value.value = beatOfSelected.value;
   if (kfEasingEl.value) kfEasingEl.value.value = kf?.easing ?? "linear";
   const pos = displayPose?.palm.transform.position;
   // 坐标输入过程中不回写 value（对齐标定页手感，连续输入不被打断）
@@ -665,13 +885,16 @@ function renderPreview(): void {
   if (kfPanelVisible.value) {
     const frame = previewFrame.value;
     const kf = tech.value?.keyframes.find((k) => k.frame === frame) ?? null;
-    if (kfFrameEl.value) kfFrameEl.value.value = String(frame);
+    // 正在输入的框不覆盖（否则 60Hz 预览会把用户刚敲的值冲掉 → 视觉回弹）
+    const activeEl = document.activeElement;
+    if (kfFrameEl.value && activeEl !== kfFrameEl.value) kfFrameEl.value.value = String(frame);
+    if (kfBeatEl.value && activeEl !== kfBeatEl.value) kfBeatEl.value.value = beatOfSelected.value;
     if (kfEasingEl.value) kfEasingEl.value.value = kf?.easing ?? "linear";
     if (kfDeleteEl.value) kfDeleteEl.value.disabled = !kf;
     if (pose) {
       const pos = pose.palm.transform.position;
       const rot = poseRotationDeg(pose);
-      const active = document.activeElement;
+      const active = activeEl;
       const sync = (el: HTMLInputElement | null, v: string): void => {
         if (el && active !== el) el.value = v;
       };
@@ -697,16 +920,37 @@ function renderPreview(): void {
   // 双手驱动（十八轮显式双轨）：左手走 left 轨、右手走 right 轨，互不联动；
   // 单手模式（B）只显左手（左手为主，右手为辅）。外部注入 API 驱动时由
   // handApi 以镜像方式同步双手（对称显示）。
+  // P1-1：外部驱动标志置位期间（window.motionCubeHand 正在驱动手部），
+  // 预览循环【跳过】双轨 setPose，否则 60Hz 预览会把 API 姿态静默覆盖。
+  if (externalDrive.active) return;
+  // 不变量：取不到有效姿态时【不调用 setPose】，绝不把 {} / 半成品姿态喂给手部。
+  //  - broken（关键帧在、姿态残缺）→ 保留手部当前姿态（不覆盖）
+  //  - 无关键帧 → 回退默认手位（与既有行为一致）
+  const left = lookupPose("left");
+  const right = lookupPose("right");
   if (handLeft) {
-    handLeft.setPose(
-      showBothHands.value || focusHand.value === "left" ? previewLeftPose() ?? defaultHandPose("left") : null,
-    );
+    if (!showBothHands.value && focusHand.value !== "left") {
+      handLeft.setPose(null);
+    } else if (left.pose) {
+      handLeft.setPose(left.pose);
+    } else if (!left.broken) {
+      handLeft.setPose(defaultHandPose("left"));
+    }
   }
   if (handRight) {
-    handRight.setPose(
-      showBothHands.value || focusHand.value === "right" ? previewRightPose() ?? defaultHandPose("right") : null,
-    );
+    if (!showBothHands.value && focusHand.value !== "right") {
+      handRight.setPose(null);
+    } else if (right.pose) {
+      handRight.setPose(right.pose);
+    } else if (!right.broken) {
+      handRight.setPose(defaultHandPose("right"));
+    }
   }
+}
+
+/** 用户交互接管手部：归还外部注入 API 的所有权（P1-1），随后编辑器预览重新驱动双手 */
+function takeHandDrive(): void {
+  releaseExternalDrive();
 }
 
 function renderAll(keepInputs = false): void {
@@ -729,8 +973,7 @@ function renderAll(keepInputs = false): void {
 }
 
 function selectTech(id: string): void {
-  selectedFrame.value = null;
-  previewFrame.value = 0;
+  previewFrame.value = 0; // 单一真相源：选手法 → 播放头归零（面板随之回到第 0 帧）
   kfPanelOpen.value = false; // 切换手法 → 收起编辑面板（用户指定唯一关闭途径之一）
   tech.value = lib.value.techniques.find((x) => x.id === id) ?? null;
   computeFormulaMoves();
@@ -765,7 +1008,11 @@ function setReverseStart(): void {
 
 /** 按公式步数生成等长动作区间：第 i 步占 [i*t, (i+1)*t]（t = 每动作时长） */
 function buildStepMappingFromMoves(moves: string[], frameRate: number): StepMapping[] {
-  const frames = Math.round(STEP_DEFAULT_SEC * frameRate);
+  let frames = Math.round(STEP_DEFAULT_SEC * frameRate);
+  // P1-3：自动生成的末帧不得超过帧预算（否则手法一进编辑器就无法编辑：任何 commit 都会被
+  // validateTechnique 拒绝）。超预算时按比例压缩单步时长。
+  const total = frames * moves.length;
+  if (total > frameBudget) frames = Math.max(1, Math.floor(frameBudget / moves.length));
   return moves.map((_, i) => ({
     stepIndex: i,
     startFrame: i * frames,
@@ -829,15 +1076,24 @@ function applyStepAtFrame(frame: number): void {
   }
 }
 
-function commit(fn: (t2: Technique) => Technique, keepInputs = false): void {
-  if (!tech.value) return;
+/** 统一提交入口（P0-9）：所有写入路径在这里统一过 validateTechnique（帧号升序/
+ *  重复/上限、区间合法性、姿态结构）。非法结果【拒绝写入】（tech 保持原值），
+ *  状态栏给出可诊断提示，并按真实数据回填面板；返回是否写入成功。 */
+function commit(fn: (t2: Technique) => Technique, keepInputs = false): boolean {
+  if (!tech.value) return false;
+  takeHandDrive(); // 用户编辑关键帧 → 归还手部所有权（P1-1）
   try {
-    tech.value = fn(tech.value);
+    const next = fn(tech.value);
+    validateTechnique(next);
+    tech.value = next;
     stepMoveIndex = 0;
     computeFormulaMoves();
     renderAll(keepInputs);
+    return true;
   } catch (e) {
     statusText.value = t("editor.kfFail", { error: e instanceof Error ? e.message : String(e) });
+    renderAll(keepInputs); // 拒绝写入 → 面板回填真实值（不留下与数据不符的输入）
+    return false;
   }
 }
 
@@ -852,6 +1108,7 @@ const onNewAdd = (): void => {
     statusText.value = t("editor.newFailFormula");
     return;
   }
+  if (!canPersistLibrary()) return; // P0-8：整库加载失败 → 拒绝写回（绝不覆盖原数据）
   const created = createTechnique({ name, formulaId });
   lib.value = upsertTechniqueInLib(lib.value, created);
   saveLibrary(lib.value);
@@ -860,37 +1117,37 @@ const onNewAdd = (): void => {
   statusText.value = t("editor.saved");
 };
 
+/** 帧号入口：与「拍」入口共用 moveEditingKeyframe（行为一致，P1-4） */
 const onKfFrameChange = (e: Event): void => {
-  const src = shownFrame();
-  if (!tech.value || src === null) return;
-  const target = Number((e.target as HTMLInputElement).value);
-  if (!Number.isInteger(target) || target < 0) {
+  const raw = (e.target as HTMLInputElement).value.trim();
+  if (raw === "") {
+    // 空输入 → 无效（清空后失焦不应把关键帧误移到第 0 帧）：提示 + 回填真实值
     statusText.value = t("editor.kfFail", { error: t("editor.frameInvalid") });
-    renderSelected();
+    renderAll();
     return;
   }
-  const kf = tech.value.keyframes.find((k) => k.frame === src);
-  if (!kf) return;
-  commit((t2) => {
-    const moved = upsertKeyframe(t2, { ...kf, frame: target });
-    return removeKeyframe(moved, src);
-  });
-  selectedFrame.value = target;
-  renderAll();
+  moveEditingKeyframe(Number(raw));
 };
 
+/** 缓动：作用于面板当前显示的帧（= 播放头），不再读旧的 selectedFrame
+ *  （修复「播放头移动后改到另一个关键帧」「选完手法后静默无效」，P1-4） */
 const onKfEasingChange = (e: Event): void => {
-  if (!tech.value || selectedFrame.value === null) return;
-  const kf = tech.value.keyframes.find((k) => k.frame === selectedFrame.value);
-  if (!kf) return;
-  commit((t2) => upsertKeyframe(t2, { ...kf, easing: (e.target as HTMLSelectElement).value as Easing }));
+  const frame = shownFrame();
+  if (!tech.value || frame === null) return;
+  const easing = (e.target as HTMLSelectElement).value as Easing;
+  const kf = tech.value.keyframes.find((k) => k.frame === frame);
+  if (!kf) {
+    statusText.value = t("editor.easingNeedKf", { frame });
+    renderAll();
+    return;
+  }
+  commit((t2) => upsertKeyframe(t2, { ...kf, easing }));
 };
 
 const onKfDelete = (): void => {
-  const src = shownFrame();
-  if (!tech.value || src === null) return;
-  commit((t2) => removeKeyframe(t2, src));
-  selectedFrame.value = null;
+  const frame = shownFrame();
+  if (!tech.value || frame === null) return;
+  if (!commit((t2) => removeKeyframe(t2, frame))) return;
   renderAll();
 };
 
@@ -919,10 +1176,6 @@ const onPoseInput = (e: Event, axis: "x" | "y" | "z"): void => {
       },
     }));
   }, true);
-  if (autoKf.value && selectedFrame.value !== target) {
-    selectedFrame.value = target;
-    renderAll();
-  }
 };
 
 /** 手掌三方向旋转（欧拉角，度）：三输入合成为四元数写入关键帧 */
@@ -951,10 +1204,6 @@ const onPoseRotInput = (): void => {
       },
     }));
   }, true);
-  if (autoKf.value && selectedFrame.value !== target) {
-    selectedFrame.value = target;
-    renderAll();
-  }
 };
 
 /** 手指关节角度（bend，180=伸直）：目标帧更新，autoKf 空白帧自动建帧 */
@@ -979,10 +1228,6 @@ const onBendInput = (e: Event, name: FingerName, j: number): void => {
       }),
     true,
   );
-  if (autoKf.value && selectedFrame.value !== target) {
-    selectedFrame.value = target;
-    renderAll();
-  }
 };
 
 /** 拇指 CMC 三轴取值范围（与 handRigStore.normalizeHandRigConfig 一致） */
@@ -1014,29 +1259,24 @@ const onThumbCmcInput = (e: Event, key: (typeof CMC_KEYS)[number]): void => {
       })),
     true,
   );
-  if (autoKf.value && selectedFrame.value !== target) {
-    selectedFrame.value = target;
-    renderAll();
-  }
 };
 
 const onKfAdd = (): void => {
   if (!tech.value) return;
-  const target = previewFrame.value; // 添加目标 = 当前播放头帧（帧号输入已随播放头，不再重复）
+  const target = previewFrame.value; // 添加目标 = 当前播放头帧（面板单一真相源）
   commit((t2) => {
+    // 该帧已有关键帧 → 原样保留（含缓动），不覆盖用户数据
+    const exist = t2.keyframes.find((k) => k.frame === target);
+    if (exist) return t2;
+    // 否则从「最近的前一个关键帧」整帧拷贝（左右手轨道一起带上，双手独立不联动）
+    const sorted = [...t2.keyframes].sort((a, b) => a.frame - b.frame);
     let src: TechniqueKeyframe | undefined;
-    const sel = t2.keyframes.find((k) => k.frame === selectedFrame.value);
-    if (sel) src = sel;
-    else {
-      const sorted = [...t2.keyframes].sort((a, b) => a.frame - b.frame);
-      for (let i = sorted.length - 1; i >= 0; i--) {
-        if (sorted[i].frame < target) {
-          src = sorted[i];
-          break;
-        }
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      if (sorted[i].frame < target) {
+        src = sorted[i];
+        break;
       }
     }
-    // 十八轮双轨：整帧拷贝（左右手轨道一起带上，双手独立不联动）
     if (src) return upsertKeyframe(t2, { frame: target, left: src.left, right: src.right });
     return upsertKeyframe(t2, {
       frame: target,
@@ -1044,7 +1284,6 @@ const onKfAdd = (): void => {
       right: defaultHandPose("right"),
     });
   });
-  selectedFrame.value = target;
   renderAll();
 };
 
@@ -1056,6 +1295,7 @@ const onPvPlay = (): void => {
     maskTimer = window.setTimeout(() => (maskVisible.value = false), 2600);
     return;
   }
+  takeHandDrive(); // 用户播放/暂停 → 归还手部所有权（P1-1）
   if (!playing.value) {
     computeFormulaMoves();
     syncStepSpeed();
@@ -1125,7 +1365,10 @@ const rebuildWithDurations = (t2: Technique, durationFor: (idx: number) => numbe
   return {
     ...t2,
     stepMapping,
-    keyframes: t2.keyframes.map((kf) => ({ ...kf, frame: remapFrame(kf.frame) })),
+    // P0-9：重排后关键帧塌陷到同一帧 → 抛诊断错误并拒绝写入
+    keyframes: remapKeyframes(t2.keyframes, remapFrame, (a, b, f) =>
+      t("editor.remapCollide", { a, b, f }),
+    ),
     contactTracks: t2.contactTracks.map((c) => ({
       ...c,
       startFrame: remapFrame(c.startFrame),
@@ -1134,19 +1377,41 @@ const rebuildWithDurations = (t2: Technique, durationFor: (idx: number) => numbe
   };
 };
 
+/** 步骤时长输入框回填真实值（拒绝写入时用，避免显示与数据不符） */
+const stepDurationText = (idx: number): string => {
+  const m = tech.value?.stepMapping[idx];
+  const fr = tech.value?.frameRate ?? DEFAULT_FRAME_RATE;
+  return m ? ((m.endFrame - m.startFrame) / fr).toFixed(2) : "";
+};
+
 const onStepDurationChange = (e: Event, idx: number): void => {
   if (!tech.value) return;
-  const sec = Number((e.target as HTMLInputElement).value);
+  const input = e.target as HTMLInputElement;
+  const sec = Number(input.value);
   if (!Number.isFinite(sec) || sec <= 0) {
+    input.value = stepDurationText(idx);
     renderAll();
     return;
   }
-  commit((t2) =>
+  // P1-3：单步时长上限（总帧数会超过帧号上限 → 刻度/预览 DOM 爆量）
+  const maxSec = maxStepSec.value;
+  if (sec > maxSec) {
+    statusText.value = t("editor.stepDurationTooLong", {
+      sec,
+      max: maxSec.toFixed(1),
+      maxFrame: MAX_KEYFRAME_FRAME,
+    });
+    input.value = stepDurationText(idx);
+    renderAll();
+    return;
+  }
+  const ok = commit((t2) =>
     rebuildWithDurations(
       t2,
       (i) => (i === idx ? sec : (t2.stepMapping[i].endFrame - t2.stepMapping[i].startFrame) / t2.frameRate),
     ),
   );
+  if (!ok) input.value = stepDurationText(idx);
 };
 
 /** 多选动作块：统一设置选中步骤的时长 */
@@ -1156,6 +1421,15 @@ const onBatchApply = (): void => {
   const sec = Number(el?.value);
   if (!Number.isFinite(sec) || sec <= 0) {
     renderAll();
+    return;
+  }
+  const maxSec = maxBatchStepSec.value;
+  if (sec > maxSec) {
+    statusText.value = t("editor.stepDurationTooLong", {
+      sec,
+      max: maxSec.toFixed(1),
+      maxFrame: MAX_KEYFRAME_FRAME,
+    });
     return;
   }
   const sel = new Set(selectedSteps.value);
@@ -1206,7 +1480,10 @@ const insertPauseAfter = (): void => {
     return {
       ...t2,
       stepMapping,
-      keyframes: t2.keyframes.map((kf) => ({ ...kf, frame: remapFrame(kf.frame) })),
+      // P0-9：插入空拍同样是帧重映射路径，塌陷即拒绝写入
+      keyframes: remapKeyframes(t2.keyframes, remapFrame, (a, b, f) =>
+        t("editor.remapCollide", { a, b, f }),
+      ),
       contactTracks: t2.contactTracks.map((c) => ({
         ...c,
         startFrame: remapFrame(c.startFrame),
@@ -1224,8 +1501,18 @@ const onTlWheel = (e: WheelEvent): void => {
   pxPerFrame.value = Math.min(TL_ZOOM_MAX, Math.max(TL_ZOOM_MIN, pxPerFrame.value * factor));
 };
 
+/** P0-8 落库前置检查：整库加载失败（error 非 null）时禁止 saveLibrary ——
+ *  否则会把加载失败得到的空库写回，用户公式/手法被永久抹掉。 */
+function canPersistLibrary(): boolean {
+  if (libLoadError.value === null) return true;
+  statusText.value = t("editor.libSaveBlocked");
+  saveFailed.value = true;
+  return false;
+}
+
 const onSave = (): void => {
   if (!tech.value) return;
+  if (!canPersistLibrary()) return; // P0-8：加载失败过 → 绝不写回
   try {
     lib.value = upsertTechniqueInLib(lib.value, tech.value);
     saveLibrary(lib.value);
@@ -1375,9 +1662,10 @@ const toggleGrayKind = (): void => {
 };
 
 const selectKf = (frame: number): void => {
-  selectedFrame.value = frame;
-  previewFrame.value = frame;
+  selectedFrame.value = frame; // 别名：两者指向同一真相源 previewFrame
   kfPanelOpen.value = true; // 点关键帧箭头 → 展开侧边栏编辑面板
+  takeHandDrive(); // 移动播放头 → 归还手部所有权（P1-1）
+  syncCubeToFrame(frame);
   renderAll();
 };
 
@@ -1405,6 +1693,13 @@ onMounted(() => {
   (globalThis as { __motionCubeEditor?: unknown }).__motionCubeEditor = { player, handLeft, handRight };
   registerHandApi(handLeft, handRight ?? undefined); // DEV 外部注入 API（docs/hand-api-spec.md）
   renderAll();
+  // P0-8：把库加载结果显式呈现在状态栏（坏数据不再静默）
+  if (libLoadError.value !== null) {
+    statusText.value = t("editor.libLoadError", { error: libLoadError.value });
+    saveFailed.value = true;
+  } else if (libRejectedCount.value > 0) {
+    statusText.value = t("editor.libLoadSkipped", { n: libRejectedCount.value });
+  }
   // 视口渲染兜底：cubing 的 TwistyPlayer 用 IntersectionObserver 懒初始化，
   // 挂载时若视口在折叠线外（或懒初始化未触发）可能长时间空白；
   // 监听可见性 + 定时踢帧，保证进入编辑器即可见魔方/手。
@@ -1415,12 +1710,21 @@ onMounted(() => {
       } catch {
         // 场景未就绪时忽略
       }
-      handLeft?.setPose(
-        showBothHands.value || focusHand.value === "left" ? previewLeftPose() ?? defaultHandPose("left") : null,
-      );
-      handRight?.setPose(
-        showBothHands.value || focusHand.value === "right" ? previewRightPose() ?? defaultHandPose("right") : null,
-      );
+      // P1-1：外部驱动期间不要用技术库姿态踢帧，否则会覆盖 API 姿态
+      if (externalDrive.active) return;
+      // 同 renderPreview：取不到有效姿态就不 setPose（不拿空对象覆盖手部）
+      const lp = lookupPose("left");
+      const rp = lookupPose("right");
+      if (handLeft) {
+        if (!showBothHands.value && focusHand.value !== "left") handLeft.setPose(null);
+        else if (lp.pose) handLeft.setPose(lp.pose);
+        else if (!lp.broken) handLeft.setPose(defaultHandPose("left"));
+      }
+      if (handRight) {
+        if (!showBothHands.value && focusHand.value !== "right") handRight.setPose(null);
+        else if (rp.pose) handRight.setPose(rp.pose);
+        else if (!rp.broken) handRight.setPose(defaultHandPose("right"));
+      }
     })();
   };
   viewIo = new IntersectionObserver(
@@ -1513,6 +1817,7 @@ onBeforeUnmount(() => {
   window.removeEventListener("keyup", onEditorKey);
   editorViewEl.value?.replaceChildren();
   delete (globalThis as { __motionCubeEditor?: unknown }).__motionCubeEditor;
+  releaseExternalDrive(); // P1-1：卸载时归还手部所有权（定时器已清，标志归零）
   unregisterHandApi();
   grayOverlay?.dispose();
   grayOverlay = null;
@@ -1552,9 +1857,9 @@ onBeforeUnmount(() => {
           </div>
           <div class="editor-kf-row">
             <WinTextBlock class="editor-label" :Text="t('editor.frame')" />
-            <input id="kf-frame" ref="kfFrameEl" type="number" min="0" step="1" class="native-input num-input" @change="onKfFrameChange" />
+            <input id="kf-frame" ref="kfFrameEl" type="number" min="0" :max="MAX_KEYFRAME_FRAME" step="1" class="native-input num-input" @change="onKfFrameChange" />
             <WinTextBlock class="editor-label" :Text="t('editor.beat')" />
-            <input id="kf-frame-beat" type="number" min="0" step="0.01" class="native-input num-input" :value="beatOfSelected" @change="onKfBeatChange" />
+            <input id="kf-frame-beat" ref="kfBeatEl" type="number" min="0" :max="maxBeat" step="0.01" class="native-input num-input" @change="onKfBeatChange" />
             <WinTextBlock class="editor-label" :Text="t('editor.easing')" />
             <select id="kf-easing" ref="kfEasingEl" class="native-select" @change="onKfEasingChange">
               <option value="linear">linear</option>
@@ -1656,6 +1961,13 @@ onBeforeUnmount(() => {
             </div>
             <span id="tec-formula" ref="formulaLabelEl" class="meta"></span>
             <p id="editor-empty" ref="emptyHintEl" class="page-note" hidden>{{ t("editor.empty") }}</p>
+            <!-- P0-8：库加载结果常驻提示（不随 statusText 被后续操作覆盖） -->
+            <p v-if="libLoadError" id="editor-lib-error" class="page-note lib-warn">
+              {{ t("editor.libLoadError", { error: libLoadError }) }}
+            </p>
+            <p v-else-if="libRejectedCount > 0" id="editor-lib-skipped" class="page-note lib-warn">
+              {{ t("editor.libLoadSkipped", { n: libRejectedCount }) }}
+            </p>
           </div>
         </div>
 
@@ -1840,6 +2152,7 @@ onBeforeUnmount(() => {
                   :id="`step-dur-${selectedSteps[0]}`"
                   type="number"
                   min="0.1"
+                  :max="maxStepSec"
                   step="0.01"
                   class="native-input num-input"
                   :value="((stepBands[selectedSteps[0]].endFrame - stepBands[selectedSteps[0]].startFrame) / (tech?.frameRate ?? 60)).toFixed(2)"
@@ -1856,6 +2169,7 @@ onBeforeUnmount(() => {
                   id="batch-step-dur"
                   type="number"
                   min="0.1"
+                  :max="maxBatchStepSec"
                   step="0.01"
                   class="native-input num-input"
                   value="0.30" />
@@ -1974,6 +2288,14 @@ onBeforeUnmount(() => {
   color: var(--SystemFillColorSuccessBrush, #0f7b0f);
   font-size: 13px;
   pointer-events: none;
+}
+
+/* P0-8：库加载异常/跳过的常驻提示 */
+.lib-warn {
+  margin: 4px 0 0;
+  color: var(--SystemFillColorCriticalBrush, #c42b1c);
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .section-title {

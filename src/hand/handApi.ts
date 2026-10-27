@@ -38,6 +38,15 @@ declare global {
   }
 }
 
+/** 外部驱动所有权（P1-1）：true 表示姿态由注入 API 接管，编辑器预览/重绘不得覆盖。
+ * 由 setPose / playFrames 成功接管时置位，stop / clear / 编辑器用户交互（releaseExternalDrive）归还。 */
+export const externalDrive = { active: false };
+
+/** 归还外部驱动所有权：编辑器侧在用户交互（播放/暂停、拖动播放头、改关键帧、切手型）时调用 */
+export function releaseExternalDrive(): void {
+  externalDrive.active = false;
+}
+
 let handView: HandRigView | null = null;
 /** 镜像手（双手显示）：API 驱动主手时以 mirrorPose 同步驱动对侧 */
 let mirrorView: HandRigView | null = null;
@@ -72,6 +81,36 @@ function tryParsePose(json: unknown): { pose?: Pose; error?: string } {
   }
 }
 
+/** 纯函数（verify-data 单测）：已流逝时间 → 目标帧。
+ * loop 按跨度取模回绕（span===0 恒为始帧）；非 loop 夹到末帧（到达即停语义）。 */
+export function frameAtElapsed(
+  firstFrame: number,
+  lastFrame: number,
+  elapsedSec: number,
+  fps: number,
+  loop: boolean,
+): number {
+  const span = lastFrame - firstFrame;
+  if (!(span > 0)) return firstFrame;
+  const t = elapsedSec * fps;
+  if (!loop) return firstFrame + Math.min(t, span);
+  const wrapped = t % span;
+  return firstFrame + (wrapped < 0 ? wrapped + span : wrapped);
+}
+
+/** 纯函数（verify-data 单测）：目标帧 → 帧下标。
+ * 常规取「帧号 ≤ target 的最后一帧」；loop 时把周期末尾 1 帧时长（帧单位）保留给末帧——
+ * 取模区间是 [first, last)，不这样处理末帧就永远轮不到（动画看起来是静止的）。 */
+export function pickFrameIndex(frameNumbers: number[], target: number, loop: boolean): number {
+  const n = frameNumbers.length;
+  if (n === 0) return 0;
+  const last = frameNumbers[n - 1];
+  if (loop && target + 1 >= last) return n - 1;
+  let i = 0;
+  while (i + 1 < n && frameNumbers[i + 1] <= target) i++;
+  return i;
+}
+
 function playFrames(
   frames: { frame: number; pose: unknown }[],
   opts?: HandApiPlayOptions,
@@ -100,27 +139,29 @@ function playFrames(
   stopPlayTimer();
   const firstFrame = parsed[0].frame;
   const lastFrame = parsed[parsed.length - 1].frame;
-  let idx = 0;
-  let startAt = performance.now();
+  const span = lastFrame - firstFrame;
+  const frameNumbers = parsed.map((p) => p.frame);
+  // 外部驱动接管（P1-1）：此后编辑器预览不得覆盖本 API 写的姿态
+  externalDrive.active = true;
   driveBoth(parsed[0].pose);
+  // 单帧片段（span===0）：没有动画可播，停在唯一姿态即可，不开定时器
+  if (!(span > 0)) return ok();
+  const startAt = performance.now();
   playTimer = window.setInterval(() => {
     if (!handView) {
       stopPlayTimer();
       return;
     }
-    // 帧号为绝对帧号：按已流逝时间换算目标帧，跨帧一次性追到最新（帧间隔可不均匀）
-    const target = firstFrame + ((performance.now() - startAt) / 1000) * fps;
-    if (target >= lastFrame) {
-      if (!loop) {
-        driveBoth(parsed[parsed.length - 1].pose);
-        stopPlayTimer();
-        return;
-      }
-      startAt = performance.now();
-      idx = 0;
+    // 帧号为绝对帧号：按已流逝时间换算目标帧；loop 按跨度取模回绕（P1-2），非 loop 夹到末帧
+    const target = frameAtElapsed(firstFrame, lastFrame, (performance.now() - startAt) / 1000, fps, loop);
+    if (!loop && target >= lastFrame) {
+      driveBoth(parsed[parsed.length - 1].pose);
+      stopPlayTimer();
+      return;
     }
-    while (idx + 1 < parsed.length && parsed[idx + 1].frame <= target) idx++;
-    driveBoth(parsed[idx].pose);
+    // 每 tick 重新定位：loop 回绕后下标必须能回退（旧实现只增不减 → 永久停末帧）；
+    // 末帧在 loop 下占周期最后 1 帧（见 pickFrameIndex）
+    driveBoth(parsed[pickFrameIndex(frameNumbers, target, loop)].pose);
   }, 1000 / fps);
   return ok();
 }
@@ -138,16 +179,20 @@ export function registerHandApi(view: HandRigView, mirror?: HandRigView): void {
       const { pose, error } = tryParsePose(json);
       if (!pose) return err(error ?? "姿态非法");
       driveBoth(pose);
+      // 接管成功才置位（非法调用不劫持编辑器控制权）
+      externalDrive.active = true;
       return ok();
     },
     playFrames,
     stop(): HandApiResult {
       stopPlayTimer();
+      externalDrive.active = false;
       return ok();
     },
     clear(): HandApiResult {
       if (!handView) return err("API 未挂载（需在编辑器页）");
       driveBoth(null);
+      externalDrive.active = false;
       return ok();
     },
     setHandType(t: HandType): HandApiResult {
@@ -188,6 +233,7 @@ export function registerHandApi(view: HandRigView, mirror?: HandRigView): void {
 /** 编辑器卸载时调用：停定时器、摘引用、删 window 挂载 */
 export function unregisterHandApi(): void {
   stopPlayTimer();
+  externalDrive.active = false;
   handView = null;
   mirrorView = null;
   delete window.motionCubeHand;

@@ -3,7 +3,7 @@
  * 与公式强关联（formulaId）但可单独编辑；关键帧为稀疏控制点，系统按 1/60s 补帧。
  */
 import { FINGER_ORDER, mirrorPose, type Contact, type FingerName, type Pose, type Side } from "../hand/HandRig";
-import { DEFAULT_FRAME_RATE, sortKeyframes, validateKeyframes } from "../timeline/Timeline";
+import { DEFAULT_FRAME_RATE, MAX_KEYFRAME_FRAME, sortKeyframes, validateKeyframes } from "../timeline/Timeline";
 import { parseMoves } from "../notation/alg";
 
 export type Easing = "linear" | "easeIn" | "easeOut" | "easeInOut";
@@ -68,8 +68,14 @@ export function validateTechnique(t: Technique): void {
   for (const m of t.stepMapping) {
     if (!Number.isInteger(m.stepIndex) || m.stepIndex < 0) throw new TechniqueError(`stepIndex 必须为非负整数：${m.stepIndex}`);
     if (!Number.isInteger(m.startFrame) || m.startFrame < 0) throw new TechniqueError(`startFrame 非法：${m.startFrame}`);
+    if (m.startFrame > MAX_KEYFRAME_FRAME) {
+      throw new TechniqueError(`stepMapping startFrame 超出上限（${MAX_KEYFRAME_FRAME}）：${m.startFrame}`);
+    }
     if (!Number.isInteger(m.endFrame) || m.endFrame < m.startFrame) {
       throw new TechniqueError(`stepMapping 区间非法：${m.startFrame}–${m.endFrame}`);
+    }
+    if (m.endFrame > MAX_KEYFRAME_FRAME) {
+      throw new TechniqueError(`stepMapping endFrame 超出上限（${MAX_KEYFRAME_FRAME}）：${m.endFrame}`);
     }
     if (m.kind !== undefined && m.kind !== "move" && m.kind !== "pause") {
       throw new TechniqueError(`stepMapping kind 非法：${m.kind}`);
@@ -81,6 +87,9 @@ export function validateTechnique(t: Technique): void {
     }
     if (!Number.isInteger(c.endFrame) || c.endFrame < c.startFrame) {
       throw new TechniqueError(`接触轨道区间非法：${c.startFrame}–${c.endFrame}`);
+    }
+    if (c.startFrame > MAX_KEYFRAME_FRAME || c.endFrame > MAX_KEYFRAME_FRAME) {
+      throw new TechniqueError(`接触轨道帧号超出上限（${MAX_KEYFRAME_FRAME}）：${c.startFrame}–${c.endFrame}`);
     }
     if (!c.contact) throw new TechniqueError("接触轨道缺少 contact");
   }

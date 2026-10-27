@@ -4,10 +4,12 @@
 
 - **端口**：5173 是用户日常预览端口（用户自己占用），本项目的自动化、dev server、
   playtest 一律使用其他端口（如 5174），避免与用户预览冲突。
+  `npm run dev` 自 2026-10-27 起默认 **5174**（vite.config.ts），与 tauri 侧一致。
 - **tauri 桌面版**：dev/build 走 5174（tauri.conf 已设）；命令
   `npm run tauri dev` / `npm run tauri build`；产物在 src-tauri/target/release
   （exe + bundle/nsis 安装器）；打包后启动验证用 Start-Process + 截图确认渲染
 - **版本号**：package.json 与 src-tauri/tauri.conf.json 的 version 必须同步
+  （2026-10-27 起 Cargo.toml / Cargo.lock / package-lock.json 一并同步，四处同版）
   （tauri 打包以 conf 为准）；功能/修复提交时评估 bump
 - **自动化（GitHub Actions）**：已配置；已加 .github/workflows（CI:
   typecheck/build/verify/playtest；发布: tag 触发 tauri 打包上传 Releases）
@@ -35,6 +37,11 @@
   setPose/playFrames 对称驱动双手（左=右镜像），setHandType=单手显示切换、
   setVisible(true) 恢复双手；实现方硬约束（禁改 handMesh/HandRig 类型/HandRigView
   签名/playtest 断言）见 docs/hand-api-spec.md；真机验证已通过。
+  **外部驱动所有权**：`externalDrive={active}` + `releaseExternalDrive()`——setPose/
+  playFrames 接管后置位，编辑器 `renderPreview` 在其置位时跳过双轨 setPose（播放中姿态
+  不再被 60Hz 预览冲掉），用户编辑关键帧/切手型/卸载时归还。
+  **playFrames 循环**：loop 按跨度取模（周期=span/fps，末帧占周期末 1 帧，纯函数
+  `pickFrameIndex` 可单测）；帧间不插值（spec §3.3）；单帧片段 span===0 不开定时器。
 - **内置公式库**：`data/samples/cuberoot-algs.json`（爬自 api.cuberoot.me，11 集合
   1015 个 case：2-look-oll/oll/2-look-pll/pll/f2l + zbll 472 + zbls 302（O 组 3 条
   全槽已解按决议剔除，留档 docs/archived/） + 2-look-cmll/cmll/eo4a/lse-eolr）由
@@ -44,6 +51,9 @@
   **ZBLL 覆盖口径**：主口径=库完整性 493/493=100%（52.5%/926 轨道级旧口径已废弃；
   真实局限=ZBLS 非 FR 缺槽命中率，见 zbls.ts 注释）；验证
   `node scripts/verify-zbll-coverage.ts` / `npx tsx scripts/verify-zbls-rounds.ts`。
+- **手法库加载口径**（2026-10-27 第二批）：`loadLibrary()` 返回 `{data,error,rejected}`——
+  坏条目逐条跳过并计入 rejected（其余全部保留），`error` 仅在**整包不可读**时非 null；
+  整包损坏时编辑器页与库页**都拒绝把空库写回**（只允许显式文件导入替换）。
 - **求解器**（移植自 rubik-cube.html，纯 TS、无运行时依赖）：`src/cube/solver/`——
   engine（54 贴纸引擎+code 置换表）、search（ItemSolver PDB/IDA*/descend）、
   algs（OLL/PLL/CMLL 坐标 + 逐条核验的内置 LL 公式库 + algGraph）、f2lTable（150 case）、
@@ -52,9 +62,15 @@
   验证：`node scripts/smoke-solver.ts` / `scripts/smoke-solver-edge.ts`（tsx）、
   `scripts/playtest-solver.mjs`。
 - **验证套件**：`npm run typecheck` / `npm run build` / `npx tsx scripts/verify-data.ts`
-  （手法数据契约+迁移）/ `npx tsx scripts/verify-hand-mesh.ts`（手部几何自检：镜像/
-  绕向/极值）+ playtest（下行）。渲染类改动必须真机验证后再提交。
+  （手法数据契约+迁移+库容错+API 循环单测）/ `npx tsx scripts/verify-hand-mesh.ts`
+  （手部几何自检：镜像/绕向/极值）/ `npx tsx scripts/verify-hand-store.ts`
+  （手部配置单例：深冻结/返回副本/旧档迁移兜底，已进 CI）+ playtest（下行）。
+  渲染类改动必须真机验证后再提交。
 - playtest：`node scripts/playtest-ui.mjs`（先起 dev server，SPIKE_URL 指向非 5173 端口）。
+  **浏览器回归矩阵**：`node scripts/verify-batch2-browser.mjs`（A–H 八项：库加载容错/
+  帧重映射/帧号上限/手部单例/绕向+镜像/API 所有权+循环/关键帧面板/快照+复制；支持
+  `--only=A,B`；任一 FAIL 退出码非 0）。**dev server 只能用 localhost**（vite 监听 IPv6
+  ::1，`127.0.0.1:5174` 会 ECONNREFUSED）。
 - **reference/（gitignore，全程不入库，仅本地参考）**：`3-style-v5/三盲三循环818-魔方根.xlsx`
   （3-Style V5 盲拧三循环 818 条，中文版，已替旧彳亍法档）、`mihlefeld-alg-trainers/`
   （Alg-Trainers 仓库原始 JSON：3x3-ZBLL 472 条 / 3x3-ZBLS 302 条，含 a[] 算法+s 打乱）、

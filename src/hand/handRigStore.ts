@@ -52,7 +52,22 @@ export type HandShapeParams = {
   facetJitter: number;
 };
 
-export const DEFAULT_SHAPE: HandShapeParams = {
+/**
+ * 递归冻结（对象与数组的每一层）：用于默认配置常量，杜绝任何就地改写。
+ * 审计 P0-10：常量曾被标定页滑条就地改写，导致「重置」与旧档迁移兜底都读到脏值。
+ * 模块为严格模式，任何对冻结对象的写入会直接抛 TypeError（而不是静默污染）。
+ */
+function deepFreeze<T>(value: T): T {
+  if (value && typeof value === "object" && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const key of Object.keys(value as Record<string, unknown>)) {
+      deepFreeze((value as Record<string, unknown>)[key]);
+    }
+  }
+  return value;
+}
+
+export const DEFAULT_SHAPE: HandShapeParams = deepFreeze({
   fingerWidth: 1.15,
   facets: 15,
   knuckleBulge: 1.1,
@@ -64,7 +79,7 @@ export const DEFAULT_SHAPE: HandShapeParams = {
   palmCup: 0.03,
   web: 0.5,
   facetJitter: 0.03,
-};
+});
 
 export type HandRigConfig = {
   version: 4;
@@ -99,7 +114,12 @@ function defaultFingers(): Record<FingerName, SegmentCalib[]> {
   return out;
 }
 
-export const DEFAULT_HAND_CONFIG: HandRigConfig = {
+/**
+ * 出厂默认配置：深冻结常量（P0-10）。任何就地改写都会抛 TypeError，
+ * 读取方必须拿副本——见 cloneDefaultHandRigConfig / loadHandRigConfig。
+ * 同时它也是 v1–v4 旧档迁移的兜底值来源，冻结后兜底值不会再被污染。
+ */
+export const DEFAULT_HAND_CONFIG: HandRigConfig = deepFreeze({
   version: 4,
   /** 整体放大系数：数据单位 → 渲染倍数（十八轮用户定版 1.85；旧存档需标定页重置对齐） */
   handScale: 1.85,
@@ -122,7 +142,15 @@ export const DEFAULT_HAND_CONFIG: HandRigConfig = {
   rulerAngle: 0,
   fingers: defaultFingers(),
   shape: { ...DEFAULT_SHAPE },
-};
+});
+
+/**
+ * 默认配置的独立副本（P0-10）：常量本身深冻结，调用方一律拿副本就地编辑。
+ * loadHandRigConfig 的所有兜底分支、标定页「重置」都走这里。
+ */
+export function cloneDefaultHandRigConfig(): HandRigConfig {
+  return structuredClone(DEFAULT_HAND_CONFIG);
+}
 
 const STORE_KEY = "motion-cube.handRig";
 
@@ -225,13 +253,17 @@ export function normalizeHandRigConfig(input: unknown): HandRigConfig | null {
   };
 }
 
+/**
+ * 读取标定配置。**任何分支都返回独立副本**（P0-10）：返回值可以被调用方就地改写
+ * （标定页滑条直接写 cfg.value.xxx），绝不会污染模块级默认常量。
+ */
 export function loadHandRigConfig(): HandRigConfig {
   try {
     const raw = localStorage.getItem(STORE_KEY);
-    if (!raw) return DEFAULT_HAND_CONFIG;
-    return normalizeHandRigConfig(JSON.parse(raw)) ?? DEFAULT_HAND_CONFIG;
+    if (!raw) return cloneDefaultHandRigConfig();
+    return normalizeHandRigConfig(JSON.parse(raw)) ?? cloneDefaultHandRigConfig();
   } catch {
-    return DEFAULT_HAND_CONFIG;
+    return cloneDefaultHandRigConfig();
   }
 }
 

@@ -568,7 +568,8 @@ function ringYZ(
  * 指根间填充棱（0.4.0 十五轮）：相邻指根窝之间的细化三棱柱——截面为 (y,z) 平面
  * 顶点朝 +z 的圆角三角（n=1.5），沿指行方向 x 放样 7 站；脊线在两窝之间浅凹
  * （关节的凹陷），端环没入相邻根窝锥面与关节球，掌面侧 V 缺口由此填平。
- * x0<x1 由调用方保证（镜像手取 min/max）。
+ * x0<x1 由调用方保证，且**左右手都要成立**（镜像手须先乘 sideSign 再取 min/max，
+ * 否则左手站序反转、绕向翻转，外法线内翻被背面剔除——审计 P0-6）。
  */
 function buildKnuckleFiller(
   x0: number,
@@ -806,8 +807,11 @@ export function buildHandMesh(
   for (let i = 0; i < 3; i++) {
     const a = cfg.bases[FOUR[i]];
     const b = cfg.bases[FOUR[i + 1]];
-    const xL = Math.min(a.x, b.x) * cfg.fingerSpacing * H * sideSign;
-    const xR = Math.max(a.x, b.x) * cfg.fingerSpacing * H * sideSign;
+    // 先乘 sideSign 再取 min/max（审计 P0-6）：反过来先取 min/max 再乘时左手 xL>xR，
+    // 放样站序反转 → 绕向翻转 → 外法线内翻被背面剔除（左手填充棱整块不可见）。
+    const xs = [a.x, b.x].map((v) => v * cfg.fingerSpacing * H * sideSign);
+    const xL = Math.min(...xs);
+    const xR = Math.max(...xs);
     const cxData = ((a.x + b.x) / 2) * cfg.fingerSpacing;
     const cy = Math.min(a.y, b.y) * H + shape.arch * H * archBell(cxData / (cfg.palm.width / 2));
     root.add(buildKnuckleFiller(xL, xR, cy, frontFaceZ, H, shape, opts.linearOutput, addOutline, rng));

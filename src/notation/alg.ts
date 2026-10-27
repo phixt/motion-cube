@@ -32,6 +32,47 @@ export function splitCompoundMove(token: string): string[] {
   return parts;
 }
 
+/** 合法单步记法（面/宽层/中层/整块旋转 + 可选 2 + 可选 '） */
+const SINGLE_MOVE_RE = /^(?:[UDLRFB]|[rludfb]|[MES]|[xyz])\d?'?$/;
+/** 连写切分用：全局扫描单步 token（注意需手动重置 lastIndex） */
+const MOVE_TOKEN_RE = /(?:[UDLRFB]|[rludfb]|[MES]|[xyz])\d?'?/g;
+
+/**
+ * 容错切分：把「连写缺空格」的记法串（如外部抓取数据里的 "R'L' B RL"、"R2'u'"）拆成
+ * 单步并补空格。仅供**外部数据**边界使用（内置公式库）——用户手输路径仍走严格的
+ * parseMoves，避免把 typo 当成合法输入。
+ *
+ * 语义与求解器引擎（src/cube/solver/engine.ts 的 parseAlg）保持一致：
+ * 裸数字 token（如 "U L 2 U" 里的 "2"）是上游数据的格式残留，**丢弃**而不是并入前一步
+ * （引擎的 moveRe 要求数字紧跟字母，"L 2" 判为 L + 残留 2）。
+ * 无法完整切分（中间夹着无法识别的字符）时返回 null，由调用方按非法处理。
+ */
+export function splitMoveTokens(input: string): string | null {
+  const out: string[] = [];
+  for (const raw of input.trim().split(/\s+/)) {
+    if (!raw) continue;
+    if (SINGLE_MOVE_RE.test(raw)) {
+      out.push(raw);
+      continue;
+    }
+    // 裸数字：上游格式残留，丢弃（与引擎 parseAlg 一致）
+    if (/^[2-5]$/.test(raw)) continue;
+    // 连写：逐 token 切分，且必须整段消费完（夹着无法识别的字符 → 判非法）
+    MOVE_TOKEN_RE.lastIndex = 0;
+    const parts: string[] = [];
+    let consumed = 0;
+    let m: RegExpExecArray | null;
+    while ((m = MOVE_TOKEN_RE.exec(raw))) {
+      if (m.index !== consumed) return null;
+      parts.push(m[0]);
+      consumed = m.index + m[0].length;
+    }
+    if (!parts.length || consumed !== raw.length) return null;
+    out.push(...parts);
+  }
+  return out.length ? out.join(" ") : null;
+}
+
 export function invertMoves(input: string): string {
   return Alg.fromString(input).invert().toString();
 }

@@ -216,11 +216,27 @@ function zblVariants(primary) {
   }
   return out;
 }
-function parseAlg(s) {
+/**
+ * parseAlg 的详细版：额外报告**被跳过的无法识别字符**（上游格式残留，如裸 "2"）。
+ *
+ * ⚠ 历史缺陷（2026-10-27 修）：本函数原先静默跳过无法识别的字符，而入库存的是
+ * **原始串**、校验用的是**重新序列化的串**——两者不一致，导致下游 cubing 解析失败、
+ * 713 条里 50 条被静默丢弃。现在入库统一存 parseAlg 的规范化结果（= 被校验的那一份），
+ * 跳过的字符改为**显式上报**（stats.skippedChars），不再静默。
+ */
+function parseAlgDetailed(s) {
   const out = [];
+  const skipped = [];
   const str = cleanAlg(s);
   let m;
+  let consumed = 0;
+  moveRe.lastIndex = 0; // 显式复位：抛错时不会污染下一次调用（moveRe 是带 g 的全局正则）
   while ((m = moveRe.exec(str))) {
+    if (m.index > consumed) {
+      const gap = str.slice(consumed, m.index);
+      if (gap.trim()) skipped.push(gap); // 只报非空白残留（空白是步间分隔符，正常）
+    }
+    consumed = m.index + m[0].length;
     let base = m[1];
     if (ALIAS[base]) base = ALIAS[base];
     if (base.length === 2 && base[1] === "w") base = ALIAS[base] || base[0].toLowerCase();
@@ -231,8 +247,15 @@ function parseAlg(s) {
     if (n === 0) continue; // X4/X4' → 恒等，丢弃
     out.push(n === 1 ? base : n === 2 ? base + "2" : base + "'");
   }
+  if (consumed < str.length) {
+    const gap = str.slice(consumed);
+    if (gap.trim()) skipped.push(gap);
+  }
   if (!out.length) throw new Error("empty alg: " + s);
-  return out;
+  return { moves: out, skipped };
+}
+function parseAlg(s) {
+  return parseAlgDetailed(s).moves;
 }
 function solvedState() {
   const s = new Uint8Array(54);
@@ -395,7 +418,7 @@ function pick(cands, validSet) {
 
 async function main() {
   const setsOut = {};
-  const stats = { total: 0, ok: 0, dropped: 0 };
+  const stats = { total: 0, ok: 0, dropped: 0, skippedChars: 0, skippedCases: [] };
   let fetchedAt = null;
 
   for (const [slug, label, group] of SETS) {
@@ -437,13 +460,15 @@ async function main() {
           const valid = [];
           for (const a of group) {
             const key = normalizeZblsAlg(a.alg);
-            if (!key || seen.has(key)) continue;
-            seen.add(key);
-            let cubingOk = false;
-            try { new Alg(parseAlg(key).join(" ")); cubingOk = true; } catch { /* ignore */ }
-            if (!cubingOk) continue;
-            valid.push(key);
-            try { if (checkInvariant(slug, setupKey, key)) anyValid = true; } catch { /* ignore */ }
+            if (!key) continue;
+            // 同 alg 分支：入库存「被校验过的那一份串」（parseAlg 规范化结果），
+            // 避免存原始串、校验用重新序列化的串那种不一致
+            let norm = null;
+            try { norm = parseAlg(key).join(" "); new Alg(norm); } catch { continue; }
+            if (seen.has(norm)) continue;
+            seen.add(norm);
+            valid.push(norm);
+            try { if (checkInvariant(slug, setupKey, norm)) anyValid = true; } catch { /* ignore */ }
           }
           if (valid.length) groups.push(valid);
         }
@@ -480,14 +505,24 @@ async function main() {
         continue;
       }
       stats.ok++;
+      // 入库统一存**被校验过的那一份串**（parseAlg 的规范化结果）。
+      // 历史上这里存的是原始串，而第 471 行校验用的是重新序列化的串——两者不一致，
+      // 下游 cubing 解析原始串失败 → 713 条里 50 条（zbll 47 / pll 3）被静默丢弃。
+      const detail = parseAlgDetailed(picked.primary);
+      if (detail.skipped.length) {
+        stats.skippedChars += detail.skipped.length;
+        stats.skippedCases.push(`${slug}/${c.name}: ${JSON.stringify(detail.skipped.join(""))}`);
+      }
+      const algNorm = detail.moves.join(" ");
+      const altsNorm = picked.alts.map((a) => parseAlg(a).join(" "));
       cases.push({
         id: c.id,
         name: c.name,
         subgroup: c.subgroup || null,
         setup: cleanAlg(c.setup).replace(/\s+/g, " ").trim() || null,
-        alg: picked.primary,
-        alts: picked.alts,
-        variants: zblVariants(picked.primary),
+        alg: algNorm,
+        alts: altsNorm,
+        variants: zblVariants(algNorm),
       });
     }
     setsOut[slug] = { label, group, cases };
@@ -503,6 +538,11 @@ async function main() {
   writeFileSync(OUT, JSON.stringify(out, null, 2));
   console.log(`\nwritten ${OUT}`);
   console.log(JSON.stringify({ total: stats.total, ok: stats.ok, dropped: stats.dropped }, null, 2));
+  // 上游格式残留（无法识别而被跳过的字符，如裸 "2"）——显式上报，不再静默
+  if (stats.skippedChars > 0) {
+    console.log(`\n⚠ 跳过 ${stats.skippedChars} 个无法识别的字符（上游格式残留，已按 0 处理）：`);
+    for (const s of stats.skippedCases) console.log("  " + s);
+  }
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

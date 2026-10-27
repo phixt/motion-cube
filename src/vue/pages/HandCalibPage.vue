@@ -12,7 +12,7 @@ import { FINGER_ORDER, type FingerName } from "../../hand/HandRig";
 import { HandCalibView } from "../../hand/HandCalibView";
 import { HandOrbitView, type HandOrbitMode } from "../../hand/HandOrbitView";
 import {
-  DEFAULT_HAND_CONFIG,
+  cloneDefaultHandRigConfig,
   loadHandRigConfig,
   saveHandRigConfig,
   type HandRigConfig,
@@ -227,8 +227,9 @@ const save = (): void => {
   setStatus(t("hand.saved"));
 };
 
+/** 重置为出厂默认：取深冻结常量 DEFAULT_HAND_CONFIG 的独立副本（P0-10，常量已不可被就地污染） */
 const reset = (): void => {
-  cfg.value = structuredClone(DEFAULT_HAND_CONFIG);
+  cfg.value = cloneDefaultHandRigConfig();
   syncInputs();
   refreshNow();
   setStatus(t("hand.resetOk"));
