@@ -9,6 +9,7 @@ import WinButton from "../../vendor/winui-on-web/components/WinButton.vue";
 import WinTextBlock from "../../vendor/winui-on-web/components/WinTextBlock.vue";
 import WinToggleSwitch from "../../vendor/winui-on-web/components/WinToggleSwitch.vue";
 import { FINGER_ORDER, type FingerName } from "../../hand/HandRig";
+import { isTextEntryTarget } from "../../input/textEntry";
 import { HandCalibView } from "../../hand/HandCalibView";
 import { HandOrbitView, type HandOrbitMode } from "../../hand/HandOrbitView";
 import {
@@ -64,7 +65,8 @@ const onKeyDown = (e: KeyboardEvent): void => {
   // Shift 快速切换水平(0°)/竖直(90°)；输入框内按 Shift 不触发（避免误改写数值）
   if (e.key !== "Shift") return;
   const el = e.target as HTMLElement | null;
-  if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) return;
+  // 只在「用户真的在文本框里输入」时不触发（统一语义化判据，隐藏框/只读框不再误吞）
+  if (isTextEntryTarget(el)) return;
   e.preventDefault();
   cfg.value.rulerAngle = cfg.value.rulerAngle === 0 ? 90 : 0;
   syncInputs();

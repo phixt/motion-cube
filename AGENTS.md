@@ -51,6 +51,10 @@
   **ZBLL 覆盖口径**：主口径=库完整性 493/493=100%（52.5%/926 轨道级旧口径已废弃；
   真实局限=ZBLS 非 FR 缺槽命中率，见 zbls.ts 注释）；验证
   `node scripts/verify-zbll-coverage.ts` / `npx tsx scripts/verify-zbls-rounds.ts`。
+- **焦点上下文判据**（`src/input/textEntry.ts`）：`isTextEntryTarget(el)` 区分「用户真在
+  文本框打字」（→ 忽略快捷键，别抢键）与「焦点落在隐藏/只读/非文本控件或 cubing 内部
+  `twisty-player`」（→ **不得**吞掉游戏键）。keymap.ts / EditorPage.vue / HandCalibPage.vue 统一
+  使用；新增输入相关判据一律走它，不要再按 tagName 粗判。
 - **手法库加载口径**（2026-10-27 第二批）：`loadLibrary()` 返回 `{data,error,rejected}`——
   坏条目逐条跳过并计入 rejected（其余全部保留），`error` 仅在**整包不可读**时非 null；
   整包损坏时编辑器页与库页**都拒绝把空库写回**（只允许显式文件导入替换）。

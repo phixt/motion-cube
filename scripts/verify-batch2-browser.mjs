@@ -265,6 +265,93 @@ const totalFramesOf = async (page) => {
   return m ? Number(m[1]) : 0;
 };
 
+/* ---------- 标尺标定 / 真实鼠标点击（视口 px = getBoundingClientRect 坐标系） ----------
+ * 【坐标系坑】应用在 <html> 上有全局 CSS 缩放（motion-cube.uiScale，默认 1.5）：
+ *   el.offsetLeft 是【布局 px】，PointerEvent.clientX 是【视口 px】，两者差一个缩放系数。
+ *   产品 seekFromEvent 用 track.getBoundingClientRect() 换算 → 本脚本一律用视口 px。
+ *   关键帧标记中心恰好落在 rulerLeft + frame×pxPerFrame（视口 px）→ 可用标记做两点标定。 */
+const rulerGeom = (page) =>
+  page.evaluate(() => {
+    const ruler = document.getElementById("tl-ruler");
+    if (!ruler) return null;
+    const wrap = ruler.closest(".tl-wrap");
+    const rr = ruler.getBoundingClientRect();
+    const wr = wrap ? wrap.getBoundingClientRect() : null;
+    const marks = [...document.querySelectorAll("#tl-ruler .tl-kf")]
+      .map((el) => {
+        const b = el.getBoundingClientRect();
+        return { frame: Number(el.dataset.frame), x: b.left + b.width / 2 };
+      })
+      .filter((m) => Number.isFinite(m.frame))
+      .sort((a, b) => a.frame - b.frame);
+    return {
+      marks,
+      left: rr.left,
+      top: rr.top,
+      width: rr.width,
+      height: rr.height,
+      wrapLeft: wr ? wr.left : rr.left,
+      wrapRight: wr ? wr.right : rr.right,
+    };
+  });
+
+/** 两点标定：目标帧 → 标尺上的视口像素 x（关键帧标记中心 = rulerLeft + frame×pxPerFrame） */
+function calibrateX(marks, frame) {
+  const lo = marks.filter((m) => m.frame < frame).pop();
+  const hi = marks.find((m) => m.frame > frame);
+  if (!lo || !hi) return null;
+  return lo.x + ((frame - lo.frame) * (hi.x - lo.x)) / (hi.frame - lo.frame);
+}
+
+/**
+ * 【真实鼠标点击】标尺 seek：必要时先把 .tl-wrap 横向滚到目标点可见，再用 page.mouse.click 真点。
+ * **不派发合成 pointerdown** —— 真实点击才是这一轮要守住的东西（合成事件绕过命中测试，
+ * 面板压住标尺时照样「成功」，正是之前误判的根源）。
+ */
+async function clickRulerAtFrame(page, frame) {
+  let geom = null;
+  let x = null;
+  for (let i = 0; i < 10; i++) {
+    geom = await rulerGeom(page);
+    if (!geom) throw new Error("找不到 #tl-ruler");
+    x = calibrateX(geom.marks, frame);
+    if (x === null) {
+      throw new Error("无法标定目标帧 " + frame + " 的像素位置（标尺关键帧标记=" + JSON.stringify(geom.marks) + "）");
+    }
+    if (x >= geom.wrapLeft + 2 && x <= geom.wrapRight - 2) break;
+    // 目标点落在 .tl-wrap 可视区外 → 先横向滚动标尺容器（真实用户也会这么做）
+    const zoom = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).zoom) || 1);
+    const needViewport = x < geom.wrapLeft + 2 ? x - (geom.wrapLeft + 2) : x - (geom.wrapRight - 2);
+    await page.evaluate((d) => {
+      const w = document.getElementById("tl-ruler").closest(".tl-wrap");
+      w.scrollLeft += d;
+    }, needViewport / zoom);
+    await sleep(200);
+  }
+  const y = geom.top + Math.min(6, geom.height / 2);
+  const hit = await page.evaluate(
+    (px, py) => {
+      const el = document.elementFromPoint(px, py);
+      return el
+        ? { tag: el.tagName, id: el.id || "", cls: String(el.className || ""), inRuler: !!(el.closest && el.closest("#tl-ruler")) }
+        : null;
+    },
+    x,
+    y,
+  );
+  await page.mouse.click(x, y);
+  await sleep(320);
+  return { x, y, hit, geom };
+}
+
+/** 读播放头帧（#tl-playhead 的 left = previewFrame × pxPerFrame；pxPerFrame 是布局 px） */
+const readPlayheadFrame = (page, pxPerFrame) =>
+  page.evaluate((ppf) => {
+    const ph = document.getElementById("tl-playhead");
+    if (!ph || !(ppf > 0)) return null;
+    return Math.round(parseFloat(ph.style.left || "0") / ppf);
+  }, pxPerFrame);
+
 // ---------- 种子数据构造 ----------
 const clone = (o) => JSON.parse(JSON.stringify(o));
 function makeFormula(id, name, moves) {
@@ -909,7 +996,172 @@ async function scenarioG(page) {
   assert(e30 === "easeIn", "缓动没有落在面板显示帧(30)：读回 " + e30, ev.join("；"));
   assert(e0 !== "easeIn" && e120 !== "easeIn", "缓动被写到了别的关键帧（帧0=" + e0 + " 帧120=" + e120 + "）", ev.join("；"));
 
-  // ---------- G-3：面板显示帧没有关键帧时，改缓动必须显式提示（不得静默吞掉） ----------
+  // ---------- G-3：关键帧面板布局（不得溢出侧栏 / 内部可滚 / 末字段可达可改） ----------
+  // 【本轮修复①】.kf-edit-panel 加 flex:0 0 auto + max-height:100% + overflow-y:auto。
+  // 修复前：面板高 1372px（布局 px）> 侧栏 779px（视口 px），溢出 593 视口 px；面板自身
+  //   overflow-y:visible 不可滚 → 末段手指关节字段落在视口外（y≈1020 视口 px），
+  //   用户够不到也改不动（实测末字段 150→150 没写进姿态）。
+  // 【口径说明】不断言「面板不遮标尺」——先前那句是误判（把 offsetLeft 当视口 px 传给了
+  //   elementFromPoint）；面板本就锁在侧栏 248px 内、离标尺左缘还有 28px，不会横向压住标尺。
+  //   这里只断言真实缺陷：① 溢出量；② 面板内部可滚；③ 末字段可达可操作（改了姿态真的变）。
+  {
+    const geom = await page.evaluate(() => {
+      const panel = document.getElementById("kf-edit-panel");
+      const sidebar = document.querySelector(".editor-sidebar");
+      if (!panel || !sidebar) return null;
+      const pr = panel.getBoundingClientRect();
+      const sr = sidebar.getBoundingClientRect();
+      const cs = getComputedStyle(panel);
+      return {
+        panelTop: pr.top,
+        panelBottom: pr.bottom,
+        panelHeight: pr.height,
+        sidebarBottom: sr.bottom,
+        overflowY: cs.overflowY,
+        clientHeight: panel.clientHeight,
+        scrollHeight: panel.scrollHeight,
+      };
+    });
+    assert(geom, "关键帧面板 #kf-edit-panel / 侧栏 .editor-sidebar 未找到", ev.join("；"));
+    const overflow = Math.round(geom.panelBottom - geom.sidebarBottom);
+    ev.push(
+      "面板 底=" + Math.round(geom.panelBottom) + "（高 " + Math.round(geom.panelHeight) + "） / 侧栏 底=" +
+        Math.round(geom.sidebarBottom) + " → 溢出=" + overflow + "px / overflow-y=" + geom.overflowY +
+        " / scrollHeight=" + geom.scrollHeight + " clientHeight=" + geom.clientHeight,
+    );
+    assert(
+      overflow <= 2,
+      "关键帧面板溢出侧栏 " + overflow + " 视口 px（面板底 " + Math.round(geom.panelBottom) + " > 侧栏底 " +
+        Math.round(geom.sidebarBottom) + "）：.kf-edit-panel 的 flex:0 0 auto / max-height:100% 修复丢了",
+      ev.join("；"),
+    );
+    assert(
+      geom.overflowY === "auto",
+      "关键帧面板 computed overflow-y=" + geom.overflowY + "（应为 auto：面板必须能内部滚动，否则末段字段落在视口外够不到）",
+      ev.join("；"),
+    );
+    assert(
+      geom.scrollHeight > geom.clientHeight,
+      "关键帧面板内容没有超出可视高度（scrollHeight=" + geom.scrollHeight + " ≤ clientHeight=" + geom.clientHeight +
+        "）：无法验证「面板内部可滚」",
+      ev.join("；"),
+    );
+
+    // 主位手切到左手：编辑落在左轨，而外部注入 API 读的就是左手（registerHandApi(handLeft, handRight)）
+    const lBtn = await page.evaluate(() => {
+      const b = document.getElementById("kf-edit-hand-left");
+      if (!b) return null;
+      const r = b.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    });
+    assert(lBtn, "找不到主位手切换按钮 #kf-edit-hand-left", ev.join("；"));
+    await page.mouse.click(lBtn.x, lBtn.y);
+    await sleep(250);
+
+    // 真实滚轮把面板滚到底（每步 200px，滚到 scrollTop 达上限即停；不直接写 scrollTop）
+    let sc = null;
+    for (let i = 0; i < 60; i++) {
+      sc = await page.evaluate(() => {
+        const p = document.getElementById("kf-edit-panel");
+        const r = p.getBoundingClientRect();
+        return {
+          top: p.scrollTop,
+          max: p.scrollHeight - p.clientHeight,
+          cx: r.left + r.width / 2,
+          cy: r.top + Math.min(90, r.height / 2),
+        };
+      });
+      if (sc.top >= sc.max - 1) break;
+      await page.mouse.move(sc.cx, sc.cy);
+      await page.mouse.wheel({ deltaY: 200 });
+      await sleep(140);
+    }
+    assert(
+      sc && sc.top >= sc.max - 1,
+      "真实滚轮没能把关键帧面板滚到底（scrollTop=" + (sc ? Math.round(sc.top) : "null") + " / 上限=" +
+        (sc ? Math.round(sc.max) : "null") + "）",
+      ev.join("；"),
+    );
+
+    // 末字段（手指关节）：按实际 DOM 取最后一个可操作字段
+    const last = await page.evaluate(() => {
+      const panel = document.getElementById("kf-edit-panel");
+      const pr = panel.getBoundingClientRect();
+      const inputs = [...panel.querySelectorAll("input")];
+      const el = inputs.filter((e) => (e.id || "").startsWith("kf-bend-")).pop() || inputs.pop();
+      if (!el) return null;
+      const b = el.getBoundingClientRect();
+      return {
+        id: el.id,
+        value: el.value,
+        min: el.min,
+        max: el.max,
+        top: b.top,
+        bottom: b.bottom,
+        left: b.left,
+        height: b.height,
+        panelTop: pr.top,
+        panelBottom: pr.bottom,
+        inPanel: b.top >= pr.top - 1 && b.bottom <= pr.bottom + 1,
+        inViewport: b.top >= 0 && b.bottom <= window.innerHeight,
+      };
+    });
+    assert(last, "关键帧面板里找不到任何输入框", ev.join("；"));
+    const vh = await page.evaluate(() => window.innerHeight);
+    ev.push(
+      "滚到底 scrollTop=" + Math.round(sc.top) + "/" + Math.round(sc.max) + " → 末字段 #" + last.id +
+        " 值=" + last.value + " 位置 top=" + Math.round(last.top) + " bottom=" + Math.round(last.bottom) +
+        "（面板 " + Math.round(last.panelTop) + ".." + Math.round(last.panelBottom) + "，视口高 " + vh + "）",
+    );
+    assert(
+      last.inPanel,
+      "面板滚到底后末字段 #" + last.id + " 仍不在面板盒内（top=" + Math.round(last.top) + " bottom=" +
+        Math.round(last.bottom) + "，面板 " + Math.round(last.panelTop) + ".." + Math.round(last.panelBottom) + "）",
+      ev.join("；"),
+    );
+    assert(
+      last.inViewport,
+      "面板滚到底后末字段 #" + last.id + " 落在视口外（top=" + Math.round(last.top) + " bottom=" +
+        Math.round(last.bottom) + "，视口高 " + vh + "）：用户够不到也改不动",
+      ev.join("；"),
+    );
+
+    // 真改它的值 → 姿态真的变（bends.pinky）
+    const poseBefore = await page.evaluate(() => {
+      const s = window.motionCubeHand?.getState?.();
+      return s && s.pose ? JSON.stringify(s.pose.bends?.pinky ?? null) : null;
+    });
+    assert(poseBefore !== null, "读不到手部姿态（window.motionCubeHand.getState().pose 为空）", ev.join("；"));
+    const lo = Number(last.min || 0);
+    const hi = Number(last.max || 180);
+    let newVal = Number(last.value) === 120 ? 130 : 120;
+    newVal = Math.min(hi, Math.max(lo, newVal));
+    await page.mouse.click(last.left + 8, last.top + last.height / 2);
+    await sleep(250);
+    const activeId = await page.evaluate(() => document.activeElement?.id || "");
+    assert(
+      activeId === last.id,
+      "真实鼠标点击末字段后焦点没落在它上面（activeElement=" + activeId + "，期望 " + last.id + "）",
+      ev.join("；"),
+    );
+    await page.keyboard.down("Control");
+    await page.keyboard.press("KeyA");
+    await page.keyboard.up("Control");
+    await page.keyboard.type(String(newVal), { delay: 40 });
+    await sleep(600);
+    const poseAfter = await page.evaluate(() => {
+      const s = window.motionCubeHand?.getState?.();
+      return s && s.pose ? JSON.stringify(s.pose.bends?.pinky ?? null) : null;
+    });
+    ev.push("改末字段 #" + last.id + " " + last.value + "→" + newVal + " → 姿态 bends.pinky " + poseBefore + " → " + poseAfter);
+    assert(
+      poseBefore !== poseAfter,
+      "改末字段的值没写进姿态（bends.pinky 仍是 " + poseAfter + "）：末字段够不到/写不进（修复前实测 150→150）",
+      ev.join("；"),
+    );
+  }
+
+  // ---------- G-4：面板显示帧没有关键帧时，改缓动必须显式提示（不得静默吞掉） ----------
   const total = await totalFramesOf(page);
   assert(total > 0, "读不到时间线总帧数（#tl-meta）", ev.join("；"));
   // 标尺的「像素 ↔ 帧」映射不能假设 = 宽度×frame/total（可见窗口/缩放会变），
@@ -945,28 +1197,19 @@ async function scenarioG(page) {
   assert(target !== null, "找不到夹在两个关键帧之间的无关键帧帧（标记=" + JSON.stringify(markers) + "）", ev.join("；"));
   // 两点标定（视口 px，与产品 seekFromEvent 同坐标系）：
   //   x = a.x + (frame - a.frame) * (b.x - a.x) / (b.frame - a.frame)
-  const lo = markers.filter((m) => m.frame < target).pop() ?? markers[0];
-  const hi = markers.find((m) => m.frame > target) ?? markers[markers.length - 1];
-  const px = lo.x + ((target - lo.frame) * (hi.x - lo.x)) / (hi.frame - lo.frame);
-  // 直接在 #tl-ruler 上派发 pointerdown：标尺容器 .tl-wrap 是横向滚动容器，
-  // 真实点击可能落在可视区外（此时页面状态不变，断言会误判成产品问题）。
-  // clientX 用【视口 px】——产品 seekFromEvent 也用 getBoundingClientRect 换算，两者同坐标系。
-  await page.evaluate((vpX) => {
-    const el = document.getElementById("tl-ruler");
-    if (!el) throw new Error("#tl-ruler 不存在");
-    const r = el.getBoundingClientRect();
-    el.dispatchEvent(
-      new PointerEvent("pointerdown", {
-        clientX: vpX,
-        clientY: r.top + 6,
-        bubbles: true,
-        cancelable: true,
-        buttons: 1,
-        pointerId: 1,
-      }),
-    );
-  }, px);
-  await sleep(350);
+  // 两点标定公式（视口 px，与产品 seekFromEvent 同坐标系）：
+  //   x = lo.x + (frame - lo.frame) * (hi.x - lo.x) / (hi.frame - lo.frame)
+  //   —— 关键帧标记中心恰好落在 rulerLeft + frame×pxPerFrame。
+  //   实际点击由 clickRulerAtFrame 内部按同一公式标定（滚动 .tl-wrap 后会重新标定）。
+  // 【本轮修复③】改用【真实鼠标点击】标尺做 seek（不再派发合成 pointerdown）：
+  //   合成事件绕过命中测试（面板压住标尺时照样"成功"），真实点击才是这一轮要守住的东西。
+  //   .tl-wrap 是横向滚动容器 → 目标点落在可视区外时先横向滚动容器（真实用户也会这么做），
+  //   滚动后必须按新的标记位置【重新两点标定】（calibrateX 在 clickRulerAtFrame 内部做）。
+  const click = await clickRulerAtFrame(page, target);
+  ev.push(
+    "标尺真实鼠标点击：目标帧=" + target + "（点击视口像素 " + Math.round(click.x) + "）命中元素=" +
+      (click.hit ? click.hit.tag + (click.hit.id ? "#" + click.hit.id : "") : "null"),
+  );
   // 播放头（#tl-playhead 的 left = previewFrame × pxPerFrame，布局 px；pxPerFrame = 标尺布局宽/总帧）
   // 是「面板显示帧」的单一真相源 → 先读播放头，再比对面板显示帧。
   const pxPerFrame = parseFloat(ruler.styleWidth || "0") / Math.max(1, total);
@@ -977,7 +1220,7 @@ async function scenarioG(page) {
   }, pxPerFrame);
   const frame3 = Number(await valOf(page, "#kf-frame"));
   ev.push(
-    "标尺 seek 目标帧=" + target + "（视口像素 " + Math.round(px) + "）→ 播放头帧=" + playheadFrame +
+    "标尺 seek 目标帧=" + target + "（点击视口像素 " + Math.round(click.x) + "）→ 播放头帧=" + playheadFrame +
       " 面板显示帧=" + frame3 + "（时间线总长 " + total + " 帧）",
   );
   assert(
@@ -996,59 +1239,92 @@ async function scenarioG(page) {
   const st3 = await textOf(page, "#editor-status");
   ev.push("无关键帧帧改缓动 → status=" + short(st3, 90));
   assert(/没有关键帧|缓动未生效/.test(st3), "面板显示帧无关键帧时改缓动未提示（status=" + short(st3, 90) + "）", ev.join("；"));
+
+  // ---------- G-5：标尺最左/中/右三段真实鼠标点击，帧号必须精确命中 ----------
+  // 【本轮修复③】面板修好后标尺不再被遮挡 → 三段都用真实鼠标点击（page.mouse.click），
+  //   并断言播放头/面板帧号【精确等于】按 getBoundingClientRect 标定出的目标帧。
+  {
+    const geom = await rulerGeom(page);
+    assert(geom && geom.marks.length >= 2, "标尺关键帧标记不足，无法取三段目标帧", ev.join("；"));
+    const marks = geom.marks;
+    // 目标帧必须既不是关键帧、也不贴着关键帧标记（否则点到的是 .tl-kf 按钮 → selectKf 覆盖 seek）
+    const clearOf = (f) => marks.every((m) => Math.abs(m.frame - f) > 1);
+    const picks = [];
+    const first = marks[0];
+    const second = marks[1];
+    const lastMark = marks[marks.length - 1];
+    const prevMark = marks[marks.length - 2];
+    const leftF = first.frame + 2;
+    if (leftF < second.frame - 1 && clearOf(leftF)) picks.push({ name: "左", frame: leftF });
+    const midA = marks.length >= 3 ? marks[marks.length - 2] : first;
+    const midB = marks.length >= 3 ? lastMark : second;
+    const midF = Math.floor((midA.frame + midB.frame) / 2);
+    if (midF > midA.frame && midF < midB.frame && clearOf(midF)) picks.push({ name: "中", frame: midF });
+    const rightF = lastMark.frame - 8;
+    if (rightF > prevMark.frame + 1 && clearOf(rightF)) picks.push({ name: "右", frame: rightF });
+    assert(picks.length >= 2, "标尺三段目标帧取不满（marks=" + JSON.stringify(marks) + "）", ev.join("；"));
+    for (const p of picks) {
+      const r = await clickRulerAtFrame(page, p.frame);
+      const phFrame = await readPlayheadFrame(page, pxPerFrame);
+      const panelFrame = Number(await valOf(page, "#kf-frame"));
+      ev.push(
+        p.name + "段 目标帧=" + p.frame + " 点击 x=" + Math.round(r.x) + " 命中=" +
+          (r.hit ? r.hit.tag + (r.hit.id ? "#" + r.hit.id : "") : "null") + " → 播放头帧=" + phFrame +
+          " 面板帧号=" + panelFrame,
+      );
+      assert(
+        phFrame === p.frame,
+        p.name + "段真实点击标尺：目标帧 " + p.frame + "，播放头却落在 " + phFrame + "（像素↔帧标定不一致）",
+        ev.join("；"),
+      );
+      assert(
+        panelFrame === p.frame,
+        p.name + "段真实点击标尺：目标帧 " + p.frame + "，关键帧面板帧号 " + panelFrame + " 未跟随播放头",
+        ev.join("；"),
+      );
+    }
+  }
   return ev;
 }
 
 // ================= 场景 H：P1-7 快照完整序列 + P1-8 复制解法含 endAlg =================
 async function scenarioH(page) {
   const ev = [];
-  const steps = { H1: [], H2: [] };
+  const steps = { H1: [], H2: [], H3: [], H4: [] };
   await openApp(page, "/game", {
     [K.settings]: settingsJson({ baseFace: "F", moveCooldownMs: 0 }),
     [K.solveBase]: JSON.stringify(["F"]),
   });
   await waitGame(page);
 
-  // ---- H-1：>24 步后快照恢复状态一致 ----
+  // ---- H-1：严格连打 30 键 → 恰好 30 步（无兜底）；>24 步后快照恢复状态一致 ----
   try {
-    // 【旧实现不稳】固定 45ms 间隔连按 30 次：按键偶尔被吞（cubing 内部 input 抢焦点 →
-    // keymap 的「焦点在 INPUT/TEXTAREA 则忽略」分支），实测 30 次只记到 23 步。
-    // 现改为「按键 → 等 currentAlg 真的增长 → 没增长就补按」，保证记满 30 步。
+    // 【本轮修复②】旧实现无条件忽略落在 INPUT/TEXTAREA 上的按键（只看 tagName），
+    //   cubing 内部控件抢焦点就整段吞键：45ms 间隔连按 30 次只记到 23 步（丢 7 键）。
+    //   修复后判据换成 src/input/textEntry.ts 的 isTextEntryTarget（只保护「用户真在文本框里打字」）。
+    // 【严格口径】按 30 次就必须是 30 步 —— 不带任何「等 currentAlg 增长、没增长就补按」的兜底：
+    //   兜底会把丢键掩盖掉（旧实现正是靠兜底才「看起来通过」）。
     const keys = ["r", "u", "f", "d", "l", "b"];
     const algLen = () =>
       page.evaluate(() => (window.__motionCube?.player?.currentAlg || "").split(/\s+/).filter(Boolean).length);
-    const pressUntil = async (key, want) => {
-      for (let attempt = 0; attempt < 8; attempt++) {
-        const before = await algLen();
-        if (before >= want) return true;
-        await page.evaluate(() => {
-          const a = document.activeElement;
-          if (a && typeof a.blur === "function") a.blur();
-        });
-        await page.keyboard.press(key);
-        const grew = await page
-          .waitForFunction(
-            (t) => ((window.__motionCube?.player?.currentAlg || "").split(/\s+/).filter(Boolean).length) > t,
-            { timeout: 500, polling: 40 },
-            before,
-          )
-          .then(() => true)
-          .catch(() => false);
-        if (!grew) await sleep(60);
-      }
-      return (await algLen()) >= want;
-    };
+    await page.evaluate(() => {
+      const a = document.activeElement;
+      if (a && typeof a.blur === "function") a.blur();
+    });
+    const stepsBefore = await algLen();
+    assert(stepsBefore === 0, "游戏页起始步数应为 0（openApp 已清 localStorage），实际 " + stepsBefore, ev.join("；"));
     for (let i = 0; i < 30; i++) {
-      await pressUntil(keys[i % keys.length], i + 1);
+      await page.keyboard.press(keys[i % keys.length]);
+      await sleep(45);
     }
     await page.waitForFunction(() => !!window.__motionCube, { timeout: 15000 });
-    await sleep(400);
+    await sleep(500);
     const fullAlg = await page.evaluate(() => window.__motionCube.player.currentAlg);
     const snapRaw = await page.evaluate((k) => localStorage.getItem(k), K.snapshot);
     const snapAlg = snapRaw ? JSON.parse(snapRaw).alg : "";
     const tok = (s) => (s || "").split(/\s+/).filter(Boolean);
-    ev.push("H1 按键 30 步 → currentAlg=" + tok(fullAlg).length + " 步 / 快照=" + tok(snapAlg).length + " 步");
-    assert(tok(fullAlg).length >= 28, "按键未累计到 30 步（currentAlg=" + tok(fullAlg).length + " 步）：" + short(fullAlg, 100), ev.join("；"));
+    ev.push("H1 严格连打 30 键（45ms 间隔，无兜底）→ currentAlg=" + tok(fullAlg).length + " 步 / 快照=" + tok(snapAlg).length + " 步");
+    assert(tok(fullAlg).length === 30, "严格连打丢键：按 30 次只记到 " + tok(fullAlg).length + " 步（修复前实测 23/30）：焦点判据仍在吞键", ev.join("；"));
     assert(tok(snapAlg).length >= 28, "快照只存了 " + tok(snapAlg).length + " 步（P1-7：从 24 条封顶的显示日志写入）", ev.join("；"));
     assert(tok(snapAlg).join(" ") === tok(fullAlg).join(" "), "快照序列与实际完整序列不一致：快照 " + tok(snapAlg).length + " 步 vs 实际 " + tok(fullAlg).length + " 步", ev.join("；"));
     // 重载恢复
@@ -1066,6 +1342,128 @@ async function scenarioH(page) {
   } catch (e) {
     steps.H1.push(e.message);
     ev.push("H1 ✗ " + e.message);
+  }
+
+  // ---- H-3：焦点上下文判据（非文本控件不得吞游戏键 / 真在文本框打字必须被保护） ----
+  // 【本轮修复②】keymap 改用 src/input/textEntry.ts 的 isTextEntryTarget：
+  //   只保护「用户真在文本框里打字」；hidden / readonly / 禁用 / 非文本类型 input /
+  //   不可见控件 / cubing（twisty-player）内部控件【都不得】吞掉游戏按键。
+  try {
+    const algLen = () =>
+      page.evaluate(() => (window.__motionCube?.player?.currentAlg || "").split(/\s+/).filter(Boolean).length);
+    const pressN = async (n) => {
+      for (let i = 0; i < n; i++) {
+        await page.keyboard.press("r");
+        await sleep(50);
+      }
+      await sleep(350);
+    };
+
+    // (1) hidden input：input[type=hidden] 按规范不可聚焦（focus() 是空操作），
+    //     故用带 bubbles 的合成 keydown 把 event.target 精确设成它 —— 判据只看 event.target。
+    const hidden = await page.evaluate(async () => {
+      const inp = document.createElement("input");
+      inp.type = "hidden";
+      inp.id = "probe-hidden-input";
+      document.body.appendChild(inp);
+      const before = (window.__motionCube?.player?.currentAlg || "").split(/\s+/).filter(Boolean).length;
+      for (let i = 0; i < 5; i++) {
+        inp.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyR", key: "r", bubbles: true, cancelable: true }));
+      }
+      await new Promise((r) => setTimeout(r, 250));
+      const after = (window.__motionCube?.player?.currentAlg || "").split(/\s+/).filter(Boolean).length;
+      inp.remove();
+      return { before, after };
+    });
+    ev.push("H3 hidden input（合成 keydown，target=隐藏框）按 5 键 → " + hidden.before + " → " + hidden.after + " 步");
+    assert(
+      hidden.after - hidden.before === 5,
+      "目标落在 hidden input 上时游戏键被吞（5 键只记 " + (hidden.after - hidden.before) +
+        " 步）：isTextEntryTarget 把隐藏框当成了文本框",
+      ev.join("；"),
+    );
+
+    // (2)(3) readonly 文本框 / input[type=range]：真实聚焦 + 真实按键
+    const focusCase = async (id, attrs) => {
+      await page.evaluate((i, a) => {
+        const old = document.getElementById(i);
+        if (old) old.remove();
+        const el = document.createElement("input");
+        el.id = i;
+        el.style.cssText = "position:fixed;left:24px;top:24px;width:180px;height:36px;z-index:99999";
+        for (const [k, v] of Object.entries(a)) el.setAttribute(k, v);
+        document.body.appendChild(el);
+        el.focus();
+      }, id, attrs);
+      const focused = await page.evaluate(() => document.activeElement?.id || "");
+      const before = await algLen();
+      await pressN(5);
+      const after = await algLen();
+      await page.evaluate((i) => document.getElementById(i)?.remove(), id);
+      return { focused, before, after, delta: after - before };
+    };
+    for (const c of [
+      { label: "readonly 文本框", id: "probe-readonly-input", attrs: { type: "text", readonly: "readonly" } },
+      { label: "input[type=range]", id: "probe-range-input", attrs: { type: "range" } },
+    ]) {
+      const r = await focusCase(c.id, c.attrs);
+      ev.push(
+        "H3 " + c.label + " 聚焦=" + (r.focused === c.id ? "是" : "否(" + r.focused + ")") + " 按 5 键 → " +
+          r.before + " → " + r.after + " 步",
+      );
+      assert(r.focused === c.id, c.label + " 聚焦失败（activeElement=" + r.focused + "）", ev.join("；"));
+      assert(
+        r.delta === 5,
+        "焦点在 " + c.label + " 上时游戏键被吞（5 键只记 " + r.delta + " 步）：焦点判据仍在吞键",
+        ev.join("；"),
+      );
+    }
+
+    // (4) twisty-player 宿主（cubing 内部控件的宿主）：不得吞
+    const twistyFocus = await page.evaluate(() => {
+      const tp = document.querySelector("twisty-player");
+      if (!tp) return null;
+      tp.setAttribute("tabindex", "0");
+      tp.focus();
+      return document.activeElement === tp ? "twisty-player" : (document.activeElement?.tagName || "null");
+    });
+    const tBefore = await algLen();
+    await pressN(5);
+    const tAfter = await algLen();
+    ev.push("H3 twisty-player 宿主 聚焦=" + twistyFocus + " 按 5 键 → " + tBefore + " → " + tAfter + " 步");
+    assert(twistyFocus === "twisty-player", "焦点没能落到 twisty-player 宿主上（activeElement=" + twistyFocus + "）", ev.join("；"));
+    assert(
+      tAfter - tBefore === 5,
+      "焦点在 twisty-player 宿主上时游戏键被吞（5 键只记 " + (tAfter - tBefore) + " 步）",
+      ev.join("；"),
+    );
+
+    // (5) 真在文本框打字：游戏页公式框 → 值正确、步数不变、hash 不变
+    const hashBefore = await page.evaluate(() => location.hash);
+    const typeBefore = await algLen();
+    const focusedAlg = await page.evaluate(() => {
+      const el = document.querySelector(".hud-alg input");
+      if (!el) return false;
+      el.focus();
+      return document.activeElement === el;
+    });
+    assert(focusedAlg, "游戏页公式框（.hud-alg input）未找到或聚焦失败", ev.join("；"));
+    await page.keyboard.type("R U F' D2", { delay: 30 });
+    await sleep(500);
+    const typedVal = await page.evaluate(() => document.querySelector(".hud-alg input")?.value ?? null);
+    const typeAfter = await algLen();
+    const hashAfter = await page.evaluate(() => location.hash);
+    ev.push(
+      "H3 游戏页公式框键入 \"R U F' D2\" → 值=" + JSON.stringify(typedVal) + " 步数 " + typeBefore + "→" +
+        typeAfter + " hash " + hashBefore + "→" + hashAfter,
+    );
+    assert(typedVal === "R U F' D2", "公式框键入结果不对：" + JSON.stringify(typedVal), ev.join("；"));
+    assert(typeAfter === typeBefore, "在文本框里打字竟然触发了游戏动作（步数 " + typeBefore + "→" + typeAfter + "）", ev.join("；"));
+    assert(hashAfter === hashBefore, "在文本框里打字改变了路由 hash（" + hashBefore + "→" + hashAfter + "）", ev.join("；"));
+    steps.H3.push("PASS");
+  } catch (e) {
+    steps.H3.push(e.message);
+    ev.push("H3 ✗ " + e.message);
   }
 
   // ---- H-2：复制解法包含 endAlg（与演示收尾朝向一致） ----
@@ -1218,9 +1616,59 @@ async function scenarioH(page) {
     ev.push("H2 ✗ " + e.message);
   }
 
-  // 两个子项任一失败 → 整项 FAIL，但证据都保留
-  if (steps.H1[0] !== "PASS" || steps.H2[0] !== "PASS") {
-    const err = new Error("子项失败：P1-7 " + (steps.H1[0] === "PASS" ? "PASS" : "FAIL") + " / P1-8 " + (steps.H2[0] === "PASS" ? "PASS" : "FAIL"));
+  // ---- H-4：库页 #f-name 真在文本框打字 → 值正确、hash 不变、库内容未被误改 ----
+  try {
+    await navHash(page, "/library");
+    await waitSel(page, "#f-name", 15000);
+    await sleep(500);
+    const hashBefore = await page.evaluate(() => location.hash);
+    const rowsBefore = await page.evaluate(() => document.getElementById("formula-rows")?.children.length ?? -1);
+    const libBefore = await page.evaluate((k) => localStorage.getItem(k), K.library);
+    const focused = await page.evaluate(() => {
+      const el = document.getElementById("f-name");
+      if (!el) return false;
+      el.focus();
+      return document.activeElement === el;
+    });
+    assert(focused, "库页 #f-name 未找到或聚焦失败", ev.join("；"));
+    await page.keyboard.type("R U F' D2", { delay: 30 });
+    await sleep(500);
+    const val = await page.evaluate(() => document.getElementById("f-name")?.value ?? null);
+    const hashAfter = await page.evaluate(() => location.hash);
+    const rowsAfter = await page.evaluate(() => document.getElementById("formula-rows")?.children.length ?? -1);
+    const libAfter = await page.evaluate((k) => localStorage.getItem(k), K.library);
+    const formulaCount = (raw) => {
+      try {
+        const j = JSON.parse(raw || "{}");
+        return (j.formulas || []).length;
+      } catch {
+        return -1;
+      }
+    };
+    ev.push(
+      "H4 库页 #f-name 键入 \"R U F' D2\" → 值=" + JSON.stringify(val) + " hash " + hashBefore + "→" + hashAfter +
+        " 公式行 " + rowsBefore + "→" + rowsAfter + " 库公式数 " + formulaCount(libBefore) + "→" + formulaCount(libAfter),
+    );
+    assert(val === "R U F' D2", "库页 #f-name 键入结果不对：" + JSON.stringify(val), ev.join("；"));
+    assert(hashAfter === hashBefore, "库页文本框打字改变了路由 hash（" + hashBefore + "→" + hashAfter + "）", ev.join("；"));
+    assert(rowsAfter === rowsBefore, "库页文本框打字意外新增了公式行（" + rowsBefore + "→" + rowsAfter + "）", ev.join("；"));
+    assert(
+      formulaCount(libAfter) === formulaCount(libBefore),
+      "库页文本框打字意外改写了手法库（公式数 " + formulaCount(libBefore) + "→" + formulaCount(libAfter) + "）",
+      ev.join("；"),
+    );
+    steps.H4.push("PASS");
+  } catch (e) {
+    steps.H4.push(e.message);
+    ev.push("H4 ✗ " + e.message);
+  }
+
+  // 任一子项失败 → 整项 FAIL，但证据都保留
+  const failed = Object.entries(steps).filter(([, v]) => v[0] !== "PASS").map(([k]) => k);
+  if (failed.length) {
+    const err = new Error(
+      "子项失败：" + Object.entries(steps).map(([k, v]) => k + " " + (v[0] === "PASS" ? "PASS" : "FAIL")).join(" / "),
+    );
     err.evidence = ev.join("；");
     throw err;
   }

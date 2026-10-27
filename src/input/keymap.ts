@@ -4,6 +4,7 @@
  * Space 保留为"双层 wide 修饰键"；Shift 常作反转修饰。配置可持久化（见 settings.ts）。
  */
 import type { CubePlayer } from "../cube/CubePlayer";
+import { isTextEntryTarget } from "./textEntry";
 
 export type SpecialAction = "undo" | "reset" | "toggle-play";
 
@@ -233,8 +234,9 @@ export class KeymapController {
 
   private onKeyDown = (e: Event): void => {
     const ev = e as KeyboardEvent;
-    const el = e.target as HTMLElement | null;
-    if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) return;
+    // 只在「用户真的在文本框里输入」时忽略按键；焦点落在非可编辑控件
+    // （cubing 内部控件 / hidden / readonly / 非文本类型 input）时不得吞掉游戏键
+    if (isTextEntryTarget(e.target)) return;
     if (ev.code === "Space") {
       this.spaceHeld = true;
       e.preventDefault();

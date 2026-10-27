@@ -129,6 +129,19 @@
   复制内容 = setupAlg + moves + endAlg；求解面板新增「收尾旋转」行，使屏幕展示 = 实际执行序列。
   实测复制串 56 步以收尾旋转结尾，演示跑完后实际施加序列尾部与复制内容逐 token 相同
   （引擎级比对：旧复制串终点 centers≠演示终点，新串一致）。〔GamePage.vue:88-94,292-295〕
+- ✅ **游戏页快速连打丢步**（cubing 内部控件抢焦点 → 按键被吞）（已修）：
+  keymap.ts 原先无条件忽略落在 INPUT/TEXTAREA 的按键 → cubing 内部控件聚焦时 45ms 连按 30 次
+  只记到 23 步。修法落地：新增 `src/input/textEntry.ts` 的语义化判据 `isTextEntryTarget()`——
+  只保护「用户真的在文本框里打字」（可见且未 readonly/disabled 的文本类 input / textarea /
+  contenteditable）；hidden / readonly / disabled / 非文本类型 input / 不可见控件 / cubing 宿主
+  `twisty-player` 一律**不吞**游戏键。EditorPage.vue 与 HandCalibPage.vue 的同类 tagName 判据
+  一并统一。〔src/input/keymap.ts:235-239 / src/input/textEntry.ts〕
+- ✅ **playtest-solver 阶段数断言说谎**（Roux 写死 6 阶段，应用实际解析成 roux-merge = 5）（已修）：
+  期望值改为跟随应用真相源——页面内 import 应用自己的 `methodOptions.ts`/`solve.ts` 取「方法解析
+  结果」与「阶段计划」，再叠加静态契约表兜底（应用改了阶段计划会**报错**要求更新契约表，
+  绝不静默放宽）；顺带修掉两个被阶段断言提前挡住的脚本缺陷（演示速度滑条点到了最慢端
+  2 s/步 → 必然超时；打乱是逐步播放只等 600ms → 实测只读到 2 步）。脚本注释写明第三批
+  P0-4（EOLR 从未生效）的收紧路径。〔scripts/playtest-solver.mjs〕
 - ✅ **`three` / `@types/three` 未在 package.json 声明**（已修）：12 处 import 跨 10 文件，仅靠 cubing 传递依赖
   提升。修：`npm i three@0.170.0` + `-D @types/three@0.169.0`（用 `^` 范围与项目约定一致；
   three 的 0.x caret 语义 = 只吃 patch，不会被上游 minor 变更打到）。〔package.json〕
@@ -143,11 +156,15 @@
 - ✅ **vite dev 端口 5173 占用用户端口**（已修）：项目约定 5174；tauri 侧已用
   `--port 5174 --strictPort` 绕过，vite 侧没有。修：vite.config.ts 改 **5174**
   （附注释说明 5173 留给用户预览）+ README 开发段端口同步。〔vite.config.ts:8 / README.md:45〕
-- ⬜ **关键帧面板溢出侧栏、吃掉标尺左侧的点击**（第二批核验时发现，未修）：
-  面板开启时 `#kf-edit-panel` 高 1372px > 侧栏 779px，content 溢到主列，
-  `elementFromPoint(标尺左侧)` 返回 `.pose-edit` → 真实鼠标点在标尺左段根本触发不了 seek
-  （回归脚本只能用「在 #tl-ruler 上派发 pointerdown」）。修：给 .editor-sidebar/.kf-edit-panel
-  加 max-height + 内部滚动。〔EditorPage.vue 样式段〕
+- ✅ **关键帧面板溢出侧栏、末段字段够不到**（第二批核验时发现，已修）：
+  面板开启时 `#kf-edit-panel` 高 1372px > 侧栏 779px（溢出 593 视口 px），面板自身不可滚
+  （overflow-y:visible）→ 末段手指关节字段落在视口外（y≈1020），**够不到也改不动**
+  （实测末字段 150→150 没写进姿态）。修法落地：.kf-edit-panel 加 `flex:0 0 auto` +
+  `max-height:100%` + `overflow-y:auto`（侧栏整体滚动保留；刻意不设
+  overscroll-behavior:contain，否则滚到底后够不到侧栏其余分组）。
+  **症状更正**：先前「面板遮住标尺左段、真实鼠标点标尺触发不了 seek」是**误判**——把
+  offsetLeft（布局 px）当视口 px 传给了 elementFromPoint；面板本就锁在侧栏 248px 内、
+  离标尺左缘还有 28px，压不到标尺。真实缺陷是「溢出 + 末字段不可达」。〔EditorPage.vue 样式段〕
 - ⬜ **多标签页互相覆盖**：全仓无 `storage` 事件监听（仅 vendored 收藏夹有），编辑器会把
   过期的整库快照写回 → 修：library/settings/keymap 加 storage 监听。
 - ⬜ **「加载内置公式库」静默覆盖用户对内置行的修改**（mergeLibrary incoming-wins，id 固定

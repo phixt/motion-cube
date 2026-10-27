@@ -10,6 +10,7 @@ import WinTextBlock from "../../vendor/winui-on-web/components/WinTextBlock.vue"
 import WinToggleSwitch from "../../vendor/winui-on-web/components/WinToggleSwitch.vue";
 import { Euler, Quaternion } from "three";
 import { CubePlayer } from "../../cube/CubePlayer";
+import { isTextEntryTarget } from "../../input/textEntry";
 import { GrayOverlay } from "../../cube/GrayOverlay";
 import { createGrayState, presetGrayState, type GrayPreset, type GrayState } from "../../cube/stickering";
 import { buildCategoryTree, flattenCategoryTree } from "../../data/category";
@@ -433,7 +434,9 @@ let spaceDownAt = 0;
 let spaceCombined = false;
 const onEditorKey = (e: KeyboardEvent): void => {
   const el = e.target as HTMLElement | null;
-  if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT")) return;
+  // 打字/下拉里不触发编辑器快捷键（统一用语义化判据：真的在文本框输入才算，
+  // 隐藏框/只读框/滑杆等不再误吞快捷键）。SELECT 一律不触发。
+  if (isTextEntryTarget(el) || el?.tagName === "SELECT") return;
   const action = resolveEditorAction(e);
   if (!action) {
     if (spaceDownAt && performance.now() - spaceDownAt < 600) spaceCombined = true;
@@ -2571,6 +2574,17 @@ onBeforeUnmount(() => {
   border: 1px solid var(--stroke-divider);
   border-radius: var(--ControlCornerRadius, 6px);
   background: var(--ctrl-fill-secondary, rgba(128, 128, 138, 0.14));
+  /* 关键帧面板不得高过侧栏：实测面板高 1372px > 侧栏 779px，内容溢出到主列，
+     压住时间线标尺左段 → 用户真实鼠标点在标尺左段触发不了 seek。
+     方案：面板自身内部滚动（字段全部可达），高度以侧栏内容盒为上限。
+     flex:0 0 auto —— 不参与侧栏纵向压缩（侧栏是 column flex，被压缩会缩成一条缝，
+     面板内的字段就彻底点不到了）；max-height:100% —— 侧栏高度由布局确定（flex stretch），
+     百分比可解析。 */
+  flex: 0 0 auto;
+  max-height: 100%;
+  overflow-y: auto;
+  /* 不设 overscroll-behavior: contain：面板滚到底后要能把滚动传给侧栏，
+     否则用户会被困在面板内部、够不到侧栏其余分组。 */
 }
 
 .sb-kf-panel {
