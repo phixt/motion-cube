@@ -6,9 +6,10 @@
 
 ## 当前状态
 
-- 版本 **0.4.1**（package.json 与 src-tauri/tauri.conf.json 同步；2026-09-12 发布
-  bump 7f43162——内容=手部 low-poly 细化十二~十六轮 + 双手显示/独立编辑/主位手规则
-  十七~十九轮 + 外部注入 API A 期与文档；本地编译已交付，发布由用户执行）
+- 版本 **0.4.2**（2026-11-23 bump，四处同步：package.json / package-lock.json /
+  tauri.conf.json / Cargo.toml+Cargo.lock；包含 Step 0 CI 门禁补齐 + Step 1 灰面板性能/
+  6 底预设/500ms 播放基准/Web Worker 求解/dispose 收口 + Step 2 ZBLL 100%/ZBLS 四槽 100%/
+  Roux EOLR 真生效）
 - 求解器：CFOP / CFOP+（ZBLS+一步 ZBLL）/ Roux（分步 4a/4b/4c、合并 4b+4c、高级 EOLR+6E2C）五方法全绿；
   ZBLL 数据完整 **493/493** 且运行时查表经 post-AUF × y 共轭展开精确覆盖全空间 **7776/7776 = 100%**；
   ZBLS 有效全集 **302**（O 组 3 条全槽已解留档 docs/archived/），特征键 + `viewState` 四槽统一（真实态命中 **100%**，CFOP+ 均省 ~12 步、0 例变长）；
