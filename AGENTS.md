@@ -11,8 +11,9 @@
 - **版本号**：package.json 与 src-tauri/tauri.conf.json 的 version 必须同步
   （2026-10-27 起 Cargo.toml / Cargo.lock / package-lock.json 一并同步，四处同版）
   （tauri 打包以 conf 为准）；功能/修复提交时评估 bump
-- **自动化（GitHub Actions）**：已配置；已加 .github/workflows（CI:
-  typecheck/build/verify/playtest；发布: tag 触发 tauri 打包上传 Releases）
+- **自动化（GitHub Actions）**：已配置 `.github/workflows/ci.yml`（CI:
+  typecheck+build / 版本四处同步校验 / verify-data+hand+solver+base+zbls+i18n+notation /
+  Rust cargo check；playtest 与 Release 流水线待补，当前发布为本地手工 `npm run tauri build`）
 - **Windows**：优先 PowerShell 7（pwsh）；中文输出前设置 UTF-8
   （PowerShell `[Console]::OutputEncoding`、Python `sys.stdout.reconfigure`）；
   沙箱受限进程无法启动 WindowsApps 目录下的别名程序时，用完整路径或提权通道。

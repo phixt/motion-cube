@@ -5,6 +5,13 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     name: Typecheck + Build + Verify
@@ -23,10 +30,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Typecheck
-        run: npm run typecheck
+      - name: Verify version sync (package / lock / tauri / Cargo)
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8")).version;
+            const lock = JSON.parse(fs.readFileSync("package-lock.json", "utf8")).version;
+            const tauri = JSON.parse(fs.readFileSync("src-tauri/tauri.conf.json", "utf8")).version;
+            const cargo = (fs.readFileSync("src-tauri/Cargo.toml", "utf8").match(/^version\s*=\s*"([^"]+)"/m) || [])[1];
+            const map = { "package.json": pkg, "package-lock.json": lock, "tauri.conf.json": tauri, "Cargo.toml": cargo };
+            if (new Set(Object.values(map)).size !== 1) {
+              console.error("Version mismatch:", map);
+              process.exit(1);
+            }
+            console.log("Version synced:", pkg);
+          '
 
-      - name: Build
+      - name: Typecheck + Build
         run: npm run build
 
       - name: Verify data
@@ -38,10 +58,46 @@ jobs:
       - name: Verify hand rig store (config singleton / migration defaults)
         run: npx tsx scripts/verify-hand-store.ts
 
-      - name: Solver + render + coverage smoke (native Node, strip-types)
-        # node scripts/*.ts 直跑（Node 22 strip-types，无 tsx/esbuild 依赖，Linux 可跑）
+      - name: Solver + render + coverage + i18n + notation gates (native Node)
+        # node scripts/*.ts 直跑（Node 22 strip-types，无 tsx/esbuild 依赖）
         run: |
           node scripts/smoke-solver.ts
           node scripts/smoke-solver-edge.ts
           node scripts/verify-render-cube.ts
           node scripts/verify-zbll-coverage.ts
+          node scripts/verify-solve-base.ts
+          node scripts/probe-solve-base-ui.ts
+          node scripts/verify-zbls-rounds.ts
+          node scripts/probe-locale-keys.ts
+          node scripts/verify-notation.mjs
+
+  rust:
+    name: Tauri (cargo check)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend (for Tauri frontendDist)
+        run: npm run build
+
+      - name: Cargo check
+        run: cargo check --manifest-path src-tauri/Cargo.toml

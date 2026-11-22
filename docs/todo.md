@@ -1,6 +1,6 @@
 # 项目 TODO 与进度（motion-cube）
 
-> 更新：2026-10-27　✅ 已完成 ｜ 🚧 进行中 ｜ ⬜ 待办
+> 更新：2026-11-22　✅ 已完成 ｜ 🚧 进行中 ｜ ⬜ 待办
 > 唯一进度/待办文档；已完成内容只留版本级摘要，轮次明细看 git log（提交信息承载）。
 > 2026-10-27 新增「代码审计轮」一节（全面代码审查结论，详见 docs/audit/REVIEW-2026-10.md）。
 
@@ -22,6 +22,14 @@
   以及 125 条 P2 技术债 —— 详见下方「代码审计轮」。
 
 ## 活跃待办
+
+### 重启执行计划（2026-11-22 简版路线图，按阶段逐步推进）
+- ✅ **Step 0｜基线与门面**：CI 补齐 5 条确定性 gate（`verify-solve-base` / `probe-solve-base-ui` / `verify-zbls-rounds` / `probe-locale-keys` 补 exitCode / `verify-notation`）、版本四处同步断言、`cargo check` Rust job、`permissions`/`concurrency`、去掉重复 `vue-tsc`；README/AGENTS/todo 文档去伪对齐；全套本地验证 + `cargo check` 全绿（`find-zbls-diff-3` 依赖 gitignored `reference/` 不进 CI，由 `verify-zbls-rounds` 覆盖）。
+- ⬜ **Step 1｜最高体感收益（卡顿 / 错位 / 泄漏）**：① 灰面板隐藏跳过与增量刷新（P1-5）+ 标灰预设 6 底修复（P1-6）；② 现役 cubing 播放体验修复（统一 500ms catch-up 基准 / 打乱中改速生效 / 播完按钮复位）；③ 求解器迁 Web Worker（消 560ms 主线程冻结 + 遮罩/取消）；④ 补 `CubePlayer.dispose` / `HandRigView.dispose` / 灰面板监听与手部接触球清理。
+- ⬜ **Step 2｜高级求解器命中率收口**：先定契约（降维表 vs 复用 `ItemSolver` 联合搜索），依次修 Roux EOLR（`um` + EO/ULUR 抽象）、ZBLS（分槽 + 降维重键）、核查 ZBLL AUF/视角归一化；恢复 `verify-zbls-rounds` F 段硬断言，5 种求解方法全进 CI。
+- ⬜ **Step 3｜按需二选一主线**：
+  - **A 线（编辑器 & 手部）**：自定义开始态批 → 拆 `EditorPage.vue`（4 composable + 复杂记法展开 + 未保存提示）→ 手部死参数/拇指 IP/碰撞箱。
+  - **B 线（基建 & 渲染）**：playtest 改造（`vite preview` + 跨平台 `_browser.mjs`）并入 CI + 可选补 `release.yml` → 修 `RenderCube` 5 处 bug 并试点切默认后端 → Tauri 双标题栏与 CSP。
 
 ### 代码审计轮（2026-10-27 新增）
 > 全面代码审查结论：**docs/audit/REVIEW-2026-10.md**（含逐条证据与复现方式）
@@ -145,14 +153,12 @@
 - ✅ **`three` / `@types/three` 未在 package.json 声明**（已修）：12 处 import 跨 10 文件，仅靠 cubing 传递依赖
   提升。修：`npm i three@0.170.0` + `-D @types/three@0.169.0`（用 `^` 范围与项目约定一致；
   three 的 0.x caret 语义 = 只吃 patch，不会被上游 minor 变更打到）。〔package.json〕
-- ⬜ **CI 与文档严重不符**：全仓只有 ci.yml（单 job），**无 Release workflow / 无 playtest job /
-  无 Rust 任务**，而 README:12,36 与 AGENTS.md:12-13 都声称有 tag 触发发布流水线；
-  6 个已存在且本地全绿的确定性 gate 不在 CI（verify-solve-base / verify-zbls-rounds /
-  find-zbls-diff-3 / probe-locale-keys / verify-notation / record-solver-baseline）。
-  修：补 release.yml（或先改三份文档）+ 把 6 个 gate 加进 CI + 加 cargo check job +
-  CI 补 permissions/concurrency + 去掉重复的 vue-tsc。
-- ⬜ **版本号三份副本漂移**：package.json / tauri.conf.json = 0.4.1，Cargo.toml = 0.1.0，
-  package-lock root = 0.1.0 → 修：把 Cargo.toml/lock 纳入同步规则或加 CI 一致性断言。
+- ✅ **CI 与文档严重不符**（2026-11-22 Step 0 已收口）：CI 已补 5 条确定性 gate（`verify-solve-base` /
+  `probe-solve-base-ui` / `verify-zbls-rounds` / `probe-locale-keys` / `verify-notation`）、
+  版本四处同步断言、`rust`（windows-latest `cargo check`）job、`permissions`/`concurrency`、
+  去重 `vue-tsc`；README/AGENTS/todo 已对齐真实状态（当前手工 `npm run tauri build`，
+  playtest 与 `release.yml` 留待 Step 3 补齐）。
+- ✅ **版本号四处同步 + CI 守护**（第一批已同版 0.4.1，Step 0 已加 CI 一致性断言）。
 - ✅ **vite dev 端口 5173 占用用户端口**（已修）：项目约定 5174；tauri 侧已用
   `--port 5174 --strictPort` 绕过，vite 侧没有。修：vite.config.ts 改 **5174**
   （附注释说明 5173 留给用户预览）+ README 开发段端口同步。〔vite.config.ts:8 / README.md:45〕
@@ -255,7 +261,7 @@
 
 ### 公式 / 盲拧线（整体后移；远期优先级：桥式高级 > cfop 高级 > 盲拧）
 - 方向：**自建推导**——盲拧以 8+18 基础公式推导拓展至全 818 条（3-Style V5 xlsx
-  仅参照不做数据源，reference/ 已入库）；zbll 问题在命中率口径非库完整性（493/493）；
+  仅参照不做数据源，`reference/` 为本地参考目录、gitignore 不入库）；zbll 问题在命中率口径非库完整性（493/493）；
   桥式高级推导相对容易。
 - ⬜ 3-Style V5 深度解析 + 公式库重新形式化接入。
 - ✅ **公式线分支已并回 main（aacdeff，全套验证复绿）**：`feat/zbll-import-verify`
@@ -321,7 +327,7 @@
 
 - 端口 **5173** 为用户日常预览；本项目 dev/playtest 用 **5174** 或其它非 5173 端口
 - 版本号 package.json 与 src-tauri/tauri.conf.json 必须同步（tauri 打包以 conf 为准）
-- 提交：不 amend、不擅自 push、不打 tag（tag 触发 Release CI）；功能/修复提交时
+- 提交：不 amend、不擅自 push、不打 tag；当前桌面端发布为本地手工 `npm run tauri build`；功能/修复提交时
   评估 bump
 - 验证命令：`npm run typecheck` / `npm run build` / `npx tsx scripts/verify-data.ts` /
   `npx tsx scripts/verify-hand-mesh.ts` / `node scripts/smoke-solver.ts` /

@@ -21,3 +21,4 @@ const diffEn = [...zhKeys].filter((k) => !enKeys.has(k));
 const diffZh = [...enKeys].filter((k) => !zhKeys.has(k));
 console.log("en 缺项（zh 有 en 无）:", diffEn.length ? diffEn : "无");
 console.log("zh 缺项（en 有 zh 无）:", diffZh.length ? diffZh : "无");
+if (diffEn.length || diffZh.length) process.exitCode = 1;

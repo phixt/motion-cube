@@ -9,7 +9,7 @@
 - Vite 8 + TypeScript + Vue 3.5（vue-router 4，hash 路由）
 - UI：WinUI 风格控件（[WinUIonWeb](https://github.com/Furry-Xiyi/WinUIonWeb) vendored，GPL-3.0，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)）
 - 3D：cubing.js（TwistyPlayer 魔方）+ three.js（low-poly 手部模型，双手显示）
-- 桌面版：Tauri 2（NSIS 打包，tag 触发 Release CI）
+- 桌面版：Tauri 2（NSIS 打包，当前为本地 `npm run tauri build` 手工发布）
 
 ## 项目结构
 
@@ -33,7 +33,7 @@ motion-cube/
 ├─ scripts/                # 验证与截图工具（verify-* / smoke-* / playtest-* / shot-* / gen-*）
 ├─ tools/icon-lab/         # 应用图标生成工具
 ├─ src-tauri/              # Tauri 桌面壳（Rust；NSIS 打包；应用图标）
-└─ .github/workflows/      # CI（typecheck / build / verify / playtest）+ Release（tag 触发）
+└─ .github/workflows/      # CI（typecheck / build / verify / 版本同步 / Rust check；playtest 与 Release 待补）
 ```
 
 数据持久化全在 localStorage（settings / keymap / editorKeymap / library / handRig 等）；进度与待办以 [docs/todo.md](docs/todo.md) 为唯一总账。
