@@ -15,7 +15,9 @@
 //   把它当分母会把覆盖率低估（一个 case ≈ 8 条轨道），所以仅作研究记录：
 //   4 变体闭包 {base, LR镜像, 逆, 镜像逆} 可达轨道 ≈ 867 / 3908 ≈ 22%。
 import { readFileSync } from "node:fs";
-import { applyAlg, applyMove, invertAlg, mirrorAlg, mirrorState, normalizeOrientation, parseAlg, solvedState, stickerIndex, pos } from "../src/cube/solver/engine.ts";
+import { applyAlg, applyMove, invertAlg, isSolved, mirrorAlg, mirrorState, normalizeOrientation, parseAlg, randomScramble, solvedState, stickerIndex, pos } from "../src/cube/solver/engine.ts";
+import { CFOP, SLOTS, solveSlot } from "../src/cube/solver/cfop.ts";
+import { ZBL } from "../src/cube/solver/zbl.ts";
 
 // ---------------------------------------------------------------- 常量定义 --
 const TOTAL_AUF = 3908;      // ZBLL 域 AUF 轨道总数（Burnside，供副口径）
@@ -128,6 +130,41 @@ console.log(`  剔除 PLL: ${reached.size - pllReached.size} / ${NONPLL_AUF}`);
 console.log(`  镜像折叠: ${reachedFolded.size} / 1954(≈3908/2)`);
 console.log("  （注：一个 ZBLL case ≈ 含 4 AUF × 逆/镜像的多个轨道，轨道粒度会把覆盖低估；主口径见上）");
 
+// ------------------------------------------------------------ 运行时一步覆盖断言 --
+console.log("\n== 运行时一步 ZBLL 覆盖验证（全空间 7776 + 60 随机真实态）==");
+{
+  const zblT = ZBL.prepare();
+  const cfopT = CFOP.prepare();
+  console.log(`  zbl.prepare(): tableSize=${zblT.zbl.size}/7776, skipped=${zblT.skipped.length}, ms=${zblT.ms}ms`);
+  expect(zblT.zbl.size === 7776, `运行时 ZBLL 表应精确覆盖全部 7776 态，实际 ${zblT.zbl.size}`);
+  expect(zblT.skipped.length === 0, `ZBLL 建表不应有主公式跳过，实际 ${zblT.skipped.length}`);
+
+  let s = 20261123 >>> 0;
+  const rng = () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
+  let hits = 0;
+  const N = 60;
+  for (let i = 0; i < N; i++) {
+    let st = applyAlg(solve, randomScramble(25, rng));
+    const mvC = cfopT.cross.descend(cfopT.cross.read(st)) || cfopT.cross.solve(cfopT.cross.read(st), 10, 4e6)!;
+    st = applyAlg(st, mvC);
+    const rem = SLOTS.slice();
+    for (let n = 0; n < 4; n++) {
+      let best: { s: typeof rem[number]; r: ReturnType<typeof solveSlot> } | null = null;
+      for (const sl of rem) {
+        const r = solveSlot(st, sl);
+        if (!r.failed && (!best || r.moves.length < best.r.moves.length)) best = { s: sl, r };
+      }
+      st = best!.r.state;
+      rem.splice(rem.indexOf(best!.s), 1);
+    }
+    const res = ZBL.solveLL(st);
+    const hasZbl = res.stages.some((stStage) => stStage.key === "zbl");
+    if (hasZbl && isSolved(res.state)) hits++;
+  }
+  console.log(`  随机真实 F2L 完成态运行时一步 ZBLL 命中并解回: ${hits}/${N}`);
+  expect(hits === N, `运行时一步 ZBLL 应 100% 命中并解回，实际 ${hits}/${N}`);
+}
+
 // ------------------------------------------------------------ 断言 --
 console.log("\n== 断言 ==");
 expect(parseFail === 0, "不应有 zbll setup 解析失败");
@@ -138,4 +175,4 @@ expect(caseOrbits.size === 472, "472 个 zbll case 的 setup 轨道应互不重�
 expect(heldTotal === DOMAIN_CASES, `库持有应为 493（472+21）→ 100% 覆盖，实际 ${heldTotal}`);
 expect(TOTAL_AUF === 3908, "副口径域总量应为 3908");
 if (failures) throw new Error(`${failures} FAILURE(S)`);
-console.log(`\nALL PASS — 主口径覆盖率 ${heldTotal}/${DOMAIN_CASES} = ${((100 * heldTotal) / DOMAIN_CASES).toFixed(1)}%（理论 493 全覆盖成立）`);
+console.log(`\nALL PASS — 主口径覆盖率 ${heldTotal}/${DOMAIN_CASES} = ${((100 * heldTotal) / DOMAIN_CASES).toFixed(1)}% + 运行时 7776/7776 = 100%`);

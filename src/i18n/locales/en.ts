@@ -154,10 +154,10 @@ export const en: Record<string, string> = {
   "solve.rotateEnd": "End rotation",
   "solve.optGroup.cfop": "CFOP options",
   "solve.optGroup.roux": "Roux options",
-  "solve.opt.zbll": "1-look LL (ZBLL)",
-  "solve.opt.zbllHint": "Advanced LL in one step — data coverage incomplete, entry point only",
+  "solve.opt.zbll": "1-look LL (ZBLS+ZBLL)",
+  "solve.opt.zbllHint": "Last F2L + cross EO (ZBLS) followed by 1-look ZBLL (~11 moves shorter on average)",
   "solve.opt.rouxEolr": "EOLR (EO + UL/UR together)",
-  "solve.opt.rouxEolrHint": "Roux advanced research in progress",
+  "solve.opt.rouxEolrHint": "Solve EO and UL/UR pseudo-slots in one step before 6E2C (never longer than merge 4b+4c)",
   "solve.opt.rouxMerge": "Merge 4b+4c (one-step LSE)",
   "solve.opt.rouxMergeHint": "LSE as a single phase — opposite of stepwise human-style demo",
 

@@ -14,8 +14,8 @@ import { F2L_TABLE } from "./f2lTable.ts";
 import { solveLL } from "./zbl.ts";
 
 export const CROSS_EDGES = ["DF", "DR", "DB", "DL"];
-const EJECT: Record<number, string> = { 4: "R U R'", 5: "L' U' L", 6: "L U L'", 7: "R' U R" };
-const EJECT_E: Record<number, string> = { 8: "R U R'", 9: "L' U' L", 10: "R' U R", 11: "L U L'" };
+const EJECT: Record<number, string> = { 5: "L' U' L", 6: "L U L'", 7: "R' U R" };
+const EJECT_E: Record<number, string> = { 9: "L' U' L", 10: "R' U R", 11: "L U L'" };
 
 export type Slot = {
   corner: string;
@@ -76,7 +76,7 @@ export function solveSlot(state: State, slot: Slot, limit = 8): SlotResult {
       const cSlot = (cc / 3) | 0, eSlot = ec >> 1;
       if (cSlot > 4) alg = EJECT[cSlot];
       else if (eSlot > 8) alg = EJECT_E[eSlot];
-      else alg = EJECT[4];
+      else throw new Error(`F2L unexpected state: cc=${cc} ec=${ec}`);
     }
     const real = parseAlg(alg).map((m) => transformMove(m, slot.minv));
     st = applyAlg(st, real);
@@ -160,33 +160,46 @@ export function solveAdvanced(state0: State): { stages: SolveStage[]; state: Sta
     stages.push({ key: "f2l" + n, label: `F2L 第 ${n} 组`, short: "F2L " + n, moves: best.r.moves, slot: best.slot.name });
   }
 
-  // 第 4 组双路线：普通 F2L 插入 vs ZBLS 一步（插入最后一组 F2L + 顶层十字 EO），
-  // 取 moves 短者——保证「高级」F2L 段绝不劣于普通
+  // 第 4 组 + LL 整体双路线取短：
+  //   路线 A（ZBLS + 一步 ZBLL）：ZBLS 一步插入最后一组并同时完成顶层十字 EO，接 100% 命中的一步 ZBLL；
+  //   路线 B（普通 F2L4 + 最短 LL）：普通插入第 4 组，接 min(EO+ZBLL, OLL+PLL)。
+  // 按「第 4 组 + LL」整体总步数择短，既释放 ZBLS+ZBLL 协同收益（净省 ~11 步），又保证高级永不劣于普通。
   const r4 = solveSlot(st, remaining[0]);
+  if (r4.failed) throw new Error("F2L failed");
+
+  // 路线 B：普通 F2L4 + 最短 LL（OLL+PLL vs EO+ZBLL）
+  const normLLStages: SolveStage[] = [];
+  const normLLState = solveOllPll(r4.state, normLLStages);
+  const normLLLen = normLLStages.reduce((a, s) => a + s.moves.length, 0);
+  const f2l4Zbl = solveLL(r4.state);
+  const f2l4ZblLen = f2l4Zbl.stages.reduce((a, s) => a + s.moves.length, 0);
+  const useF2l4Zbl = isSolved(f2l4Zbl.state) && f2l4ZblLen < normLLLen;
+  const routeBStages: SolveStage[] = [
+    { key: "f2l4", label: `F2L 第 4 组`, short: "F2L 4", moves: r4.moves, slot: remaining[0].name },
+    ...(useF2l4Zbl
+      ? f2l4Zbl.stages.map((s) => ({ key: s.key, label: s.label, short: s.short, moves: s.moves, algs: s.algs }))
+      : normLLStages),
+  ];
+  const routeBState = useF2l4Zbl ? f2l4Zbl.state : normLLState;
+  const routeBLen = r4.moves.length + (useF2l4Zbl ? f2l4ZblLen : normLLLen);
+
+  // 路线 A：ZBLS + 一步 ZBLL
   const zb4 = solveZbls(st);
-  if (zb4 && zb4.moves.length < r4.moves.length) {
-    st = applyAlg(st, zb4.moves);
-    stages.push({ key: zb4.key, label: zb4.label, short: zb4.short, moves: zb4.moves, algs: zb4.algs });
-  } else {
-    if (r4.failed) throw new Error("F2L failed");
-    st = r4.state;
-    stages.push({ key: "f2l4", label: `F2L 第 4 组`, short: "F2L 4", moves: r4.moves, slot: remaining[0].name });
+  if (zb4) {
+    const stAfterZb4 = applyAlg(st, zb4.moves);
+    const zblAfterZb4 = solveLL(stAfterZb4);
+    const zblLen = zblAfterZb4.stages.reduce((a, s) => a + s.moves.length, 0);
+    if (isSolved(zblAfterZb4.state) && zb4.moves.length + zblLen <= routeBLen) {
+      stages.push({ key: zb4.key, label: zb4.label, short: zb4.short, moves: zb4.moves, algs: zb4.algs });
+      for (const s of zblAfterZb4.stages) {
+        stages.push({ key: s.key, label: s.label, short: s.short, moves: s.moves, algs: s.algs });
+      }
+      return { stages, state: zblAfterZb4.state };
+    }
   }
 
-  // LL 双路线取短：高级（EO 预置 + 一步 ZBLL；仅全 solved 且更短才用）vs 普通（OLL+PLL）
-  const adv = solveLL(st);
-  const advLen = adv.stages.reduce((a, s) => a + s.moves.length, 0);
-  const normStages: SolveStage[] = [];
-  const normState = solveOllPll(st, normStages);
-  const normLen = normStages.reduce((a, s) => a + s.moves.length, 0);
-  if (isSolved(adv.state) && advLen < normLen) {
-    for (const s of adv.stages) stages.push({ key: s.key, label: s.label, short: s.short, moves: s.moves, algs: s.algs });
-    st = adv.state;
-  } else {
-    for (const s of normStages) stages.push(s);
-    st = normState;
-  }
-  return { stages, state: st };
+  for (const s of routeBStages) stages.push(s);
+  return { stages, state: routeBState };
 }
 
 export type SolveStage = {

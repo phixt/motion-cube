@@ -1,10 +1,12 @@
 // 边界用例：已解状态 + 含 M/E/S 打乱（中心漂移映射回真实魔方）。
-import { solve } from "../src/cube/solver/index.ts";
+import { solve, type SolveMethodKey } from "../src/cube/solver/index.ts";
 import { applyAlg, isSolved, isUniform, MOVES, solvedState } from "../src/cube/solver/index.ts";
 import { finishRotBetween } from "../src/cube/solver/solve.ts";
 
+const ALL_METHODS: SolveMethodKey[] = ["cfop", "cfop-adv", "roux", "roux-merge", "roux-adv"];
+
 let ok = true;
-const check = (name: string, state: Uint8Array, method: "cfop" | "roux") => {
+const check = (name: string, state: Uint8Array, method: SolveMethodKey) => {
   const res = solve(state, method);
   const end = applyAlg(state, res.moves);
   const pass = isUniform(end) && res.moves.every((m) => MOVES[m] !== undefined);
@@ -13,18 +15,18 @@ const check = (name: string, state: Uint8Array, method: "cfop" | "roux") => {
 };
 
 // 1. 已解
-for (const m of ["cfop", "roux"] as const) check("solved", solvedState(), m);
+for (const m of ALL_METHODS) check("solved", solvedState(), m);
 
 // 2. 纯 slice 打乱（中心漂移）
 for (const alg of ["M2", "M' U2 M U2", "M2 S2 E2", "M' E' M E", "z M2 U M2 U' M2"]) {
   const st = applyAlg(solvedState(), alg);
-  for (const m of ["cfop", "roux"] as const) check(`slice "${alg}"`, st, m);
+  for (const m of ALL_METHODS) check(`slice "${alg}"`, st, m);
 }
 
 // 3. 混合 face + slice
 for (const alg of ["R U M2 U2 M2 U M2 R'", "F M U M' U' F'", "y M2 U M2 U2 M2 U M2"]) {
   const st = applyAlg(solvedState(), alg);
-  for (const m of ["cfop", "roux"] as const) check(`mixed "${alg}"`, st, m);
+  for (const m of ALL_METHODS) check(`mixed "${alg}"`, st, m);
 }
 
 // 4. 整块旋转表覆盖：24 种整块朝向必须两两可达（回归 2026-10-27 的 P0-5）

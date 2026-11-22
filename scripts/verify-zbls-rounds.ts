@@ -23,9 +23,10 @@
 // 退出码非 0 = 有断言失败。
 import { readFileSync } from "node:fs";
 import {
-  applyAlg, cubieSolvedAt, CUBIES, normalizeOrientation, parseAlg, pos, solvedState, cubieSolved,
+  applyAlg, cubieSolvedAt, CUBIES, invertAlg, normalizeOrientation, parseAlg, pos, randomScramble, solvedState, cubieSolved,
 } from "../src/cube/solver/engine.ts";
 import { llEdgeFlips } from "../src/cube/solver/algs.ts";
+import { CFOP, SLOTS, solveSlot } from "../src/cube/solver/cfop.ts";
 import { prepare, solveZbls } from "../src/cube/solver/zbls.ts";
 
 const argv = process.argv.slice(2);
@@ -109,18 +110,17 @@ console.log("== A 域合法性轮（每条 zbls case 的 setup 态恰 1 槽未�
     if (missingEdgeCount(st) === 0) edgeHomeOnly++;
   }
   console.log(`  未解槽数分布: ${[...shapes.entries()].sort().map(([k, v]) => `${k}:${v}`).join(" ")}`);
-  console.log(`  其中「棱 home 角乱」${edgeHomeOnly} 条：有效 ZBLS 但 zbls.ts 求解表不收录（既有局限，非本轮剔除对象）`);
+  console.log(`  其中「棱 home 角乱」${edgeHomeOnly} 条：已由 zbls.ts 特征表全收录`);
   expect((shapes.get("0") ?? 0) === 0, "[A] 不允许存在全槽已解（未解槽=0）case —— 防回潮哨兵");
 }
 
-/* ---------------- B 求解命中轮（302×4 AUF） ---------------- */
-console.log("== B 求解命中轮（setup + U^k → solveZbls 命中并实测） ==");
+/* ---------------- B 求解命中轮（302×4 AUF，含原 32 条棱 home 角乱） ---------------- */
+console.log("== B 求解命中轮（302×4 AUF → solveZbls 命中并实测） ==");
 {
-  let hit = 0, total = 0, skippedEdgeHome = 0;
+  let hit = 0, total = 0;
   for (const c of zbls.slice(0, limit(zbls.length))) {
     const base = applySafe(SOLVE, c.setup);
     if (!base) continue;
-    if (missingEdgeCount(base) !== 1) { skippedEdgeHome++; continue; } // 棱 home 角乱型：表外（既有局限）
     for (const ua of U_ALGS) {
       rounds++; total++;
       const st = ua ? applySafe(base, ua)! : base;
@@ -133,19 +133,20 @@ console.log("== B 求解命中轮（setup + U^k → solveZbls 命中并实测）
       } else hit++;
     }
   }
-  console.log(`  命中并通过: ${hit}/${total}（跳过棱 home 角乱型 ${skippedEdgeHome} 条 ×4）`);
-  expect(total >= 1000, `[B] 覆盖轮数异常少（${total}）——数据形状或口径变了？`);
+  console.log(`  命中并通过: ${hit}/${total}`);
+  expect(total === limit(zbls.length) * 4, `[B] 应全覆盖 ${limit(zbls.length) * 4} 轮，实际 ${total}`);
   expect(hit === total, "[B] 所有 ZBLS 轮必须命中且实测通过");
 }
 
 /* ---------------- C 表基线回归 ---------------- */
-console.log("== C 表基线回归（剔除前=剔除后，行为不变证明） ==");
+console.log("== C 表基线回归（特征表 302/302 全收录、0 跳过） ==");
 {
   rounds++;
   const T = prepare();
-  console.log(`  tableSize=${T.table.size} genCount=${T.genCount}（基线 268/1696）`);
-  expect(T.table.size === 268, `[C] 表大小 ${T.table.size} ≠ 剔除前基线 268`);
-  expect(T.genCount === 1696, `[C] 候选数 ${T.genCount} ≠ 剔除前基线 1696`);
+  console.log(`  tableSize=${T.table.size} genCount=${T.genCount} skipped=${T.skipped.length}（基线 302 键 / 0 跳过）`);
+  expect(T.table.size === 302, `[C] 特征表键数应为 302（覆盖全部 302 case），实际 ${T.table.size}`);
+  expect(T.skipped.length === 0, `[C] 建表不应有跳过 case，实际 ${T.skipped.length}`);
+  expect(T.genCount >= 302, `[C] 候选数异常少: ${T.genCount}`);
 }
 
 /* ---------------- D ZBLL/PLL 端到端轮（472+21） ---------------- */
@@ -187,16 +188,6 @@ console.log("== D ZBLL/PLL 端到端轮（setup 域合法 + alg/AUF 实测解回
 /* ---------------- F 旋转槽命中轮（组 1-3 候选逆态构造） ---------------- */
 console.log("== F 旋转槽命中轮（组1-3 alg 逆施加到已解态=别槽缺槽态 → 须命中） ==");
 {
-  /** 公式逆：倒序 + 每 token 方向取反（X2/X2' 自逆，X'↔X） */
-  function invertToken(m: string): string {
-    if (m.endsWith("2'")) return m.slice(0, -2) + "2";
-    if (m.endsWith("2")) return m;
-    if (m.endsWith("'")) return m.slice(0, -1);
-    return m + "'";
-  }
-  function inverseAlg(alg: string): string {
-    return alg.trim().split(/\s+/).reverse().map(invertToken).join(" ");
-  }
   let hit = 0, total = 0, skipped = 0, miss = 0;
   for (const c of zbls.slice(0, limit(zbls.length))) {
     if (!c.algs || c.algs.length < 2) { skipped++; continue; }
@@ -204,20 +195,22 @@ console.log("== F 旋转槽命中轮（组1-3 alg 逆施加到已解态=别槽�
       if (gi === 0) continue; // 组 0 = FR 基态（B 段已测）
       for (const alg of group.slice(0, 1)) { // 组内首条即可（同组等价）
         let st: Uint8Array | null = null;
-        try { st = applySafe(SOLVE, inverseAlg(alg)); } catch { skipped++; continue; }
-        if (!st) { fail(`[F] ${c.name}(id=${c.id}) 组${gi} 逆态构造失败: ${inverseAlg(alg)}`); skipped++; continue; }
+        try { st = applyAlg(SOLVE, invertAlg(alg)); } catch { skipped++; continue; }
+        if (!st) { fail(`[F] ${c.name}(id=${c.id}) 组${gi} 逆态构造失败: ${alg}`); skipped++; continue; }
         st = resolveNorm(st); // 吸收候选的整转残差
         rounds++; total++;
-        const missN = missingEdgeCount(st);
-        if (missN !== 1) { // 棱 home 角乱型（含组逆残差）：表外形跳过
+        const unsolvedN = unsolvedSlotCount(st);
+        if (unsolvedN !== 1) { // 非单槽缺槽（极少数跨槽残差）：非 ZBLS 域跳过
           skipped++;
           rounds--; total--;
           continue;
         }
         const res = solveZbls(st);
-        // 已知局限（2026-09-11）：非 FR 槽当前查表脱靶静默回退（见 zbls.ts Y_TO_FR 注），
-        // 此处只计数不 fail；修法落地时把本段恢复为硬断言（hit === total）。
-        if (!res) { miss++; continue; }
+        if (!res) {
+          miss++;
+          fail(`[F] ${c.name}(id=${c.id}) 组${gi} 非 FR 旋转槽未命中`);
+          continue;
+        }
         const after = applySafe(st, res.moves.join(" "));
         const chk = after && resolveNorm(after);
         if (!chk || !(nonLLSolved(chk) && llEdgesOriented(chk))) {
@@ -226,10 +219,75 @@ console.log("== F 旋转槽命中轮（组1-3 alg 逆施加到已解态=别槽�
       }
     }
   }
+  console.log(`  命中并通过: ${hit}/${total}（未命中 ${miss}，跳过 ${skipped}）`);
+  expect(total >= 700, `[F] 非 FR 旋转槽有效轮数过少: ${total}`);
+  expect(hit === total && miss === 0, `[F] 所有非 FR 旋转槽必须 100% 命中并通过，实际 ${hit}/${total}`);
+}
+
+/* ---------------- G 生产路径真实随机状态验证（防自证循环） ---------------- */
+console.log("== G 生产路径真实随机状态（100 组打乱：四槽 ZBLS 命中 + CFOP-adv 协同增益） ==");
+{
+  const cfopT = CFOP.prepare();
+  let s = 20261123 >>> 0;
+  const rng = () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
+  const N = 100;
+  let valid = 0, zblsHit = 0, advZblsUsed = 0, advLonger = 0;
+  let normSum = 0, advSum = 0;
+  const slotHit: Record<string, number> = { FR: 0, BR: 0, BL: 0, FL: 0 };
+  const slotTot: Record<string, number> = { FR: 0, BR: 0, BL: 0, FL: 0 };
+  for (let i = 0; i < N; i++) {
+    rounds++;
+    const st0 = applyAlg(SOLVE, randomScramble(25, rng));
+    // 1. 直接测 Cross + 3 F2L 后的 solveZbls 命中
+    let st = st0;
+    const mvC = cfopT.cross.descend(cfopT.cross.read(st)) || cfopT.cross.solve(cfopT.cross.read(st), 10, 4e6)!;
+    st = applyAlg(st, mvC);
+    const rem = SLOTS.slice();
+    for (let n = 0; n < 3; n++) {
+      let best: { sl: typeof rem[number]; r: ReturnType<typeof solveSlot> } | null = null;
+      for (const sl of rem) {
+        const r = solveSlot(st, sl);
+        if (!r.failed && (!best || r.moves.length < best.r.moves.length)) best = { sl, r };
+      }
+      st = best!.r.state;
+      rem.splice(rem.indexOf(best!.sl), 1);
+    }
+    const lastSlot = rem[0];
+    if (unsolvedSlotCount(st) === 1) {
+      valid++;
+      slotTot[lastSlot.name]++;
+      const zb = solveZbls(st);
+      if (zb) {
+        const after = applyAlg(st, zb.moves);
+        if (nonLLSolved(after) && llEdgesOriented(after)) {
+          zblsHit++;
+          slotHit[lastSlot.name]++;
+        } else {
+          fail(`[G] sample ${i} (${lastSlot.name}) solveZbls 解后校验失败`);
+        }
+      } else {
+        fail(`[G] sample ${i} (${lastSlot.name}) 真实 3-F2L 态 solveZbls 未命中`);
+      }
+    }
+    // 2. 端到端 CFOP vs CFOP-adv 步数对比
+    const norm = CFOP.solve(st0);
+    const adv = CFOP.solveAdvanced(st0);
+    const nLen = norm.stages.reduce((a, x) => a + x.moves.length, 0);
+    const aLen = adv.stages.reduce((a, x) => a + x.moves.length, 0);
+    normSum += nLen;
+    advSum += aLen;
+    if (adv.stages.some((x) => x.key === "zbls")) advZblsUsed++;
+    if (aLen > nLen) advLonger++;
+  }
   console.log(
-    `  命中并通过: ${hit}/${total}（未命中 ${miss}，跳过 ${skipped}）` +
-      `——非 FR 槽命中为已知局限待修法，落地时本段恢复硬断言`,
+    `  真实 3-F2L ZBLS 命中: ${zblsHit}/${valid} (${Object.keys(slotTot).map((k) => `${k}:${slotHit[k]}/${slotTot[k]}`).join(" ")})`,
   );
+  console.log(
+    `  CFOP 均 ${(normSum / N).toFixed(2)} vs CFOP-adv 均 ${(advSum / N).toFixed(2)}（净省 ${((normSum - advSum) / N).toFixed(2)} 步，ZBLS 采纳 ${advZblsUsed}/${N}，变长 ${advLonger}）`,
+  );
+  expect(zblsHit === valid, `[G] 真实 3-F2L 态 ZBLS 必须 100% 命中，实际 ${zblsHit}/${valid}`);
+  expect(advZblsUsed >= Math.floor(N * 0.85), `[G] CFOP-adv ZBLS 采纳率偏低: ${advZblsUsed}/${N}`);
+  expect(advLonger === 0, `[G] CFOP-adv 不应有比普通 CFOP 更长的用例，实际 ${advLonger}`);
 }
 
 /* ---------------- E 数据完整性 ---------------- */

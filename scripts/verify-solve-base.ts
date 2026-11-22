@@ -111,21 +111,18 @@ for (const f of FACES) {
   ok(`A5 底 ${f} moves 全合法`, bad.length === 0, bad.length ? `bad=${bad.join(",")}` : undefined);
 }
 
-// A6 演示收尾视角（实证正确语义）：演示序列 setupAlg→moves→(endAlg) 之后，玩家停在
-//「所选底色在 D 面位」的某朝向 solved —— 断言 T=applyAlg(applyAlg(st,setup),moves) 六面单色
-// 且 D 面位中心色==所选底（=T 在「所选底朝向族」内）。验证数据（2026-08-22）：六底×两视角
-// T 的 D 面位中心=所选色全成立。注：SCR（固定种子）含整块/中层步会搅动中心，故「标准 solved
-// 经 setup」的静态 target 不是可比对象（A6 早版本误用该 target 而误报 FAIL）。
+// A6 演示收尾视角（含 endAlg 端到端断言）：演示序列 setupAlg→moves→endAlg 之后，
+// 玩家停在「所选底色在 D 面位」的 solved 朝向（不再跳过 D/global，且实际施加 endAlg）。
 const FACE_IDX: Record<string, number> = { U: 0, R: 1, F: 2, D: 3, L: 4, B: 5 };
 for (const [label, st] of [["标准 D 底态", scrambleState], ["红底实态", redState]] as const) {
   for (const f of FACES) {
     const res = solve(st, "cfop", f);
-    if (!res.setupAlg) continue; // D/global 无整块旋转
     const T = applyAlg(applyAlg(st, res.setupAlg), res.moves);
+    const T2 = res.endAlg ? applyAlg(T, res.endAlg) : T;
     ok(
-      `A6 ${label} 底 ${f} 收尾停在所选底朝向`,
-      isUniform(T) && T[3 * 9 + 4] === FACE_IDX[f],
-      `setup=${JSON.stringify(res.setupAlg)} end=${JSON.stringify(res.endAlg)} D面位中心=${T[3 * 9 + 4]} 期望=${FACE_IDX[f]}`,
+      `A6 ${label} 底 ${f} 收尾(含endAlg)停在所选底朝向`,
+      isUniform(T2) && T2[3 * 9 + 4] === FACE_IDX[f],
+      `setup=${JSON.stringify(res.setupAlg)} end=${JSON.stringify(res.endAlg)} D面位中心=${T2[3 * 9 + 4]} 期望=${FACE_IDX[f]}`,
     );
   }
 }
@@ -133,7 +130,38 @@ for (const [label, st] of [["标准 D 底态", scrambleState], ["红底实态", 
 {
   const res = solve(redState, "roux", "U");
   const T = applyAlg(applyAlg(redState, res.setupAlg), res.moves);
-  ok("A6b roux 红底实态 U 底收尾停在所选底朝向", isUniform(T) && T[3 * 9 + 4] === FACE_IDX.U);
+  const T2 = res.endAlg ? applyAlg(T, res.endAlg) : T;
+  ok("A6b roux 红底实态 U 底收尾停在所选底朝向", isUniform(T2) && T2[3 * 9 + 4] === FACE_IDX.U);
+}
+
+// A7 全部 24 种整块朝向 × 6 种解法底（144 组合）端到端收尾底色断言（防 WHOLE_ROT24 缺失回归）
+{
+  const rots: string[] = [];
+  const seen = new Set<string>();
+  const centerSig = (s: Uint8Array): string => [0, 1, 2, 3, 4, 5].map((i) => s[i * 9 + 4]).join(",");
+  for (const a of ["", "x", "x2", "x'"]) {
+    for (const b of ["", "y", "y2", "y'"]) {
+      for (const c of ["", "z", "z2", "z'"]) {
+        const alg = [a, b, c].filter(Boolean).join(" ");
+        const sig = centerSig(applyAlg(solvedState(), alg));
+        if (!seen.has(sig)) { seen.add(sig); rots.push(alg); }
+      }
+    }
+  }
+  let bad = 0;
+  for (const rotAlg of rots) {
+    const st = applyAlg(applyAlg(solvedState(), rotAlg), ["R", "U", "F'", "D2", "L'"]);
+    for (const f of FACES) {
+      const res = solve(st, "cfop", f);
+      const T = applyAlg(applyAlg(st, res.setupAlg), res.moves);
+      const T2 = res.endAlg ? applyAlg(T, res.endAlg) : T;
+      if (!isUniform(T2) || T2[3 * 9 + 4] !== FACE_IDX[f]) {
+        bad++;
+        if (bad <= 3) console.log(`  A7 FAIL rot="${rotAlg}" base=${f} D=${T2[3 * 9 + 4]} want=${FACE_IDX[f]} end="${res.endAlg}"`);
+      }
+    }
+  }
+  ok(`A7 24朝向×6底(144组合) 端到端收尾底色全对`, rots.length === 24 && bad === 0, `orientations=${rots.length} bad=${bad}`);
 }
 
 if (fail.length) {

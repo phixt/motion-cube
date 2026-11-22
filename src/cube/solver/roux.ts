@@ -3,15 +3,20 @@
  *   1. 左块   ：D-L 1x2x3，全面前转 IDA*。
  *   2. 右块   ：D-R 1x2x3，<R,U,M> IDA*（保证不破坏左块）。
  *   3. CMLL  ：四个 U 角，块安全公式图 BFS。
- *   4. LSE   ：<M,U> 内最后六棱；4a 棱定向（优先 EOLR 一步：EO + UL/UR 伪位）→
- *      6E2C（4c L4E 一步，UL/UR 伪位并入——4b 不再单列）。
+ *   4. LSE   ：<M,U> 内最后六棱：
+ *      - 普通（solveBasic）：4a 棱定向 → 4b UL/UR 归位 → 4c M 层四棱归位
+ *      - 合并（solveMerge4c）：4a 棱定向 → 4b+4c 合并一步（l4e）
+ *      - 高级（solve / roux-adv）：EOLR 一步（EO + UL/UR 放到 DF/DB、UF/UB 或 UL/UR 伪位，
+ *        通过 3 张轻量 <M,U> ItemSolver 保证 100% 覆盖；并与 4a+6E2C 择短保证 0 例变长）→ 6E2C。
  */
-import { ALG_LIBRARY, algGraph } from "./algs.ts";
+import { ALG_LIBRARY, algGraph, cmllCode } from "./algs.ts";
 import {
-  applyAlg, cubieSolved, edgeDecode, edgeHomeCode, edgeSlot, normalsOf, parseAlg, pos, posKey, readCenter, readEdge, solvedState, tidyAlg, CUBIES, FACE_MOVES,
+  applyAlg, cubieSolved, edgeDecode, edgeHomeCode, edgeSlot, normalsOf, parseAlg, pos, posKey,
+  readCenter, readEdge, solvedState, tidyAlg, CUBIES, FACE_MOVES,
 } from "./engine.ts";
 import type { State, Vec3 } from "./engine.ts";
 import { ItemSolver, itemCenter, itemCorner, itemEdge } from "./search.ts";
+import type { SolveStage } from "./cfop.ts";
 import cuberootJson from "../../../data/samples/cuberoot-algs.json" with { type: "json" };
 
 const LEFT = [itemCorner("DLF"), itemCorner("DLB"), itemEdge("DL"), itemEdge("LF"), itemEdge("LB")];
@@ -21,11 +26,15 @@ export const RIGHT_NAMES = ["DRF", "DBR", "DR", "RF", "RB"];
 const RUM = ["R", "R2", "R'", "U", "U2", "U'", "M", "M2", "M'"];
 const MU = ["M", "M2", "M'", "U", "U2", "U'"];
 const U_MOVES = ["", "U", "U2", "U'"];
+const U_INV = ["", "U'", "U2", "U"];
 
 const LSE_EDGE_NAMES = ["UF", "UB", "DF", "DB", "UL", "UR"];
 const LSE_EDGES = LSE_EDGE_NAMES.map(itemEdge);
 const LSE_SLOTS = new Set(["UF", "UR", "UB", "UL", "DF", "DB"].map((n) => edgeSlot[posKey(pos(n))]));
 const M_SLOTS = new Set(["UF", "UB", "DF", "DB"].map((n) => edgeSlot[posKey(pos(n))]));
+const DF_DB_SLOTS = new Set(["DF", "DB"].map((n) => edgeSlot[posKey(pos(n))]));
+const UF_UB_SLOTS = new Set(["UF", "UB"].map((n) => edgeSlot[posKey(pos(n))]));
+const UL_UR_SLOTS = new Set(["UL", "UR"].map((n) => edgeSlot[posKey(pos(n))]));
 
 /** 这个棱坐在"后六棱"集合内、且为 Roux 定向的每一个 code */
 function orientedCodes(homeName: string, slotFilter?: Set<number>): number[] {
@@ -82,7 +91,13 @@ export type RouxTables = {
   l4e: ItemSolver;
   /** 基础 LSE 4c：M 层四棱归位（普通桥式分步用；goal=全 home，无角项） */
   lse4c: ItemSolver;
-  /** EOLR 一步表：状态指纹（U 旋转归一 + U 中心）→ {公式, case 名}。仅收「施加后全 EO」case。 */
+  /** EOLR 一步 <M,U> 求解器：EO + UL/UR 放到 DF/DB（教科书经典伪位） */
+  eolrDb: ItemSolver;
+  /** EOLR 一步 <M,U> 求解器：EO + UL/UR 放到 UF/UB（顶面 M 层伪位） */
+  eolrUb: ItemSolver;
+  /** EOLR 一步 <M,U> 求解器：EO + UL/UR 放到 UL/UR（U 层对位） */
+  eolrPseudo: ItemSolver;
+  /** cuberoot EOLR 经典命名表（键值配对已按 U 归一修正）：用于命中经典 case 时附带 case 名 */
   eolr: Map<number, { moves: string[]; name: string }>;
   ms: number;
 };
@@ -111,30 +126,54 @@ export function prepare(): RouxTables {
   const l4e = new ItemSolver(LSE_EDGES.concat([centerU, cornerUFR]), MU, { subsetSize: 3, name: "lse-l4e" });
   const lse4c = new ItemSolver(LSE_EDGES.concat([centerU]), MU, { subsetSize: 3, name: "lse-4c" });
 
-  // EOLR 一步表：setup 态指纹 → 公式。仅保留「施加后动态 EO done」的全 EO case（Arrow 等中间态不入表）。
+  // 三张轻量 <M,U> EOLR 求解器（建表合计 ~15ms）：一步完成 EO + UL/UR 伪位，100% 覆盖任意后 CMLL 态
+  const eolrDb = new ItemSolver(LSE_EDGES.concat([centerU]), MU, {
+    subsetSize: 3, name: "lse-eolr-db",
+    goalCodes: [
+      orientedCodes("UF"), orientedCodes("UB"), orientedCodes("DF"), orientedCodes("DB"),
+      orientedCodes("UL", DF_DB_SLOTS), orientedCodes("UR", DF_DB_SLOTS),
+    ].concat([[0, 3]]),
+  });
+  const eolrUb = new ItemSolver(LSE_EDGES.concat([centerU]), MU, {
+    subsetSize: 3, name: "lse-eolr-ub",
+    goalCodes: [
+      orientedCodes("UF"), orientedCodes("UB"), orientedCodes("DF"), orientedCodes("DB"),
+      orientedCodes("UL", UF_UB_SLOTS), orientedCodes("UR", UF_UB_SLOTS),
+    ].concat([[0, 3]]),
+  });
+  const eolrPseudo = new ItemSolver(LSE_EDGES.concat([centerU]), MU, {
+    subsetSize: 3, name: "lse-eolr-pseudo",
+    goalCodes: [
+      orientedCodes("UF", M_SLOTS), orientedCodes("UB", M_SLOTS),
+      orientedCodes("DF", M_SLOTS), orientedCodes("DB", M_SLOTS),
+      orientedCodes("UL", UL_UR_SLOTS), orientedCodes("UR", UL_UR_SLOTS),
+    ].concat([[0, 3]]),
+  });
+
+  // cuberoot EOLR 命名表：键 = S·U^um 的归一指纹，值 = 能解 S·U^um 的公式（即 U^-um · alg），
+  // 修正旧版丢弃 um 导致 11/22 条配错键的缺陷，并在入库时校验对归一态施加后 lseEoDone 必成立。
   const eolr = new Map<number, { moves: string[]; name: string }>();
   for (const c of EOLR_RAW.cases) {
-    let S: State, T: State, moves: string[];
+    let S: State, moves: string[];
     try { S = applyAlg(solvedState(), parseAlg(c.setup)); } catch { continue; }
     try { moves = parseAlg(c.alg); } catch { continue; }
-    try { T = applyAlg(S, moves); } catch { continue; }
+    const { fp, um } = eolrFingerprint(S);
+    const normS = um ? applyAlg(S, parseAlg(U_MOVES[um])) : S;
+    const normMoves = um ? tidyAlg([...parseAlg(U_INV[um]), ...moves]) : tidyAlg(moves);
+    let T: State;
+    try { T = applyAlg(normS, normMoves); } catch { continue; }
     if (!lseEoDone(T)) continue;
-    const { fp } = eolrFingerprint(S);
-    if (!eolr.has(fp)) eolr.set(fp, { moves, name: c.name });
+    if (!eolr.has(fp)) eolr.set(fp, { moves: normMoves, name: c.name });
   }
 
-  TABLES = { block1, block2, cmll, eo, ulur, l4e, lse4c, eolr, ms: Date.now() - t0 };
+  TABLES = { block1, block2, cmll, eo, ulur, l4e, lse4c, eolrDb, eolrUb, eolrPseudo, eolr, ms: Date.now() - t0 };
   return TABLES;
 }
 
-import { cmllCode } from "./algs.ts";
-import type { SolveStage } from "./cfop.ts";
-
-export function solve(state0: State): { stages: SolveStage[]; state: State } {
-  const T = prepare();
+/** 公共前缀：Block 1 → Block 2 → CMLL（深度上限按审计 F12 放宽余量：block2 14→16） */
+function solvePrefix(T: RouxTables, state0: State): { stages: SolveStage[]; state: State } {
   const stages: SolveStage[] = [];
   let st = state0;
-
   const runItem = (solver: ItemSolver, maxDepth: number, budget: number): string[] | null => {
     const mv = solver.solve(solver.read(st), maxDepth, budget);
     if (!mv) return null;
@@ -147,7 +186,7 @@ export function solve(state0: State): { stages: SolveStage[]; state: State } {
   stages.push({ key: "block1", label: "左侧一层块", short: "Block 1", moves: mv });
   if (!LEFT_NAMES.every((n) => cubieSolved(st, n))) throw new Error("first block wrong");
 
-  mv = runItem(T.block2, 14, 8e6);
+  mv = runItem(T.block2, 16, 8e6);
   if (!mv) throw new Error("second block failed");
   stages.push({ key: "block2", label: "右侧一层块", short: "Block 2", moves: mv });
   if (!RIGHT_NAMES.every((n) => cubieSolved(st, n))) throw new Error("second block wrong");
@@ -159,43 +198,84 @@ export function solve(state0: State): { stages: SolveStage[]; state: State } {
   cm = tidyAlg(cm);
   st = applyAlg(st, cm);
   stages.push({ key: "cmll", label: "顶层角块 CMLL", short: "CMLL", moves: cm, algs: names });
-
-  // 4a 棱定向：优先 EOLR 一步（EO + UL/UR 伪位）；未匹配回退搜索
-  let eolrUsed = false;
-  const { fp, um } = eolrFingerprint(st);
-  const eolrHit = T.eolr.get(fp);
-  if (eolrHit) {
-    const pre = um ? parseAlg(U_MOVES[um]) : [];
-    const st2 = applyAlg(st, [...pre, ...eolrHit.moves]);
-    if (lseEoDone(st2)) {
-      st = st2;
-      stages.push({
-        key: "lse-eolr", label: "棱定向 + UL/UR (EOLR)", short: "EOLR",
-        moves: [...pre, ...eolrHit.moves], algs: [eolrHit.name],
-      });
-      eolrUsed = true;
-    }
-  }
-  if (!eolrUsed) {
-    mv = runItem(T.eo, 12, 4e6);
-    if (!mv) throw new Error("LSE edge orientation failed");
-    stages.push({ key: "lse-eo", label: "棱定向 EO (4a)", short: "4a EO", moves: mv });
-  }
-
-  // 6E2C：UL/UR 伪位并入 4c 一步（4b 不再单列——l4e 从「UL/UR 任意」解到已解，已验证 8/8）
-  mv = runItem(T.l4e, 18, 8e6);
-  if (!mv) throw new Error("LSE last four edges failed");
-  stages.push({ key: "lse-l4e", label: "最后六棱二中心 (6E2C)", short: "6E2C", moves: mv });
 
   return { stages, state: st };
 }
 
+/** 高级桥式（roux-adv）：Block 1 → Block 2 → CMLL → EOLR 一步（EO + UL/UR 伪位）→ 6E2C。 */
+export function solve(state0: State): { stages: SolveStage[]; state: State } {
+  const T = prepare();
+  const { stages, state: stCmll } = solvePrefix(T, state0);
+
+  // 基准路线（4a EO + 6E2C，与 roux-merge 同构），用于兜底与防变长比较
+  const eoRaw = T.eo.solve(T.eo.read(stCmll), 14, 4e6);
+  if (!eoRaw) throw new Error("LSE edge orientation failed");
+  const eoMoves = tidyAlg(eoRaw);
+  const stAfterEo = applyAlg(stCmll, eoMoves);
+  const merge4cRaw = T.l4e.solve(T.l4e.read(stAfterEo), 18, 8e6);
+  if (!merge4cRaw) throw new Error("LSE last four edges failed");
+  const merge4cMoves = tidyAlg(merge4cRaw);
+  const mergeTotal = eoMoves.length + merge4cMoves.length;
+
+  // EOLR 候选：3 种伪位（DF/DB、UF/UB、UL/UR）+ cuberoot 命名表命中，择总步数最短
+  type EolrCand = { eolrMoves: string[]; l4eMoves: string[]; state: State; tag: string };
+  let best: EolrCand | null = null;
+  const consider = (eolrMoves: string[], tag: string): void => {
+    const stMid = applyAlg(stCmll, eolrMoves);
+    if (!lseEoDone(stMid)) return;
+    const restRaw = T.l4e.solve(T.l4e.read(stMid), 18, 8e6);
+    if (!restRaw) return;
+    const l4eMoves = tidyAlg(restRaw);
+    const total = eolrMoves.length + l4eMoves.length;
+    if (!best || total < best.eolrMoves.length + best.l4eMoves.length) {
+      best = { eolrMoves, l4eMoves, state: applyAlg(stMid, l4eMoves), tag };
+    }
+  };
+
+  // ① cuberoot 经典命名 case 优先检查（同长时保留人类 case 名）
+  const { fp, um } = eolrFingerprint(stCmll);
+  const namedHit = T.eolr.get(fp);
+  if (namedHit) {
+    const seq = tidyAlg([...(um ? parseAlg(U_MOVES[um]) : []), ...namedHit.moves]);
+    consider(seq, namedHit.name);
+  }
+
+  // ② 三张 <M,U> EOLR 求解器（100% 覆盖任意后 CMLL 态）
+  const solvers: Array<[ItemSolver, string]> = [
+    [T.eolrDb, "DF/DB"],
+    [T.eolrUb, "UF/UB"],
+    [T.eolrPseudo, "UL/UR"],
+  ];
+  for (const [solver, tag] of solvers) {
+    const mv = solver.solve(solver.read(stCmll), 16, 6e6);
+    if (mv) consider(tidyAlg(mv), tag);
+  }
+
+  if (best && (best as EolrCand).eolrMoves.length + (best as EolrCand).l4eMoves.length <= mergeTotal) {
+    const picked = best as EolrCand;
+    stages.push({
+      key: "lse-eolr", label: "棱定向 + UL/UR (EOLR)", short: "EOLR",
+      moves: picked.eolrMoves, algs: [picked.tag],
+    });
+    stages.push({
+      key: "lse-l4e", label: "最后六棱二中心 (6E2C)", short: "6E2C",
+      moves: picked.l4eMoves,
+    });
+    return { stages, state: picked.state };
+  }
+
+  // 极少数纯 4a EO + 6E2C 严格更短的情形：回退不吃亏
+  stages.push({ key: "lse-eo", label: "棱定向 EO (4a)", short: "4a EO", moves: eoMoves });
+  stages.push({ key: "lse-l4e", label: "最后六棱二中心 (6E2C)", short: "6E2C", moves: merge4cMoves });
+  return { stages, state: applyAlg(stAfterEo, merge4cMoves) };
+}
+
 /** 普通桥式：1-look CMLL（标准、复用）+ 基础 LSE 分步（4a 棱定向 → 4b UL/UR 归位 →
- *  4c M 层四棱归位）。与高级（EOLR 一步 + 6E2C）区分：普通不用 EOLR 伪位表、LSE 逐步演示。 */
+ *  4c M 层四棱归位）。与高级（EOLR 一步 + 6E2C）区分：普通不用 EOLR、LSE 逐步演示。 */
 export function solveBasic(state0: State): { stages: SolveStage[]; state: State } {
   const T = prepare();
-  const stages: SolveStage[] = [];
-  let st = state0;
+  const { stages, state: st0 } = solvePrefix(T, state0);
+  let st = st0;
   const runItem = (solver: ItemSolver, maxDepth: number, budget: number): string[] | null => {
     const mv = solver.solve(solver.read(st), maxDepth, budget);
     if (!mv) return null;
@@ -203,31 +283,10 @@ export function solveBasic(state0: State): { stages: SolveStage[]; state: State 
     return tidyAlg(mv);
   };
 
-  let mv = runItem(T.block1, 12, 6e6);
-  if (!mv) throw new Error("first block failed");
-  stages.push({ key: "block1", label: "左侧一层块", short: "Block 1", moves: mv });
-  if (!LEFT_NAMES.every((n) => cubieSolved(st, n))) throw new Error("first block wrong");
-
-  mv = runItem(T.block2, 14, 8e6);
-  if (!mv) throw new Error("second block failed");
-  stages.push({ key: "block2", label: "右侧一层块", short: "Block 2", moves: mv });
-  if (!RIGHT_NAMES.every((n) => cubieSolved(st, n))) throw new Error("second block wrong");
-
-  const path = T.cmll.solve(st);
-  if (!path) throw new Error("CMLL state not recognised");
-  let cm: string[] = [], names: string[] = [];
-  for (const step of path) { cm = cm.concat(step.moves); if (!/^U/.test(step.name)) names.push(step.name); }
-  cm = tidyAlg(cm);
-  st = applyAlg(st, cm);
-  stages.push({ key: "cmll", label: "顶层角块 CMLL", short: "CMLL", moves: cm, algs: names });
-
-  // 基础 LSE 分步（普通）：4a 棱定向 → 4b UL/UR 归位 → 4c M 层四棱归位
-  // 4c 用 l4e（LSE_EDGES + centerU + cornerUFR）——与旧版 3e30423 roux.solve 逐行一致
-  // （人类式分步；从 4a/4b 完成后 cornerUFR 恒在 home，表含角无影响、语义同旧版）
-  mv = runItem(T.eo, 12, 4e6);
+  let mv = runItem(T.eo, 14, 4e6);
   if (!mv) throw new Error("LSE edge orientation failed");
   stages.push({ key: "lse-eo", label: "棱定向 EO (4a)", short: "4a EO", moves: mv });
-  mv = runItem(T.ulur, 12, 5e6);
+  mv = runItem(T.ulur, 14, 5e6);
   if (!mv) throw new Error("LSE UL/UR placement failed");
   stages.push({ key: "lse-ulur", label: "UL/UR 归位 (4b)", short: "4b ULUR", moves: mv });
   mv = runItem(T.l4e, 16, 6e6);
@@ -238,12 +297,11 @@ export function solveBasic(state0: State): { stages: SolveStage[]; state: State 
 }
 
 /** 普通 + 合并 4b+4c：4a 棱定向（分步）→ 4b/4c 合并一步（l4e，UL/UR 伪位并入）。
- *  仍为人类式分步演示（LSE 两段：4a + 4b+4c），非「算法一次算完伪装阶段」；
  *  Roux 选项「合并 4b+4c」（默认勾选，调研实测净省 ~2.46 步、0 例变长）走此路径。 */
 export function solveMerge4c(state0: State): { stages: SolveStage[]; state: State } {
   const T = prepare();
-  const stages: SolveStage[] = [];
-  let st = state0;
+  const { stages, state: st0 } = solvePrefix(T, state0);
+  let st = st0;
   const runItem = (solver: ItemSolver, maxDepth: number, budget: number): string[] | null => {
     const mv = solver.solve(solver.read(st), maxDepth, budget);
     if (!mv) return null;
@@ -251,30 +309,10 @@ export function solveMerge4c(state0: State): { stages: SolveStage[]; state: Stat
     return tidyAlg(mv);
   };
 
-  let mv = runItem(T.block1, 12, 6e6);
-  if (!mv) throw new Error("first block failed");
-  stages.push({ key: "block1", label: "左侧一层块", short: "Block 1", moves: mv });
-  if (!LEFT_NAMES.every((n) => cubieSolved(st, n))) throw new Error("first block wrong");
-
-  mv = runItem(T.block2, 14, 8e6);
-  if (!mv) throw new Error("second block failed");
-  stages.push({ key: "block2", label: "右侧一层块", short: "Block 2", moves: mv });
-  if (!RIGHT_NAMES.every((n) => cubieSolved(st, n))) throw new Error("second block wrong");
-
-  const path = T.cmll.solve(st);
-  if (!path) throw new Error("CMLL state not recognised");
-  let cm: string[] = [], names: string[] = [];
-  for (const step of path) { cm = cm.concat(step.moves); if (!/^U/.test(step.name)) names.push(step.name); }
-  cm = tidyAlg(cm);
-  st = applyAlg(st, cm);
-  stages.push({ key: "cmll", label: "顶层角块 CMLL", short: "CMLL", moves: cm, algs: names });
-
-  // 4a 棱定向（分步，不并入搜索——人类式第一步）
-  mv = runItem(T.eo, 12, 4e6);
+  let mv = runItem(T.eo, 14, 4e6);
   if (!mv) throw new Error("LSE edge orientation failed");
   stages.push({ key: "lse-eo", label: "棱定向 EO (4a)", short: "4a EO", moves: mv });
 
-  // 4b+4c 合并：UL/UR 归位 + L4E 一步（l4e 表，从「EO 完成」直接到已解）
   mv = runItem(T.l4e, 16, 6e6);
   if (!mv) throw new Error("LSE last four edges failed");
   stages.push({ key: "lse-4c", label: "合并 4b+4c（UL/UR+L4E 一步）", short: "4b+4c", moves: mv });

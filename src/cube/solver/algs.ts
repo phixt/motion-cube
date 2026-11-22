@@ -63,12 +63,24 @@ export const permIndex = PERM_INDEX;
 /** slot -> 哪个 LL 块坐在那里 (0..3) */
 export function llCornerPerm(state: State): number[] {
   const perm = [0, 0, 0, 0];
-  for (let p = 0; p < 4; p++) perm[(readCorner(state, LL_CORNERS[p]) / 3) | 0] = p;
+  for (let p = 0; p < 4; p++) {
+    const code = readCorner(state, LL_CORNERS[p]);
+    if (code < 0) throw new Error(`invalid cube state: corner ${LL_CORNERS[p]} not found`);
+    const slot = (code / 3) | 0;
+    if (slot >= 4) throw new Error(`invalid cube state: corner ${LL_CORNERS[p]} outside LL`);
+    perm[slot] = p;
+  }
   return perm;
 }
 export function llEdgePerm(state: State): number[] {
   const perm = [0, 0, 0, 0];
-  for (let p = 0; p < 4; p++) perm[readEdge(state, LL_EDGES[p]) >> 1] = p;
+  for (let p = 0; p < 4; p++) {
+    const code = readEdge(state, LL_EDGES[p]);
+    if (code < 0) throw new Error(`invalid cube state: edge ${LL_EDGES[p]} not found`);
+    const slot = code >> 1;
+    if (slot >= 4) throw new Error(`invalid cube state: edge ${LL_EDGES[p]} outside LL`);
+    perm[slot] = p;
+  }
   return perm;
 }
 export const llCornerTwists = (state: State): number[] => [0, 1, 2, 3].map((s) => cornerTwistAt(state, s));

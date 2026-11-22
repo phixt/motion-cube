@@ -49,9 +49,12 @@
   `scripts/gen-cuberoot-algs.mjs` 生成（含最小 54 贴纸引擎语义校验 + ZBLS「恰 1 槽
   未解」形状过滤）；访问器 `src/data/algDb.ts` 导出 `BUILTIN_LIBRARY`（公式 id
   `cr-<caseId>`，tags=CFOP/Roux）；公式库页「加载内置公式库」按钮合并落库。
-  **ZBLL 覆盖口径**：主口径=库完整性 493/493=100%（52.5%/926 轨道级旧口径已废弃；
-  真实局限=ZBLS 非 FR 缺槽命中率，见 zbls.ts 注释）；验证
-  `node scripts/verify-zbll-coverage.ts` / `npx tsx scripts/verify-zbls-rounds.ts`。
+  **ZBLL / ZBLS / EOLR 口径**（2026-11-23 Step 2 收口）：ZBLL 库完整性 493/493=100%
+  且运行时查表经 post-AUF × y 共轭展开覆盖全空间 **7776/7776=100%**；ZBLS 用 1200 态特征键 +
+  `viewState` 四槽统一（302/302 全收录，真实 3-F2L 态 100% 命中，CFOP+ 均省 ~12 步）；
+  Roux EOLR 用 3 伪位 `<M,U>` 求解器 + 修复 `um` 配对的 cuberoot 命名表（0 例变长）；
+  验证 `node scripts/verify-zbll-coverage.ts` / `npx tsx scripts/verify-zbls-rounds.ts` /
+  `node scripts/smoke-solver.ts 15`。
 - **焦点上下文判据**（`src/input/textEntry.ts`）：`isTextEntryTarget(el)` 区分「用户真在
   文本框打字」（→ 忽略快捷键，别抢键）与「焦点落在隐藏/只读/非文本控件或 cubing 内部
   `twisty-player`」（→ **不得**吞掉游戏键）。keymap.ts / EditorPage.vue / HandCalibPage.vue 统一

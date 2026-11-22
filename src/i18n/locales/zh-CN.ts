@@ -152,10 +152,10 @@ export const zhCN: Record<string, string> = {
   "solve.rotateEnd": "收尾旋转",
   "solve.optGroup.cfop": "CFOP 选项",
   "solve.optGroup.roux": "Roux 选项",
-  "solve.opt.zbll": "一步顶层 (ZBLL)",
-  "solve.opt.zbllHint": "高级 LL 一步完成；数据覆盖未完善，先留入口",
+  "solve.opt.zbll": "一步顶层 (ZBLS+ZBLL)",
+  "solve.opt.zbllHint": "最后一组 F2L 顺带顶层十字 (ZBLS) + 一步 ZBLL，平均省 ~11 步",
   "solve.opt.rouxEolr": "EOLR（EO+UL/UR 一步）",
-  "solve.opt.rouxEolrHint": "Roux 高级调研进行中",
+  "solve.opt.rouxEolrHint": "一步完成 EO 与 UL/UR 伪位，再接 6E2C（不劣于合并 4b+4c）",
   "solve.opt.rouxMerge": "合并 4b+4c（LSE 一步）",
   "solve.opt.rouxMergeHint": "LSE 整段一步，非人类式分步演示",
 

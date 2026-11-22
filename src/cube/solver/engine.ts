@@ -514,3 +514,44 @@ export function tidyAlg(alg: string | string[]): string[] {
   }
   return out;
 }
+
+const WIDE_TO_FACE_ROT: Record<string, string[]> = {
+  r: ["L", "x"], "r'": ["L'", "x'"], r2: ["L2", "x2"],
+  l: ["R", "x'"], "l'": ["R'", "x"], l2: ["R2", "x2"],
+  u: ["D", "y"], "u'": ["D'", "y'"], u2: ["D2", "y2"],
+  d: ["U", "y'"], "d'": ["U'", "y"], d2: ["U2", "y2"],
+  f: ["B", "z"], "f'": ["B'", "z'"], f2: ["B2", "z2"],
+  b: ["F", "z'"], "b'": ["F'", "z"], b2: ["F2", "z2"],
+  M: ["R", "L'", "x'"], "M'": ["R'", "L", "x"], M2: ["R2", "L2", "x2"],
+  E: ["U", "D'", "y'"], "E'": ["U'", "D", "y"], E2: ["U2", "D2", "y2"],
+  S: ["F'", "B", "z"], "S'": ["F", "B'", "z'"], S2: ["F2", "B2", "z2"],
+};
+
+/** 吸收序列中的显式整块旋转 (x/y/z) 到后续步中，保持初始视角不变并消除整块旋转。 */
+export function stripWholeRotations(alg: string | string[]): string[] {
+  const src = parseAlg(alg);
+  const out: string[] = [];
+  const rotAcc: string[] = [];
+  let minv: Vec3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+  for (const mv of src) {
+    if (MOVES[mv].isWholeCube) {
+      rotAcc.push(mv);
+      const M = rotMatrix(rotAcc);
+      minv = [[M[0][0], M[1][0], M[2][0]], [M[0][1], M[1][1], M[2][1]], [M[0][2], M[1][2], M[2][2]]];
+    } else {
+      out.push(transformMove(mv, minv));
+    }
+  }
+  return tidyAlg(out);
+}
+
+/** 将宽层/中层/整块旋转全部展开吸收为等价的纯面步序列（零中心漂移）。 */
+export function toFaceMovesOnly(alg: string | string[]): string[] {
+  const expanded: string[] = [];
+  for (const mv of parseAlg(alg)) {
+    const key = mv.endsWith("2'") ? mv.slice(0, -1) : mv;
+    if (WIDE_TO_FACE_ROT[key]) expanded.push(...WIDE_TO_FACE_ROT[key]);
+    else expanded.push(mv);
+  }
+  return stripWholeRotations(expanded);
+}

@@ -9,11 +9,11 @@
 - 版本 **0.4.1**（package.json 与 src-tauri/tauri.conf.json 同步；2026-09-12 发布
   bump 7f43162——内容=手部 low-poly 细化十二~十六轮 + 双手显示/独立编辑/主位手规则
   十七~十九轮 + 外部注入 API A 期与文档；本地编译已交付，发布由用户执行）
-- 求解器：CFOP / CFOP+（一步 ZBLL+回退）/ Roux（LSE 4a+6E2C）三方法全绿；一步
-  ZBLL 库完整 **493/493**（case 级覆盖 100%；52.5%/926 为已废弃轨道级错口径，实际
-  问题在命中率口径）；ZBLS 有效全集 **302**（O 组 3 条全槽已解已决议剔除并留档
-  docs/archived/，剔除随 feat/zbll-import-verify 并回 main 生效）；解法底多选
-  （整块旋转 + 中心 relabel，逐底求解取最短，34/34 验证）
+- 求解器：CFOP / CFOP+（ZBLS+一步 ZBLL）/ Roux（分步 4a/4b/4c、合并 4b+4c、高级 EOLR+6E2C）五方法全绿；
+  ZBLL 数据完整 **493/493** 且运行时查表经 post-AUF × y 共轭展开精确覆盖全空间 **7776/7776 = 100%**；
+  ZBLS 有效全集 **302**（O 组 3 条全槽已解留档 docs/archived/），特征键 + `viewState` 四槽统一（真实态命中 **100%**，CFOP+ 均省 ~12 步、0 例变长）；
+  Roux EOLR 采用 3 伪位 `<M,U>` 求解器 + 修复 cuberoot 命名表 `um` 配对（比合并 4b+4c 再省 ~1.4 步、0 例变长）；
+  解法底多选（整块旋转 + 中心 relabel，24 朝向 × 6 底 = 144 组合端到端收尾底色全对）。
 - 技术栈：Vite 8 + Vue 3.5 + cubing.js（TwistyPlayer + cubing/alg）+ three.js（手模型）
 - **2026-10-27 代码审查**：typecheck / build / CI 六脚本本地全绿；i18n 中英 346 键零缺失；
   求解器引擎核心零缺陷。但查出 **23 条 P0/P1「静默失效」型缺陷**（内置库丢 50 条、
@@ -30,7 +30,11 @@
   ② 现役 cubing 播放体验：对齐 `experimentalAddMove` 500ms catch-up 基准（GamePage 打乱/演示 + EditorPage `CUBING_MOVE_SECONDS=0.5`）、打乱/演示中改速即时生效、订阅 `playingInfo` 播完自动释放 HUD「暂停」态、`applyAlg` 清空撤销栈、快照恢复文案走 i18n；
   ③ 求解器迁 Web Worker（`solver.worker.ts` + `solverClient.ts`，后台预热零主线程卡顿，支持「求解中…」遮罩与真实 terminate 取消）；
   ④ 生命周期收口：游戏页/编辑器卸载全量调用 `CubePlayer.dispose` / `GrayOverlay.dispose` / `grayPanel.dispose` / `HandRigView.dispose`（含接触球几何材质复用池）+ 修复 `HandCalibView.dispose` 白重建问题。
-- ⬜ **Step 2｜高级求解器命中率收口**：先定契约（降维表 vs 复用 `ItemSolver` 联合搜索），依次修 Roux EOLR（`um` + EO/ULUR 抽象）、ZBLS（分槽 + 降维重键）、核查 ZBLL AUF/视角归一化；恢复 `verify-zbls-rounds` F 段硬断言，5 种求解方法全进 CI。
+- ✅ **Step 2｜高级求解器命中率收口**（2026-11-23 已落地 + 全量验证/基线/真机回归通过）：
+  ① **ZBLL 100% 全空间覆盖**（`zbl.ts`）：纳入 472 ZBLL + 21 PLL + 内置 PLL，经 `stripWholeRotations`/`toFaceMovesOnly` 去漂移后按 `post-AUF(4) × y 共轭(4)` 展开，精确覆盖全部 **7776/7776** 态（`skipped=0`，随机真实态 60/60 一步解回）；
+  ② **ZBLS 0% → 100% 四槽统一**（`zbls.ts` / `cfop.ts`）：重构为 1200 态特征键 `(DRF角, FR棱, 其余4活跃槽LL棱EO)` + `viewState` 四槽归一，全收录 302/302 case（含原被遗漏的 32 条棱 home 角乱）；`cfop.ts` 按「第 4 组 + LL」整体总步数择短，CFOP+ 均步数 59.2 → **47.1**（净省 **12.1 步**，0 例变长）；恢复 `verify-zbls-rounds` F 段硬断言（906/906）并新增 G 段生产路径断言（100/100）；
+  ③ **Roux EOLR 真生效**（`roux.ts`）：新增 `eolrDb`/`eolrUb`/`eolrPseudo` 三张 `<M,U>` 轻量求解器（建表 ~15ms）+ 修复 cuberoot `lse-eolr` 命名表 `um` 配对；Roux+ 均步数 45.6 → **44.2**（0 例变长，不再退化为 `roux-merge`）；放宽 `block2` 14→16、`eo`/`ulur` 12→14 深度余量；
+  ④ **回归与健壮性收口**：5 种方法全进 `smoke-solver`（CI 跑 15 轮含高级分支断言）与 `smoke-solver-edge`；`verify-solve-base` 补 A6 `endAlg` 与 A7 24×6=144 组合端到端收尾底色断言；`algs.ts` 非法状态抛错；删 `cfop.ts` 不可达 `EJECT[4]`；更新基线 `docs/solver-baseline.json` 与 i18n 提示文案。
 - ⬜ **Step 3｜按需二选一主线**：
   - **A 线（编辑器 & 手部）**：自定义开始态批 → 拆 `EditorPage.vue`（4 composable + 复杂记法展开 + 未保存提示）→ 手部死参数/拇指 IP/碰撞箱。
   - **B 线（基建 & 渲染）**：playtest 改造（`vite preview` + 跨平台 `_browser.mjs`）并入 CI + 可选补 `release.yml` → 修 `RenderCube` 5 处 bug 并试点切默认后端 → Tauri 双标题栏与 CSP。
@@ -64,12 +68,10 @@
   `"zbll": { id: "cat-zbll", name: "ZBLL", parentId: "cat-1lll" }`，并把父分类
   `cat-1lll` 一并内置（悬空 parentId 会让 validateCategoryTree 抛错→整库加载失败）。
   **结果：ZBLL 472 条全部归入 `1LLL / ZBLL`，内置库未分类 0 条**。〔algDb.ts:26-36,61〕
-- ⬜ **ZBLS 一步真实命中率 0**（实测 400 次求解 0 次；缺槽=FR 的 79 个也 0 命中）：
-  建表键编码完整 LL 构型，与文件头「LL 任意」契约矛盾。修：按公式真正依赖的量重键
-  （丢角置换/角朝向/棱置换）+ 恢复 `cfop.ts:166` 硬断言/命中计数。〔zbls.ts:40-44,71-85〕
-- ⬜ **roux-adv ≡ roux-merge**（60/60 样本逐字节相同，EOLR 阶段从未出现）：
-  EOLR 表建表用 `fp` 做键丢了 `um`，查表却用当前态的 `um` 还原前置旋转 → 键值口径不一致。
-  修：键含 `um`；修好前方法面板合并或标注「等同」。〔roux.ts:61-70,114-124,163-188〕
+- ✅ **ZBLS 一步真实命中率 0**（已修，2026-11-23 Step 2）：
+  重构为 1200 态特征键 `(DRF角, FR棱, 其余4活跃槽LL棱EO)` + `viewState` 四槽归一（全收录 302/302 case，含 32 条棱 home 角乱），`cfop.ts` 改为按「第 4 组 + LL」整体步数择短。结果：F 段旋转槽 **906/906**、真实随机 3-F2L 态 **100/100**、CFOP+ 均省 ~12.1 步、0 例变长。〔zbls.ts / cfop.ts〕
+- ✅ **roux-adv ≡ roux-merge**（已修，2026-11-23 Step 2）：
+  修复 cuberoot `lse-eolr` 命名表 `um` 键值配对，并新增 `eolrDb`/`eolrUb`/`eolrPseudo` 三张 `<M,U>` 轻量求解器（建表 ~15ms）实现 100% 覆盖真 EOLR，与 4a+6E2C 择短保底。结果：基线 45.6 → **44.2**（0 例变长），`smoke-solver` 含 `lse-eolr` 触发与非等价断言。〔roux.ts〕
 - ✅ **整块旋转收尾表只覆盖 16/24 朝向**（已修）：`WHOLE_ROT24` 用 `z`（F 轴）当 D 轴自转，
   应为 `y`；实测 63 个终点朝向中 24 个不可达 → endAlg 返回 ""、演示收尾底色错。
   修法落地：spin 改 `y/y2/y'`；`finishRotBetween` 导出并加**回归断言**

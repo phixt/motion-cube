@@ -27,12 +27,11 @@
 //      ⚠ 动态计划与契约表不一致 = 应用阶段计划变了 → 脚本**报错**并提示更新契约表，
 //        绝不静默放宽断言（「任何数都过」是禁止的）。
 //
-// ⚠ 第三批议题 P0-4（docs/audit/REVIEW-2026-10.md，**本轮不修**）：
-//   「Roux 高级(EOLR)」与「Roux 合并」60/60 样本逐字节相同 —— EOLR 阶段从未真正生效
-//   （roux-adv 实际走的是与 roux-merge 相同的搜索路径，roux.ts:163-188）。
-//   第三批要先定 EOLR 契约（roux.eolr 键怎么表达、EOLR 表何时命中），修好后应把本脚本
-//   收紧为：① roux-adv 必须出现 short="EOLR" 的阶段；② roux-adv 与 roux-merge 的步序列
-//   不再逐字节相同（现在两者恒相同）。
+//   已于 2026-11-23 Step 2 彻底解决：
+//     - ZBLS 改特征降维键 + viewState 四槽统一（302/302 全收录，真实态命中 100%）；
+//     - ZBLL 补 post-AUF + y 共轭展开（7776/7776 = 100% 一步覆盖）；
+//     - Roux EOLR 补 3 伪位 <M,U> ItemSolver + 修复 cuberoot 命名表 um 配对（0 例变长）。
+//     本脚本同时验证默认模式（CFOP / Roux）及勾选高级项（CFOP+ / Roux+）。
 // ============================================================================
 import { existsSync, mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -303,6 +302,70 @@ if (r1.sig.join("|") === r2.sig.join("|")) {
   throw new Error(`CFOP 与 Roux 阶段签名相同（${r1.sig.join(" → ")}）—— 两个方法退化成同一个了`);
 }
 console.log(`stage signature differs ok: CFOP[${r1.key}] ${r1.sig.join(" → ")} | Roux[${r2.key}] ${r2.sig.join(" → ")}`);
+
+// 高级模式 UI 验证：勾选 CFOP+ (ZBLS+ZBLL) 与 Roux+ (EOLR)，确认步数不劣于普通且高级阶段生效
+{
+  // 1) 切回 CFOP 并勾选第一个选项（cfop.zbll）
+  await page.click("#btn-method-cfop");
+  await sleep(200);
+  const cfopCb = await page.$(".solver-options-panel .opt-input");
+  if (!cfopCb) throw new Error("CFOP 选项面板未展开");
+  await cfopCb.click();
+  await sleep(150);
+  await page.click("#btn-solve");
+  await page.waitForFunction(
+    () => (document.querySelector(".solve-title")?.firstChild?.textContent ?? "").trim() === "CFOP+",
+    { timeout: 15000 },
+  );
+  const advCfop = await page.$$eval(".solve-stage:not(.solve-stage-rotate)", (els) =>
+    els.map((e) => ({
+      short: (e.querySelector(".stage-short")?.textContent ?? "").trim(),
+      count: parseInt(e.querySelector(".stage-count")?.textContent ?? "0", 10) || 0,
+    })),
+  );
+  const advCfopSig = advCfop.map((x) => x.short);
+  const advCfopMoves = advCfop.reduce((a, x) => a + x.count, 0);
+  if (advCfopMoves > r1.moves) throw new Error(`CFOP+ (${advCfopMoves}) 比 CFOP (${r1.moves}) 更长`);
+  if (!advCfopSig.includes("ZBLS") && !advCfopSig.includes("ZBLL")) {
+    throw new Error(`CFOP+ 未出现 ZBLS/ZBLL 阶段: ${advCfopSig.join(" → ")}`);
+  }
+  console.log(`adv CFOP+ ok: ${advCfopMoves} moves (vs CFOP ${r1.moves}) | ${advCfopSig.join(" → ")}`);
+  // 还原勾选
+  await cfopCb.click();
+  await sleep(150);
+
+  // 2) 切到 Roux 并勾选第一个选项（roux.eolr）
+  await page.click("#btn-method-roux");
+  await sleep(200);
+  const rouxCb = await page.$(".solver-options-panel .opt-input");
+  if (!rouxCb) throw new Error("Roux 选项面板未展开");
+  await rouxCb.click();
+  await sleep(150);
+  await page.click("#btn-solve");
+  await page.waitForFunction(
+    () => (document.querySelector(".solve-title")?.firstChild?.textContent ?? "").trim() === "Roux+",
+    { timeout: 15000 },
+  );
+  const advRoux = await page.$$eval(".solve-stage:not(.solve-stage-rotate)", (els) =>
+    els.map((e) => ({
+      short: (e.querySelector(".stage-short")?.textContent ?? "").trim(),
+      count: parseInt(e.querySelector(".stage-count")?.textContent ?? "0", 10) || 0,
+    })),
+  );
+  const advRouxSig = advRoux.map((x) => x.short);
+  const advRouxMoves = advRoux.reduce((a, x) => a + x.count, 0);
+  if (advRouxMoves > r2.moves) throw new Error(`Roux+ (${advRouxMoves}) 比 Roux (${r2.moves}) 更长`);
+  if (!advRouxSig.includes("6E2C")) throw new Error(`Roux+ 缺少 6E2C 阶段: ${advRouxSig.join(" → ")}`);
+  console.log(`adv Roux+ ok: ${advRouxMoves} moves (vs Roux ${r2.moves}) | ${advRouxSig.join(" → ")}`);
+  // 还原勾选并回到 r2 (Roux 默认) 供下方演示断言使用
+  await rouxCb.click();
+  await sleep(150);
+  await page.click("#btn-solve");
+  await page.waitForFunction(
+    () => (document.querySelector(".solve-title")?.firstChild?.textContent ?? "").trim() !== "Roux+",
+    { timeout: 15000 },
+  );
+}
 
 // 演示：从当前打乱态逐步施加解法（不重放打乱）。
 // 把速度滑条调到「快」再点演示：以第 1 步后立刻采样 alg，应为 打乱+前几步，
