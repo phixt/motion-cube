@@ -25,7 +25,11 @@
 
 ### 重启执行计划（2026-11-22 简版路线图，按阶段逐步推进）
 - ✅ **Step 0｜基线与门面**：CI 补齐 5 条确定性 gate（`verify-solve-base` / `probe-solve-base-ui` / `verify-zbls-rounds` / `probe-locale-keys` 补 exitCode / `verify-notation`）、版本四处同步断言、`cargo check` Rust job、`permissions`/`concurrency`、去掉重复 `vue-tsc`；README/AGENTS/todo 文档去伪对齐；全套本地验证 + `cargo check` 全绿（`find-zbls-diff-3` 依赖 gitignored `reference/` 不进 CI，由 `verify-zbls-rounds` 覆盖）。
-- ⬜ **Step 1｜最高体感收益（卡顿 / 错位 / 泄漏）**：① 灰面板隐藏跳过与增量刷新（P1-5）+ 标灰预设 6 底修复（P1-6）；② 现役 cubing 播放体验修复（统一 500ms catch-up 基准 / 打乱中改速生效 / 播完按钮复位）；③ 求解器迁 Web Worker（消 560ms 主线程冻结 + 遮罩/取消）；④ 补 `CubePlayer.dispose` / `HandRigView.dispose` / 灰面板监听与手部接触球清理。
+- ✅ **Step 1｜最高体感收益（卡顿 / 错位 / 泄漏）**（2026-11-22 已落地 + 全量浏览器实机回归通过）：
+  ① 灰面板隐藏跳过 + 静态背景缓存 + 直接累计 2D 包围盒 + 增量属性写 + `GrayOverlay` dirty/材质引用判定（P1-5）+ 标灰预设统一展示帧 6 底全对齐（P1-6，verify-data 6×3 断言）；
+  ② 现役 cubing 播放体验：对齐 `experimentalAddMove` 500ms catch-up 基准（GamePage 打乱/演示 + EditorPage `CUBING_MOVE_SECONDS=0.5`）、打乱/演示中改速即时生效、订阅 `playingInfo` 播完自动释放 HUD「暂停」态、`applyAlg` 清空撤销栈、快照恢复文案走 i18n；
+  ③ 求解器迁 Web Worker（`solver.worker.ts` + `solverClient.ts`，后台预热零主线程卡顿，支持「求解中…」遮罩与真实 terminate 取消）；
+  ④ 生命周期收口：游戏页/编辑器卸载全量调用 `CubePlayer.dispose` / `GrayOverlay.dispose` / `grayPanel.dispose` / `HandRigView.dispose`（含接触球几何材质复用池）+ 修复 `HandCalibView.dispose` 白重建问题。
 - ⬜ **Step 2｜高级求解器命中率收口**：先定契约（降维表 vs 复用 `ItemSolver` 联合搜索），依次修 Roux EOLR（`um` + EO/ULUR 抽象）、ZBLS（分槽 + 降维重键）、核查 ZBLL AUF/视角归一化；恢复 `verify-zbls-rounds` F 段硬断言，5 种求解方法全进 CI。
 - ⬜ **Step 3｜按需二选一主线**：
   - **A 线（编辑器 & 手部）**：自定义开始态批 → 拆 `EditorPage.vue`（4 composable + 复杂记法展开 + 未保存提示）→ 手部死参数/拇指 IP/碰撞箱。
@@ -124,11 +128,13 @@
   renderPreview 的「不覆盖正在输入的框」保护生效）；现已在 seek 路径补 `renderSelected(true)`
   （只回填帧身份字段，姿态数值仍由 renderPreview 同步，不打断连续输入）。
   〔EditorPage.vue:863-895,588-590,237-250〕
-- ⬜ **灰面板隐藏时仍每帧全量重建**（54 贴纸材质 + 54 SVG 多边形 + 回读 DOM 求包围盒）
-  → 修：onRecreate 改名 onRenderScheduled + dirty 标志 + 隐藏时跳过 + 包围盒不回读 DOM。
-  〔GrayOverlay.ts:30-45 / grayPanel.ts:261-351 / session.ts:55-57〕
-- ⬜ **标灰预设旋转表与展示朝向不一致**（底色≠D 时标错面；verify-data 把当前行为固化成断言）
-  → 修：统一帧 + 断言改成「保持集落在持底色的那一面」。〔stickering.ts:176-226〕
+- ✅ **灰面板隐藏时仍每帧全量重建**（Step 1 已修）：`onThreeScene` 回调正名 `onRenderScheduled`；
+  `GrayOverlay` 加 dirty 与材质引用比对 + Set 缓存 + 初始窗口重试；`grayPanel` 增加 `isVisible`
+  隐藏跳过 + 静态主体背景 + 直接累计 2D 包围盒（零 DOM 回读）+ 增量属性写；真机实测隐藏动画期
+  SVG 重写 0 次。〔GrayOverlay.ts / grayPanel.ts / session.ts / EditorPage.vue〕
+- ✅ **标灰预设旋转表与展示朝向不一致**（Step 1 已修）：展示帧已由 `baseFaceSetupAlg(base)` 将所选底转到 D，
+  去掉多余的 `rotationForBase` 二次旋转，六色底统一走展示帧保留集；`verify-data` 补 6 底 × 3 预设断言。
+  〔stickering.ts / verify-data.ts〕
 - ✅ **进度快照从 24 条封顶的显示日志写** → 超 24 步后进度静默丢失（已修）：
   快照改用**不截断的完整序列**（player.currentAlg），显示日志仍封顶 24 条但只管显示；
   恢复按完整序列重放（实测 30 步重载后逐 token 相同，引擎级比对 54 贴纸逐格相等；
@@ -177,20 +183,17 @@
   `cr-<caseId>`）→ 修：脏标记或只读标记 + UI 明示。
 
 **P2 技术债（按主题，完整逐条证据见 docs/audit/*.md）**
-- ⬜ 求解全程主线程同步（预热 560ms、搜索尾 346ms），「求解中」遮罩结构上画不出来、无进度无取消
-  → 迁 Web Worker。
+- ✅ 求解全程主线程同步（Step 1 已迁 Web Worker：`solver.worker.ts` + `solverClient.ts`，后台预热 + 真实取消）。
 - ⬜ `zbl.ts` 头注释「任意棱已定向顶层态都恰有一条 ZBLL 一步解」实测假（命中率 50%）。
 - ⬜ `cfop.solveSlot` 的 EJECT[4] 兜底不可达（0/2436）且语义写错（弹的是角不是棱）。
 - ⬜ verify-zbls-rounds F 段无硬断言（712/726 脱靶被容忍）、B 段自证式循环。
 - ⬜ smoke 只覆盖 3/5 方法；roux-merge / roux-adv 无任何 CI 覆盖。
 - ⬜ solver-baseline.json 是金标准但生成脚本直接覆写、无 --check、无校验。
-- ⬜ `CubePlayer.dispose()` 全仓无调用点；灰面板 window 级 pointerup 不移除；GrayOverlay.init 无重试。
-- ⬜ 套用公式后 history 未清 → 撤销从公式里删一步，日志与魔方不一致。
+- ✅ `CubePlayer.dispose()` / 灰面板 `window` pointerup 清理 / `GrayOverlay.init` 重试 / 套用公式清 `history`（Step 1 已全部收口）。
 - ⬜ render 后端（休眠）尚有 5 处会坏：setMoves 重上色 22/54 错色、播中改速瞬移/倒退、
   300ms/步 与 1000ms 基准冲突、setState 永久切 state 材质、play() 在当前态上重播；
   RenderCubeHost 自动自转慢 1000 倍；pose.ts 死代码 + 误导注释。
-- ⬜ HandRigView 无 dispose()（挂载/卸载/rebuild 全泄漏）；applyPose 每帧新建
-  SphereGeometry+Material 从不 dispose；HandCalibView.dispose() 调 rebuild() 而非 rebuild(null)。
+- ✅ `HandRigView.dispose()` / 接触球共享几何材质复用池 / `HandCalibView.dispose()` 改 `clearRig()`（Step 1 已修）。
 - ⬜ `shape.web` 是死参数（被规范化/持久化/有滑条但几何从不消费）；拇指 IP 关节组为空
   → 编辑器 IP 弯曲滑条完全无视觉效果。
 - ⬜ normalizeHandRigConfig 接受退化指根基准 → NaN 顶点 → 手部包围盒 NaN → 相机拟合失效。

@@ -137,7 +137,9 @@ let frameAcc = 0;
 // cubing 默认单步动画基准时长（tempoScale=1 时 1000ms，见 AlgDuration.defaultDurationForAmount）。
 // 之前误设 0.3 导致 tempoScale 校准错误：0.3s 步时配 tempoScale=1 时动画需 1s、只播 0.3s
 // 就被下一步 cancel → 执行完"没到位直接跳变"。
-const CUBING_MOVE_SECONDS = 1.0;
+// cubing `experimentalAddMove` 走 CatchUpHelper，1x 动画时长 = 500ms（render.md F2），
+// 故 tempoScale = (0.5 / stepSec) * playSpeed 才能让动画填满 stepMapping 区间（不半拍顿住）
+const CUBING_MOVE_SECONDS = 0.5;
 let formulaMoves: string[] = [];
 let stepMoveIndex = 0;
 
@@ -1636,7 +1638,11 @@ const onSinePath = (): void => {
 /** 编辑器标灰面板：切换显示时惰性渲染；预设/点选走 GrayState + 3D 覆盖层 */
 const toggleGrayPanel = (): void => {
   grayPanelOpen.value = !grayPanelOpen.value;
-  if (!grayPanelOpen.value || !grayPanelEl.value || grayPanelApi) return;
+  if (!grayPanelOpen.value || !grayPanelEl.value) return;
+  if (grayPanelApi) {
+    grayPanelApi.refresh();
+    return;
+  }
   grayOverlay?.setRenderListener(() => grayPanelApi?.refresh());
   grayPanelApi = renderGrayPanel(grayPanelEl.value, {
     getState: () => grayState.value,
@@ -1648,6 +1654,7 @@ const toggleGrayPanel = (): void => {
     getBase: () => loadSettings().baseFace,
     getKind: () => grayKind.value,
     getPositions: () => grayOverlay?.currentPositions() ?? new Map(),
+    isVisible: () => grayPanelOpen.value,
     applyPreset: (p: GrayPreset | "clear") => {
       grayState.value = p === "clear" ? createGrayState() : presetGrayState(p, loadSettings().baseFace);
       grayOverlay?.requestApply(grayState.value);
@@ -1824,11 +1831,16 @@ onBeforeUnmount(() => {
   delete (globalThis as { __motionCubeEditor?: unknown }).__motionCubeEditor;
   releaseExternalDrive(); // P1-1：卸载时归还手部所有权（定时器已清，标志归零）
   unregisterHandApi();
+  grayPanelApi?.dispose();
+  grayPanelApi = null;
   grayOverlay?.dispose();
   grayOverlay = null;
-  player = null;
+  handLeft?.dispose();
   handLeft = null;
+  handRight?.dispose();
   handRight = null;
+  player?.dispose();
+  player = null;
 });
 </script>
 

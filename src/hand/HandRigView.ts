@@ -43,7 +43,13 @@ export class HandRigView {
   private thumbDof!: Group; // CMC 展收/对掌旋转
   private fingers = {} as Record<FingerName, FingerNodes>;
   private contactPool: Mesh[] = [];
+  private contactGeo = new SphereGeometry(0.045, 8, 8);
+  private contactMat = new MeshBasicMaterial({
+    color: new Color().setRGB(1, 1, 1),
+    toneMapped: false,
+  });
   private ready = false;
+  private disposed = false;
   private pose: Pose | null = null;
   private dirty = false;
   private userVisible = true;
@@ -62,10 +68,13 @@ export class HandRigView {
 
   /** 注入场景；cubing 每次调度渲染时回调（场景重建时自愈重挂 + 重放姿态） */
   async init(): Promise<void> {
+    if (this.disposed) return;
     const obj = await this.player.onThreeScene(() => {
+      if (this.disposed) return;
       this.attach(obj);
       this.applyPose();
     });
+    if (this.disposed) return;
     this.attach(obj);
     this.ready = true;
     this.applyPose();
@@ -166,28 +175,34 @@ export class HandRigView {
       }
     }
 
-    // 接触点：小段局部坐标 → 挂到该段关节组，随 FK 自动变换
+    // 接触点：复用共享几何/材质与 Mesh 池，避免 60Hz 播放无界泄漏 GPU 缓冲
     for (const m of this.contactPool) m.removeFromParent();
-    this.contactPool.length = 0;
+    let used = 0;
     for (const c of pose.contacts) {
       const seg = this.fingers[c.finger]?.segments[c.segmentIndex];
       if (!seg) continue;
-      const marker = new Mesh(
-        new SphereGeometry(0.045 * H, 8, 8),
-        new MeshBasicMaterial({
-          color: new Color().setRGB(1, 1, 1),
-          toneMapped: false,
-        }),
-      );
+      let marker = this.contactPool[used];
+      if (!marker) {
+        marker = new Mesh(this.contactGeo, this.contactMat);
+        this.contactPool.push(marker);
+      }
+      marker.scale.setScalar(H);
       marker.position.copy(contactLocalPoint(c, seg, this.sideSign, H));
       seg.joint.add(marker);
-      this.contactPool.push(marker);
+      used++;
     }
   }
+
+  private clearRigTree(): void {
+    for (const m of this.contactPool) m.removeFromParent();
+    for (const child of [...this.group.children]) {
+      child.removeFromParent();
+      disposeMeshTree(child);
+    }
+  }
+
   private buildRig(): void {
-    for (const child of this.group.children) child.removeFromParent();
-    this.contactPool.forEach((m) => m.removeFromParent());
-    this.contactPool.length = 0;
+    this.clearRigTree();
 
     // 0.4.0 low-poly 重构：handMesh 截面放样生成器（API 与旧 buildHandGeometry 同构；
     // 顶点色线性编码，输出变换由各渲染器自理）
@@ -201,6 +216,35 @@ export class HandRigView {
     this.thumbDof = built.thumbDof;
     this.group.add(this.root);
   }
+
+  /** 释放手部几何与材质（编辑器卸载时调用，不改动既有公开方法签名） */
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.ready = false;
+    this.clearRigTree();
+    this.contactPool.length = 0;
+    this.contactGeo.dispose();
+    this.contactMat.dispose();
+    this.group.removeFromParent();
+  }
+}
+
+function disposeMeshTree(root: Object3D): void {
+  const seenGeo = new Set<{ dispose(): void }>();
+  const seenMat = new Set<{ dispose(): void }>();
+  root.traverse((node) => {
+    const mesh = node as Mesh;
+    if (mesh.geometry && typeof mesh.geometry.dispose === "function") seenGeo.add(mesh.geometry);
+    const mat = mesh.material;
+    if (Array.isArray(mat)) {
+      for (const m of mat) if (m && typeof m.dispose === "function") seenMat.add(m);
+    } else if (mat && typeof mat.dispose === "function") {
+      seenMat.add(mat);
+    }
+  });
+  for (const g of seenGeo) g.dispose();
+  for (const m of seenMat) m.dispose();
 }
 
 /** 接触点在该段局部坐标：z = t×len，按侧偏移（腹 -Y / 背 +Y 用厚度；拇指/小指侧用宽度） */

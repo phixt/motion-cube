@@ -126,9 +126,12 @@ export function clearGray(_state: GrayState): GrayState {
   return createGrayState();
 }
 
-// ---------- 预设（六色底适配） ----------
+// ---------- 预设（展示坐标系） ----------
 
-/** 规范朝向（底=D、左=L）下的预设保留集（世界坐标，面偏移 ±1.5） */
+/** 展示朝向（底=D、左=L）下的预设保留集（世界坐标，面偏移 ±1.5）。
+ *  展示帧已由 `baseFaceSetupAlg(base)` 把所选底色整块旋转到 D 面位，
+ *  `GrayOverlay` 的 54 贴纸映射亦建立在展示帧上，因此六色底共用同一展示系保留集
+ *  （旧版再乘 `rotationForBase(base)` 等价二次旋转，导致 5/6 底色标错面，见 P1-6）。 */
 const CANONICAL_KEEP: Record<"cross" | "roux-left" | "roux-right", [number, number, number][]> = {
   cross: [
     [0, -1.5, 0],
@@ -173,59 +176,18 @@ const CANONICAL_KEEP: Record<"cross" | "roux-left" | "roux-right", [number, numb
   ],
 };
 
-/** 每个底色对应的"左"面（其余由右手系推出），使旋转为真旋转 */
-const LEFT_FOR_BASE: Record<Face, Face> = {
-  D: "L",
-  U: "R",
-  F: "L",
-  B: "R",
-  L: "B",
-  R: "F",
-};
-
-function cross(a: { x: number; y: number; z: number }, b: { x: number; y: number; z: number }) {
-  return {
-    x: a.y * b.z - a.z * b.y,
-    y: a.z * b.x - a.x * b.z,
-    z: a.x * b.y - a.y * b.x,
-  };
-}
-
-/** 规范朝向（底=D、左=L）→ 目标底色 的旋转矩阵（列主序） */
-function rotationForBase(base: Face): number[][] {
-  const n = FACE_NORMALS[base];
-  const ln = FACE_NORMALS[LEFT_FOR_BASE[base]];
-  const fn = cross(ln, n);
-  // R·(0,-1,0)=n → 第 2 列 = -n；R·(-1,0,0)=ln → 第 1 列 = -ln；R·(0,0,1)=fn → 第 3 列 = fn
-  return [
-    [-ln.x, -n.x, fn.x],
-    [-ln.y, -n.y, fn.y],
-    [-ln.z, -n.z, fn.z],
-  ];
-}
-
-function applyRotation(p: [number, number, number], m: number[][]): [number, number, number] {
-  return [
-    m[0][0] * p[0] + m[0][1] * p[1] + m[0][2] * p[2],
-    m[1][0] * p[0] + m[1][1] * p[1] + m[1][2] * p[2],
-    m[2][0] * p[0] + m[2][1] * p[1] + m[2][2] * p[2],
-  ];
-}
-
-/** 预设 → 灰色集合（可变灰；不可变由编辑器/教学场景追加） */
-export function presetGrayStickers(preset: GrayPreset, base: Face): StickerId[] {
-  const rot = rotationForBase(base);
+/** 预设 → 灰色集合（可变灰；不可变由编辑器/教学场景追加）。
+ *  参数 `_base` 保留以兼容调用方签名：展示帧已通过 `baseFaceSetupAlg(base)` 把所选底转到 D。 */
+export function presetGrayStickers(preset: GrayPreset, _base: Face = "D"): StickerId[] {
   const keep = new Set<StickerId>();
-  for (const p of CANONICAL_KEEP[preset]) {
-    const [x, y, z] = applyRotation(p, rot);
+  for (const [x, y, z] of CANONICAL_KEEP[preset]) {
     const id = stickerIdFromWorld(x, y, z);
     if (id) keep.add(id);
   }
-  const grayed = allStickerIds().filter((id) => !keep.has(id));
-  return grayed;
+  return allStickerIds().filter((id) => !keep.has(id));
 }
 
-export function presetGrayState(preset: GrayPreset, base: Face): GrayState {
+export function presetGrayState(preset: GrayPreset, base: Face = "D"): GrayState {
   return { mutable: presetGrayStickers(preset, base), immutable: [] };
 }
 

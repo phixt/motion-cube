@@ -146,6 +146,7 @@ function stickerPolygonView(v: V3, face: Face): V3[] {
 
 export type GrayPanelApi = {
   refresh: () => void;
+  dispose: () => void;
 };
 
 export function renderGrayPanel(
@@ -158,6 +159,8 @@ export function renderGrayPanel(
     getKind: () => GrayKind;
     applyPreset: (p: GrayPreset | "clear") => void;
     getPositions: () => Map<StickerId, { x: number; y: number; z: number }>;
+    /** 面板可见性判据（P1-5）：隐藏时跳过每帧 SVG 重建；缺省按 `!root.hidden` 判断 */
+    isVisible?: () => boolean;
   },
 ): GrayPanelApi {
   root.innerHTML = "";
@@ -251,6 +254,27 @@ export function renderGrayPanel(
   for (const h of handles) svg.appendChild(h);
 
   let viewRot: Mat3 = [...IDENTITY];
+  let disposed = false;
+  // 主体背景在视图空间静态不变：仅初始化算一次，并缓存其 2D 包围盒（免每帧重复算）
+  let bodyMinX = Infinity;
+  let bodyMaxX = -Infinity;
+  let bodyMinY = Infinity;
+  let bodyMaxY = -Infinity;
+  for (const [face, poly] of bodyBgs) {
+    const pts2d = faceBackgroundPolygon(face).map((c) => iso(c));
+    for (const p of pts2d) {
+      if (p.x < bodyMinX) bodyMinX = p.x;
+      if (p.x > bodyMaxX) bodyMaxX = p.x;
+      if (p.y < bodyMinY) bodyMinY = p.y;
+      if (p.y > bodyMaxY) bodyMaxY = p.y;
+    }
+    poly.setAttribute("points", pts2d.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" "));
+    poly.setAttribute("fill", BODY_BG);
+  }
+  const prevPoints = new Map<StickerId, string>();
+  const prevFill = new Map<StickerId, string>();
+  const prevOpacity = new Map<StickerId, string>();
+  let prevViewBox = "";
 
   function flipView(axis: "x" | "y" | "z", sign: 1 | -1): void {
     const m = axis === "x" ? rotX(sign) : axis === "y" ? rotY(sign) : rotZ(sign);
@@ -259,94 +283,82 @@ export function renderGrayPanel(
   }
 
   function refresh(): void {
+    if (disposed) return;
+    // P1-5：面板隐藏时直接跳过（零 getPositions / SVG 写 / 包围盒开销）；展开时由调用方触发一次 refresh
+    const visible = opts.isVisible ? opts.isVisible() : !root.hidden;
+    if (!visible) return;
+
     const state = opts.getState();
-    const gray = graySet(state);
+    const mutableSet = new Set(state.mutable);
+    const immutableSet = new Set(state.immutable);
     const positions = opts.getPositions();
-    // 视图位置：viewRot × 实时位置（未就绪时退回初始位置）
-    const viewPos = new Map<StickerId, { v: V3; face: Face }>();
-    for (const id of cells.keys()) {
-      const live = positions.get(id);
-      const p = live ?? stickerWorldPos(id);
-      const v = applyMat(viewRot, p);
-      viewPos.set(id, { v, face: viewFaceOf(v) });
-    }
 
-    // 主体背景（实心，覆盖棱边缝隙）
-    for (const [face, poly] of bodyBgs) {
-      const pts = faceBackgroundPolygon(face)
-        .map((c) => iso(c))
-        .map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`)
-        .join(" ");
-      poly.setAttribute("points", pts);
-      poly.setAttribute("fill", BODY_BG);
-    }
+    let minX = bodyMinX;
+    let maxX = bodyMaxX;
+    let minY = bodyMinY;
+    let maxY = bodyMaxY;
 
-    // 小面：隐藏面（投影）先画，主体后画
+    // 54 个小面：直接累计 2D 包围盒（不再 querySelectorAll 回读 DOM points 字符串），增量写属性
     for (const face of ["U", "F", "R", "D", "L", "B"] as Face[]) {
       for (let i = 0; i < 9; i++) {
         const id = `${face}${i}` as StickerId;
-        const entry = viewPos.get(id);
         const poly = cells.get(id)!;
-        if (!entry) continue;
-        const polyFace = entry.face;
-        const pts = stickerPolygonView(entry.v, polyFace)
-          .map((c) => iso(c))
-          .map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`)
-          .join(" ");
-        poly.setAttribute("points", pts);
+        const p = positions.get(id) ?? stickerWorldPos(id);
+        const v = applyMat(viewRot, p);
+        const polyFace = viewFaceOf(v);
+        const corners = stickerPolygonView(v, polyFace);
+        let pts = "";
+        for (let k = 0; k < corners.length; k++) {
+          const q = iso(corners[k]);
+          if (q.x < minX) minX = q.x;
+          if (q.x > maxX) maxX = q.x;
+          if (q.y < minY) minY = q.y;
+          if (q.y > maxY) maxY = q.y;
+          pts += (k ? " " : "") + `${q.x.toFixed(1)},${q.y.toFixed(1)}`;
+        }
+        if (prevPoints.get(id) !== pts) {
+          poly.setAttribute("points", pts);
+          prevPoints.set(id, pts);
+        }
         // 不可变格用深灰填充区分（去掉黑色描边，与 3D 覆盖层 immutable 同色）
-        poly.setAttribute(
-          "fill",
-          gray.has(id)
-            ? state.immutable.includes(id)
-              ? GRAY_IMMUTABLE
-              : GRAY_MUTABLE
-            : FACE_COLORS[id[0] as Face],
-        );
-        poly.setAttribute("opacity", polyFace === "U" || polyFace === "F" || polyFace === "R" ? "1" : "0.55");
+        const fill = immutableSet.has(id)
+          ? GRAY_IMMUTABLE
+          : mutableSet.has(id)
+            ? GRAY_MUTABLE
+            : FACE_COLORS[face];
+        if (prevFill.get(id) !== fill) {
+          poly.setAttribute("fill", fill);
+          prevFill.set(id, fill);
+        }
+        const opacity = polyFace === "U" || polyFace === "F" || polyFace === "R" ? "1" : "0.55";
+        if (prevOpacity.get(id) !== opacity) {
+          poly.setAttribute("opacity", opacity);
+          prevOpacity.set(id, opacity);
+        }
       }
     }
 
-    // 视图尺寸：统计全部多边形（含外投影网格）
-    let minX = Infinity;
-    let maxX = -Infinity;
-    let minY = Infinity;
-    let maxY = -Infinity;
-    const collect2D = (pts: { x: number; y: number }[]) =>
-      pts.forEach((p) => {
-        minX = Math.min(minX, p.x);
-        maxX = Math.max(maxX, p.x);
-        minY = Math.min(minY, p.y);
-        maxY = Math.max(maxY, p.y);
-      });
-    for (const poly of svg.querySelectorAll<SVGPolygonElement>("polygon")) {
-      const pts = poly.getAttribute("points");
-      if (!pts) continue;
-      collect2D(
-        pts.split(" ").map((s) => {
-          const [x, y] = s.split(",").map(Number);
-          return { x, y };
-        }),
-      );
-    }
     const pad = 52; // 容纳魔方外换面滑环
-    svg.setAttribute("viewBox", `${minX - pad} ${minY - pad} ${maxX - minX + pad * 2} ${maxY - minY + pad * 2}`);
-
-    // 圆形滑环：按全部小面（含外投影）包围盒外扩 30 单位，落在投影面之外不挡涂灰
-    const cx = (minX + maxX) / 2;
-    const cy = (minY + maxY) / 2;
-    const rx = (maxX - minX) / 2 + 30;
-    const ry = (maxY - minY) / 2 + 30;
-    for (const el of [ring, ringHit]) {
-      el.setAttribute("cx", cx.toFixed(1));
-      el.setAttribute("cy", cy.toFixed(1));
-      el.setAttribute("rx", rx.toFixed(1));
-      el.setAttribute("ry", ry.toFixed(1));
-    }
-    for (const h of handles) {
-      const a = ((Number(h.dataset.angle) || 0) * Math.PI) / 180;
-      h.setAttribute("cx", (cx + Math.cos(a) * rx).toFixed(1));
-      h.setAttribute("cy", (cy + Math.sin(a) * ry).toFixed(1));
+    const viewBox = `${minX - pad} ${minY - pad} ${maxX - minX + pad * 2} ${maxY - minY + pad * 2}`;
+    if (viewBox !== prevViewBox) {
+      prevViewBox = viewBox;
+      svg.setAttribute("viewBox", viewBox);
+      // 圆形滑环：按全部小面（含外投影）包围盒外扩 30 单位，落在投影面之外不挡涂灰
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+      const rx = (maxX - minX) / 2 + 30;
+      const ry = (maxY - minY) / 2 + 30;
+      for (const item of [ring, ringHit]) {
+        item.setAttribute("cx", cx.toFixed(1));
+        item.setAttribute("cy", cy.toFixed(1));
+        item.setAttribute("rx", rx.toFixed(1));
+        item.setAttribute("ry", ry.toFixed(1));
+      }
+      for (const h of handles) {
+        const a = ((Number(h.dataset.angle) || 0) * Math.PI) / 180;
+        h.setAttribute("cx", (cx + Math.cos(a) * rx).toFixed(1));
+        h.setAttribute("cy", (cy + Math.sin(a) * ry).toFixed(1));
+      }
     }
   }
 
@@ -471,5 +483,11 @@ export function renderGrayPanel(
   const note = el("p", t("gray.note"), "page-note");
   root.append(title, presets, svg, note);
   refresh();
-  return { refresh };
+  const dispose = (): void => {
+    if (disposed) return;
+    disposed = true;
+    window.removeEventListener("pointerup", endGesture);
+    root.innerHTML = "";
+  };
+  return { refresh, dispose };
 }

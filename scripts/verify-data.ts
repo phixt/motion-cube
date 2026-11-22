@@ -549,40 +549,36 @@ check("stickering: 状态操作", () => {
   expect(c.mutable.length === 0 && c.immutable.length === 0, "清除应清空");
 });
 
-check("stickering: 初始十字预设（六色底）", () => {
-  const d = presetGrayState("cross", "D");
-  expect(d.mutable.length === 45, `十字(D) 应灰 45：${d.mutable.length}`);
-  const keepD = new Set(allStickerIds().filter((id) => !graySet(d).has(id)));
-  for (const id of ["D4", "D3", "D1", "D5", "D7", "L7", "F7", "R7", "B7"]) {
-    expect(keepD.has(id as never), `十字(D) 应保留 ${id}`);
-  }
-  const u = presetGrayState("cross", "U");
-  expect(u.mutable.length === 45, `十字(U) 应灰 45：${u.mutable.length}`);
-  const keepU = new Set(allStickerIds().filter((id) => !graySet(u).has(id)));
-  for (const id of ["U4", "U3", "U1", "U5", "U7", "L1", "F1", "R1", "B1"]) {
-    expect(keepU.has(id as never), `十字(U) 应保留 ${id}`);
-  }
+check("stickering: 初始十字预设（六色底统一展示帧 P1-6）", () => {
+  // 展示帧已由 baseFaceSetupAlg(base) 把所选底色转到 D 面位，故六色底预设保留集统一落在展示帧底面（D 十字）
+  const expectCross = ["D4", "D3", "D1", "D5", "D7", "L7", "F7", "R7", "B7"];
   for (const face of ["D", "U", "F", "B", "L", "R"] as Face[]) {
-    expect(presetGrayStickers("cross", face).length === 45, `十字(${face}) 应灰 45`);
+    expect(presetGrayStickers("cross", face).length === 45, `十字(${face}) stickers 应灰 45`);
+    const s = presetGrayState("cross", face);
+    expect(s.mutable.length === 45, `十字(${face}) 应灰 45：${s.mutable.length}`);
+    const keep = new Set(allStickerIds().filter((id) => !graySet(s).has(id)));
+    for (const id of expectCross) {
+      expect(keep.has(id as never), `十字(${face}) 展示帧应保留 ${id}`);
+    }
   }
 });
 
-check("stickering: 桥式左右桥预设", () => {
-  const left = presetGrayState("roux-left", "D");
-  expect(left.mutable.length === 41, `左桥(D) 应灰 41：${left.mutable.length}`);
-  const keepL = new Set(allStickerIds().filter((id) => !graySet(left).has(id)));
-  for (const id of ["L3", "L4", "L5", "L6", "L7", "L8", "F3", "F6", "B5", "B8", "D3", "D0", "D6"]) {
-    expect(keepL.has(id as never), `左桥(D) 应保留 ${id}`);
-  }
-  const right = presetGrayState("roux-right", "D");
-  expect(right.mutable.length === 41, `右桥(D) 应灰 41：${right.mutable.length}`);
-  const keepR = new Set(allStickerIds().filter((id) => !graySet(right).has(id)));
-  for (const id of ["R3", "R4", "R5", "R6", "R7", "R8", "F5", "F8", "B3", "B6", "D5", "D2", "D8"]) {
-    expect(keepR.has(id as never), `右桥(D) 应保留 ${id}`);
-  }
+check("stickering: 桥式左右桥预设（六色底统一展示帧 P1-6）", () => {
+  const expectLeft = ["L3", "L4", "L5", "L6", "L7", "L8", "F3", "F6", "B5", "B8", "D3", "D0", "D6"];
+  const expectRight = ["R3", "R4", "R5", "R6", "R7", "R8", "F5", "F8", "B3", "B6", "D5", "D2", "D8"];
   for (const face of ["D", "U", "F", "B", "L", "R"] as Face[]) {
-    expect(presetGrayStickers("roux-left", face).length === 41, `左桥(${face}) 应灰 41`);
-    expect(presetGrayStickers("roux-right", face).length === 41, `右桥(${face}) 应灰 41`);
+    const left = presetGrayState("roux-left", face);
+    expect(left.mutable.length === 41, `左桥(${face}) 应灰 41：${left.mutable.length}`);
+    const keepL = new Set(allStickerIds().filter((id) => !graySet(left).has(id)));
+    for (const id of expectLeft) {
+      expect(keepL.has(id as never), `左桥(${face}) 展示帧应保留 ${id}`);
+    }
+    const right = presetGrayState("roux-right", face);
+    expect(right.mutable.length === 41, `右桥(${face}) 应灰 41：${right.mutable.length}`);
+    const keepR = new Set(allStickerIds().filter((id) => !graySet(right).has(id)));
+    for (const id of expectRight) {
+      expect(keepR.has(id as never), `右桥(${face}) 展示帧应保留 ${id}`);
+    }
   }
 });
 

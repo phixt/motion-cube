@@ -201,7 +201,7 @@ export class HandCalibView {
     this.dragCleanup = null;
     this.dragging = null;
     this.resizeObserver.disconnect();
-    this.rebuild();
+    this.clearRig();
     this.renderer.dispose();
     try {
       this.renderer.forceContextLoss?.();
@@ -254,12 +254,16 @@ export class HandCalibView {
     this.render();
   }
 
-  private rebuild(): void {
+  private clearRig(): void {
     for (const d of this.disposables) disposeObject(d.obj);
     this.disposables.length = 0;
     for (const child of [...this.rootGroup.children]) {
       this.rootGroup.remove(child);
     }
+  }
+
+  private rebuild(): void {
+    this.clearRig();
     const rig = createRigFromConfig(this.cfg, "right");
     // 0.4.0 low-poly 重构：handMesh 截面放样生成器（测量视图关标记；左视开描边）
     const built = buildHandMesh(this.cfg, rig, 1, {

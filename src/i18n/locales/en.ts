@@ -130,10 +130,12 @@ export const en: Record<string, string> = {
   "hud.statusUndo": "Undid one move",
   "hud.statusCleared": "Cleared",
   "hud.statusReset": "Reset",
+  "hud.statusRestored": "Restored last progress",
 
   // Solver
   "solve.btn": "Solve",
   "solve.solving": "Solving",
+  "solve.cancel": "Cancel",
   "solve.methodCfop": "CFOP",
   "solve.methodCfopAdv": "Advanced CFOP",
   "solve.methodRoux": "Roux",

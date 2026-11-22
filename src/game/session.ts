@@ -65,6 +65,7 @@ export function createGameSession(
     getBase: () => activeBase,
     getKind: () => "mutable",
     getPositions: () => overlay.currentPositions(),
+    isVisible: () => !grayPanelHost.hidden,
     applyPreset: (p: GrayPreset | "clear") => {
       grayState.state = p === "clear" ? createGrayState() : presetGrayState(p, activeBase);
       overlay.requestApply(grayState.state);
@@ -79,6 +80,11 @@ export function createGameSession(
     playing = value;
     hooks.onPlaying(value);
   }
+
+  // F3：订阅播放结束/暂停通知，播完自动释放 HUD「暂停」态
+  const unsubPlaying = player.onPlayingChange((isPlaying) => {
+    if (playing !== isPlaying) setPlaying(isPlaying);
+  });
 
   function undo(): void {
     if (history.length === 0) {
@@ -104,6 +110,7 @@ export function createGameSession(
       player.pause();
       setPlaying(false);
     } else {
+      if (!player.currentAlg.trim()) return;
       player.play();
       setPlaying(true);
     }
@@ -120,7 +127,9 @@ export function createGameSession(
       hooks.onStatus(t("hud.statusParseFail", { error: parsed.error }));
       return null;
     }
+    history.length = 0; // F15：套用公式后清空逐步撤销栈，避免撤销删掉刚套用公式的末步
     player.setMoves(parsed.normalized);
+    setPlaying(false);
     hooks.onReset();
     hooks.onStatus(t("hud.statusApplied"));
     return parsed.normalized;
@@ -158,14 +167,18 @@ export function createGameSession(
     gray: {
       togglePanel: () => {
         grayPanelHost.hidden = !grayPanelHost.hidden;
+        if (!grayPanelHost.hidden) grayPanelApi.refresh();
       },
     },
     togglePlay,
     applyAlg,
     setSpeed: (v) => player.setSpeed(v),
     dispose: () => {
+      unsubPlaying();
+      grayPanelApi.dispose();
       overlay.dispose();
       keymap.detach();
+      player.dispose();
       delete window.__motionCube;
     },
   };

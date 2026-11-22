@@ -8,14 +8,27 @@ import { createGameSession, type GameSession } from "../../game/session";
 import { clearSnapshot, loadSnapshot, saveSnapshot } from "../../data/snapshot";
 import { parseMoves } from "../../notation/alg";
 import { useI18n } from "../i18n";
-import { applyAlg as applyAlgState, randomScramble, solvedState, solve as solveCube, prepareSolvers } from "../../cube/solver";
+import { applyAlg as applyAlgState, randomScramble, solvedState } from "../../cube/solver";
 import type { SolveResult } from "../../cube/solver";
+import {
+  disposeSolverWorker,
+  solveAsync,
+  SolveCancelledError,
+  warmupSolvers,
+} from "../../cube/solver/solverClient";
 import * as methodOpts from "../../cube/solver/methodOptions";
 import SolverOptionsPanel from "../components/SolverOptionsPanel.vue";
 import { baseFaceSetupAlg } from "../../cube/stickering";
 import { loadSettings } from "../../settings";
 
 const { t } = useI18n();
+const globalBase = loadSettings().baseFace;
+
+/** cubing 两套动画时长基准（render.md F2）：
+ *  - `experimentalAddMove`（逐步打乱/解法演示/键盘）走 CatchUpHelper，1x = 500ms；
+ *  - `element.play()`（时间轴整段播放）走 AlgDuration，1x = 1000ms。 */
+const CUBING_CATCHUP_SEC = 0.5;
+const CUBING_TIMELINE_SEC = 1.0;
 
 const stageEl = ref<HTMLElement | null>(null);
 const grayPanelEl = ref<HTMLElement | null>(null);
@@ -107,12 +120,28 @@ const copySolve = async (): Promise<void> => {
 
 // 解法演示：从当前打乱态逐步施加解法（不重放打乱）
 const demoRunning = ref(false);
+let activeDemoKind: "none" | "scramble" | "solve" = "none";
 let demoToken = 0;
 let sleepResolve: (() => void) | null = null;
 const cancelDemo = (): void => {
   demoToken++;
+  activeDemoKind = "none";
   if (sleepResolve) { const r = sleepResolve; sleepResolve = null; r(); }
   if (demoRunning.value) demoRunning.value = false;
+};
+
+// Worker 求解取消句柄（Step 1：求解迁出主线程，支持真实中断）
+let activeSolveCancel: (() => void) | null = null;
+const cancelSolve = (): void => {
+  if (activeSolveCancel) {
+    const fn = activeSolveCancel;
+    activeSolveCancel = null;
+    fn();
+  }
+  if (solving.value) {
+    solving.value = false;
+    status.value = "";
+  }
 };
 
 let session: GameSession | null = null;
@@ -141,11 +170,9 @@ onMounted(() => {
     onStatus: (s) => (status.value = s),
     onPlaying: (p) => (playing.value = p),
   });
-  // 求解表预热：避免首次点击求解把建表（PDB+图库，~几百 ms）算进求解耗时
-  const run = (): void => { try { prepareSolvers(); } catch { /* 预热失败也可在首次求解时惰性建表 */ } };
-  if ("requestIdleCallback" in window) (window as unknown as { requestIdleCallback: (f: () => void, o?: { timeout: number }) => void }).requestIdleCallback(run, { timeout: 2000 });
-  else setTimeout(run, 100);
-// 进度快照：进入游戏恢复上次达成步骤
+  // 求解表预热（Web Worker 后台执行，零主线程卡顿）
+  warmupSolvers();
+  // 进度快照：进入游戏恢复上次达成步骤
   const snap = loadSnapshot();
   if (snap) {
     // 恢复口径：整段完整序列（与快照写入源同源）；显示日志只回填最近 LOG_LIMIT 步
@@ -156,12 +183,14 @@ onMounted(() => {
     void session.player.requestRender();
     progressAlg.value = restored;
     moves.value = restored.split(/\s+/).filter(Boolean).slice(-LOG_LIMIT);
-    status.value = "已恢复上次进度";
+    status.value = t("hud.statusRestored");
   }
 });
 
 onBeforeUnmount(() => {
   cancelDemo();
+  cancelSolve();
+  disposeSolverWorker();
   session?.dispose();
   session = null;
 });
@@ -175,7 +204,13 @@ const applyAlg = (): void => {
     syncProgress(); // 应用公式后完整序列 = 新公式（快照随之更新，不再停留在旧进度）
   }
 };
-const togglePlay = (): void => session?.togglePlay();
+const togglePlay = (): void => {
+  if (!playing.value) {
+    // 时间轴整段播放使用 1000ms 基准
+    session?.setSpeed(CUBING_TIMELINE_SEC / (speed.value || 1));
+  }
+  session?.togglePlay();
+};
 const reset = (): void => {
   cancelDemo();
   session?.player.reset();
@@ -186,8 +221,17 @@ const reset = (): void => {
 };
 const toggleGray = (): void => session?.gray.togglePanel();
 
-// speed = 每步秒数（s/步）；cubing tempoScale = 1/s（基准 1000ms@1.00s/步）
-watch(speed, (v) => session?.setSpeed(1 / (v || 1)));
+// speed = 每步秒数（s/步）：逐步演示走 catch-up 500ms 基准，时间轴播放走 1000ms 基准（F2/F5）
+watch(speed, (v) => {
+  if (activeDemoKind === "scramble") return;
+  const base = activeDemoKind === "solve" ? CUBING_CATCHUP_SEC : CUBING_TIMELINE_SEC;
+  session?.setSpeed(base / (v || 1));
+});
+watch(scrambleSpeed, (v) => {
+  if (activeDemoKind === "scramble") {
+    session?.setSpeed(CUBING_CATCHUP_SEC / (v || 0.05));
+  }
+});
 
 // 每步达成后自动保存快照（复用编辑器/tauri 持久）：只监听完整进度序列（字符串，非深监听，
 // 每步一次轻量落盘），与 24 条封顶的显示日志彻底解耦（P1-7）
@@ -203,9 +247,8 @@ const clearProgress = (): void => {
 };
 
 /** 生成随机打乱（20 步，与 WCA 同风格）并逐步播放。
- *  打乱速度用独立滑条 scrambleSpeed（s/步，默认 0.33s ≈ 3x；上限 3.0s、下限 0.20s ≈ 5x）。
- *  步间隔 = s/步 × 1000ms —— 与 cubing 动画时长（tempoScale=1 时 1000ms）同基准，动画播完
- *  再下一步，避免跳变截断。与演示播放统一「s/步」语义（消灭旧 420ms/1000ms 双基准遗留）。 */
+ *  F2/F5：`applyMove` 走 cubing catch-up（500ms@1x），故 `tempoScale = 0.5 / s` 使每步动画
+ *  填满 `s * 1000ms` 区间（消除 50% 停顿）；且每步动态读取 `scrambleSpeed.value`，打乱中改速即时生效。 */
 const scrambleCube = async (): Promise<void> => {
   if (!session || demoRunning.value) return;
   cancelDemo();
@@ -214,13 +257,14 @@ const scrambleCube = async (): Promise<void> => {
   status.value = t("hud.scrambled", { n: 20 });
   session.player.pause();
   demoRunning.value = true;
+  activeDemoKind = "scramble";
   const myToken = demoToken;
-  // 打乱动画实时速度 = 1/s（cubing tempoScale）；步间隔 = s/步 × 1000ms（播完再下一步）
-  session.player.setSpeed(1 / scrambleSpeed.value);
-  const delay = Math.max(60, scrambleSpeed.value * 1000);
   let applied = 0;
   for (const mv of scr.split(" ")) {
     if (demoToken !== myToken) break;
+    const sec = scrambleSpeed.value || 0.05;
+    session.player.setSpeed(CUBING_CATCHUP_SEC / sec);
+    const delay = Math.max(60, sec * 1000);
     session.player.applyMove(mv);
     applied++;
     await new Promise<void>((r) => {
@@ -233,9 +277,10 @@ const scrambleCube = async (): Promise<void> => {
     scrambleAlg.value = scr.split(" ").slice(0, applied).join(" ");
     return;
   }
+  activeDemoKind = "none";
   demoRunning.value = false;
   session.player.pause(); // 停在打乱态
-  session.player.setSpeed(1 / speed.value); // 恢复演示滑条速度（防打乱倍速残留）
+  session.player.setSpeed(CUBING_TIMELINE_SEC / (speed.value || 1)); // 恢复演示滑条速度（防打乱倍速残留）
 };
 
 /** 当前真实魔方状态：已解 + 底色整体旋转（六色底开关关 = 固定 D）+ 玩家步 */
@@ -247,62 +292,61 @@ const currentState = (): Uint8Array => {
   return applyAlgState(solvedState(), alg);
 };
 
-const doSolve = (): void => {
+const doSolve = async (): Promise<void> => {
   if (!session || solving.value || demoRunning.value) return;
   cancelDemo();
+  cancelSolve();
   solving.value = true;
   solveResult.value = null;
   solveError.value = "";
   status.value = t("solve.solving");
-  // 让状态栏/按钮先刷新，再跑同步求解（预热未完成时首解会建表 ~几百 ms）
-  void nextTick(() => {
-    try {
-      // 解法底（多色底/6 色底，多选集合）：对每底分别求解并取最短；空数组兜底=全局底
-      const bases = solveBase.value.length ? solveBase.value : [loadSettings().baseFace];
-      const method = methodOpts.resolveSolverMethod(solveMethod.value, solveOptions.value);
-      let best: SolveResult | null = null;
-      for (const b of bases) {
-        const res = solveCube(currentState(), method, b);
-        if (!best || res.moves.length < best.moves.length) best = res;
-      }
-      /* bases 恒非空（默认放全局底色上，面板最少保留一个底） */
-      const chosen = best as SolveResult;
-      solveResult.value = chosen;
-      status.value = chosen.moves.length ? t("solve.total", { n: chosen.moves.length }) : t("solve.empty");
-    } catch (e) {
-      solveError.value = (e as Error).message;
-      status.value = t("solve.fail", { error: solveError.value });
-    } finally {
-      solving.value = false;
-    }
-  });
+  const bases = solveBase.value.length ? solveBase.value : [loadSettings().baseFace];
+  const method = methodOpts.resolveSolverMethod(solveMethod.value, solveOptions.value);
+  const { promise, cancel } = solveAsync(currentState(), method, bases);
+  activeSolveCancel = cancel;
+  try {
+    const chosen = await promise;
+    if (activeSolveCancel !== cancel) return;
+    solveResult.value = chosen;
+    status.value = chosen.moves.length ? t("solve.total", { n: chosen.moves.length }) : t("solve.empty");
+  } catch (e) {
+    if (e instanceof SolveCancelledError) return;
+    solveError.value = (e as Error).message;
+    status.value = t("solve.fail", { error: solveError.value });
+  } finally {
+    if (activeSolveCancel === cancel) activeSolveCancel = null;
+    solving.value = false;
+  }
 };
 
 const closeSolve = (): void => {
   cancelDemo();
+  cancelSolve();
   solveResult.value = null;
   solveError.value = "";
 };
 
 /** 演示：从当前打乱态开始，逐步播放解法（不重放打乱）。
- *  若解被指定底（solveResult.setupAlg 非空）：先播 setupAlg（动态：把「所选底色中心当前所在
- *  面位」整体旋转到 D，视觉转到对应底）→ 播 moves → 末尾播 endAlg（动态收尾：把还原终点
- *  整块旋转到所选底朝向 solved）——「全程所选底视角、解完停在所选底」语义落地（2026-08-22
- *  实证：baseFaceSetupAlg 表 F↔x'/B↔x 方向修复 + solve 动态 setup/endAlg；verify 34/34）。 */
+ *  F2/F5：每步走 catch-up 500ms 基准（`tempoScale = 0.5 / s`）并动态读取 `speed.value`。 */
 const demoSolve = async (): Promise<void> => {
   const s = session;
-  if (!s || !solveResult.value || demoRunning.value) return;
+  if (!s || !solveResult.value) return;
+  if (demoRunning.value) {
+    cancelDemo();
+    return;
+  }
   const movesToShow = solveResult.value.moves;
   if (!movesToShow.length) return;
   cancelDemo();
   demoRunning.value = true;
+  activeDemoKind = "solve";
   const myToken = demoToken;
   s.player.pause();
-  // s/步 统一基准：cubing tempoScale = 1/s；步间隔 = s/步 × 1000ms（动画播完再下一步）
-  s.player.setSpeed(1 / speed.value); // 演示用演示滑条速度（打乱后防残留）
-  const delay = Math.max(60, speed.value * 1000);
   const play = async (mv: string): Promise<boolean> => {
     if (demoToken !== myToken) return false;
+    const sec = speed.value || 0.05;
+    s.player.setSpeed(CUBING_CATCHUP_SEC / sec);
+    const delay = Math.max(60, sec * 1000);
     s.player.applyMove(mv);
     await new Promise<void>((r) => {
       sleepResolve = r;
@@ -310,10 +354,6 @@ const demoSolve = async (): Promise<void> => {
     });
     return true;
   };
-  // 解法底视角保持（方案 A）：开头播 setupAlg 把魔方整块旋转到所选底朝向（视觉）；
-  // 中段播 moves（该底视角坐标解，还原到标准 solved）；末尾播 endAlg（setupAlg 的逆整块
-  // 旋转）把标准 solved 转回所选底朝向收尾——全程保持所选底视角、解完也停在该底朝向，
-  // 消除「整块旋转即被解回标准朝向」的「底不生效 / 底变成对面」视觉遗留。
   const setup = solveResult.value.setupAlg;
   if (setup) {
     for (const mv of setup.split(" ")) if (!(await play(mv))) return;
@@ -323,6 +363,7 @@ const demoSolve = async (): Promise<void> => {
   if (endAlg) {
     for (const mv of endAlg.split(" ")) if (!(await play(mv))) return;
   }
+  activeDemoKind = "none";
   demoRunning.value = false;
   scrambleAlg.value = "";
   status.value = t("solve.done");
@@ -381,7 +422,7 @@ const demoSolve = async (): Promise<void> => {
       class="solve-options-float"
       v-model="solveOptions"
       :solve-base="solveBase"
-      :global-base="loadSettings().baseFace"
+      :global-base="globalBase"
       @update:solve-base="(b) => (solveBase = b)"
       :group="currentOptionGroup"
     />
@@ -390,6 +431,9 @@ const demoSolve = async (): Promise<void> => {
 
     <div v-if="solving" class="solve-panel">
       <div class="solve-title">{{ t("solve.solving") }}…</div>
+      <div class="solve-actions">
+        <WinButton id="btn-solve-cancel" :Content="t('solve.cancel')" @Click="cancelSolve" />
+      </div>
     </div>
 
     <div v-else-if="solveError" class="solve-panel">

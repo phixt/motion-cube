@@ -60,6 +60,13 @@ export class CubePlayer {
   private _alg = "";
   /** 设置公式后的延迟重绘定时器（cubing 后端场景懒初始化窗口内重试） */
   private renderRetries: ReturnType<typeof setTimeout>[] = [];
+  private disposed = false;
+  /** 每次 cubing render-scheduled 回调集合（dispose 时清空，避免卸载后继续驱动已销毁消费方） */
+  private renderScheduledListeners = new Set<() => void>();
+  /** 播放态变化回调集合（播放结束时通知 HUD 释放「暂停」态，见 render.md F3） */
+  private playingListeners = new Set<(playing: boolean) => void>();
+  private lastReportedPlaying = false;
+  private detachPlayingModel: (() => void) | null = null;
 
   /** 当前公式（用于编辑器捕获起始态等；cubing 侧不提供读取 API） */
   get currentAlg(): string {
@@ -95,13 +102,35 @@ export class CubePlayer {
     container.appendChild(this.element);
     void this.element
       .experimentalCurrentThreeJSPuzzleObject(() => {
+        if (this.disposed) return;
         if (this.cubeObj) this.cubeObj.visible = this.cubeVisible;
       })
       .then((obj) => {
+        if (this.disposed) return;
         this.cubeObj = obj ?? null;
         if (obj) obj.visible = this.cubeVisible;
       })
       .catch(() => {});
+
+    // 订阅 cubing 内部 playingInfo：时间轴播完自动通知 HUD 释放「暂停」态（F3）
+    const playingInfo = (
+      this.element as unknown as {
+        experimentalModel?: {
+          playingInfo?: {
+            addFreshListener?: (cb: (info: { playing: boolean }) => void) => void;
+            removeFreshListener?: (cb: (info: { playing: boolean }) => void) => void;
+          };
+        };
+      }
+    ).experimentalModel?.playingInfo;
+    if (playingInfo?.addFreshListener) {
+      const listener = (info: { playing: boolean }): void => {
+        if (this.disposed) return;
+        this.notifyPlaying(Boolean(info?.playing));
+      };
+      playingInfo.addFreshListener(listener);
+      this.detachPlayingModel = () => playingInfo.removeFreshListener?.(listener);
+    }
   }
 
   // ---- render 后端（R1 阶段1） ----
@@ -135,7 +164,24 @@ export class CubePlayer {
       const name = q.seq[q.i++];
       if (MOVES[name]) rc.playMove(name);
     }
-    if (q.i >= q.seq.length && !rc.isAnimating) this.renderQueue = null;
+    if (q.i >= q.seq.length && !rc.isAnimating) {
+      this.renderQueue = null;
+      this.notifyPlaying(false);
+    }
+  }
+
+  private notifyPlaying(isPlaying: boolean): void {
+    if (this.lastReportedPlaying === isPlaying) return;
+    this.lastReportedPlaying = isPlaying;
+    for (const cb of this.playingListeners) cb(isPlaying);
+  }
+
+  /** 订阅播放态变化（时间轴播完 / 暂停 / 开始）；返回取消订阅函数 */
+  onPlayingChange(cb: (playing: boolean) => void): () => void {
+    this.playingListeners.add(cb);
+    return () => {
+      this.playingListeners.delete(cb);
+    };
   }
 
   private stopRenderQueue(): void {
@@ -144,13 +190,18 @@ export class CubePlayer {
 
   /// ---- 抽象渲染接口（阶段 0 收敛；两后端等价实现） ----
 
-  onThreeScene(onRecreate: () => void): Promise<Object3D> {
+  /** 获取 3D 魔方根对象，并注册 `render-scheduled` 回调（cubing 每次调度渲染触发，见 P1-5） */
+  onThreeScene(onRenderScheduled: () => void): Promise<Object3D> {
     if (this.renderCube) {
-      // render 后端无场景重建：root 已挂在宿主场景，onRecreate 不触发
-      void onRecreate;
+      // render 后端无场景重建：root 已挂在宿主场景，onRenderScheduled 不触发
+      void onRenderScheduled;
       return Promise.resolve(this.renderCube.root);
     }
-    return this.element!.experimentalCurrentThreeJSPuzzleObject(onRecreate);
+    this.renderScheduledListeners.add(onRenderScheduled);
+    return this.element!.experimentalCurrentThreeJSPuzzleObject(() => {
+      if (this.disposed || !this.renderScheduledListeners.has(onRenderScheduled)) return;
+      onRenderScheduled();
+    });
   }
 
   async requestRender(): Promise<void> {
@@ -284,8 +335,14 @@ export class CubePlayer {
     this.element!.cameraDistance = distance;
   }
 
-  /** 释放后端资源（render 后端卸载宿主与轮询；cubing 后端移除元素） */
+  /** 释放后端资源（render 后端卸载宿主与轮询；cubing 后端移除元素并清空回调） */
   dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.renderScheduledListeners.clear();
+    this.playingListeners.clear();
+    this.detachPlayingModel?.();
+    this.detachPlayingModel = null;
     if (this.renderHost) {
       window.clearInterval(this.renderPollId);
       this.renderHost.dispose();
@@ -295,6 +352,8 @@ export class CubePlayer {
       return;
     }
     this.clearRenderRetries();
+    this.element?.pause();
     this.element?.remove();
+    this.cubeObj = null;
   }
 }

@@ -128,10 +128,12 @@ export const zhCN: Record<string, string> = {
   "hud.statusUndo": "已撤销一步",
   "hud.statusCleared": "已清空",
   "hud.statusReset": "已重置",
+  "hud.statusRestored": "已恢复上次进度",
 
   // 求解
   "solve.btn": "求解",
   "solve.solving": "求解中",
+  "solve.cancel": "取消",
   "solve.methodCfop": "CFOP",
   "solve.methodCfopAdv": "CFOP 高级",
   "solve.methodRoux": "Roux",
