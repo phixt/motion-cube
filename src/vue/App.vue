@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import WinButton from "../vendor/winui-on-web/components/WinButton.vue";
 import WinNavigationView from "../vendor/winui-on-web/components/WinNavigationView.vue";
@@ -114,17 +114,68 @@ const cycleParallax = () => {
   const next = ((parallaxIntensityRef.value + 1) % 4) as ParallaxIntensity;
   saveParallaxIntensity(next);
 };
+
+// ---- Tauri 无边框自绘标题栏窗口控制（decorations: false，仅桌面端启用） ----
+const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+const isMaximized = ref(false);
+let unlistenResize: (() => void) | null = null;
+
+async function withTauriWindow(fn: (win: import("@tauri-apps/api/window").Window) => Promise<void> | void): Promise<void> {
+  if (!isTauri) return;
+  const { getCurrentWindow } = await import("@tauri-apps/api/window");
+  await fn(getCurrentWindow());
+}
+
+const onWinMinimize = () => {
+  void withTauriWindow((w) => w.minimize());
+};
+const onWinToggleMaximize = () => {
+  void withTauriWindow(async (w) => {
+    await w.toggleMaximize();
+    isMaximized.value = await w.isMaximized();
+  });
+};
+const onWinClose = () => {
+  void withTauriWindow((w) => w.close());
+};
+const onTitlebarMouseDown = (e: MouseEvent) => {
+  if (!isTauri || e.button !== 0) return;
+  const target = e.target as HTMLElement | null;
+  if (target?.closest("button, select, input, a, .titlebar-actions, .win-caption-controls")) return;
+  if (e.detail === 2) {
+    onWinToggleMaximize();
+  } else {
+    void withTauriWindow((w) => w.startDragging());
+  }
+};
+
+onMounted(() => {
+  if (!isTauri) return;
+  void withTauriWindow(async (w) => {
+    isMaximized.value = await w.isMaximized();
+    unlistenResize = await w.onResized(async () => {
+      isMaximized.value = await w.isMaximized();
+    });
+  });
+});
+
+onBeforeUnmount(() => {
+  unlistenResize?.();
+  unlistenResize = null;
+});
 </script>
 
 <template>
   <WinToolTipService />
   <WinTitleBar
     class="app-titlebar"
+    :class="{ 'is-tauri-desktop': isTauri }"
     :Title="t('app.title')"
     PreferredHeightOption="Tall"
     :IsBackButtonVisible="false"
     :IsPaneToggleButtonVisible="true"
     TitleBarContentHorizontalAlignment="Stretch"
+    @mousedown="onTitlebarMouseDown"
     @PaneToggleRequested="onPaneToggle">
     <div class="titlebar-actions">
       <select class="lang-select" :value="locale" @change="onLocaleChange">
@@ -135,6 +186,13 @@ const cycleParallax = () => {
       <WinButton :Content="`${t('material.label')}: ${materialLabel}`" @Click="cycleMaterial" />
       <WinButton :Content="uiScaleLabel" @Click="cycleUiScale" />
       <WinButton :Content="parallaxLabel" @Click="cycleParallax" />
+      <div v-if="isTauri" class="win-caption-controls" role="group" aria-label="Window controls">
+        <button type="button" class="win-caption-btn" aria-label="Minimize" @click="onWinMinimize">&#xE921;</button>
+        <button type="button" class="win-caption-btn" :aria-label="isMaximized ? 'Restore' : 'Maximize'" @click="onWinToggleMaximize">
+          {{ isMaximized ? "\uE923" : "\uE922" }}
+        </button>
+        <button type="button" class="win-caption-btn win-caption-close" aria-label="Close" @click="onWinClose">&#xE8BB;</button>
+      </div>
     </div>
   </WinTitleBar>
 
@@ -192,6 +250,43 @@ const cycleParallax = () => {
   gap: 8px;
   margin-left: auto;
   align-items: center;
+  -webkit-app-region: no-drag;
+}
+
+.app-titlebar.is-tauri-desktop {
+  --TitleBarMinDragRegionWidth: 0px;
+}
+
+.win-caption-controls {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+  margin-left: 8px;
+  -webkit-app-region: no-drag;
+}
+
+.win-caption-btn {
+  width: 46px;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--SymbolThemeFontFamily, "WinUIOnWebIcons", "Segoe Fluent Icons", "Segoe MDL2 Assets");
+  font-size: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.win-caption-btn:hover {
+  background: var(--subtle-secondary, rgba(128, 128, 128, 0.16));
+}
+
+.win-caption-btn.win-caption-close:hover {
+  background: #c42b1c;
+  color: #ffffff;
 }
 
 .lang-select {

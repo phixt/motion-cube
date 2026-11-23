@@ -19,6 +19,8 @@ import { applyAlg, CUBIES, MOVE_NAMES, MOVES, rot, solvedState, stickerIndex } f
 import type { Vec3 } from "../src/cube/solver/engine.ts";
 import { applyAlgPose, axisAngleMat, m3Apply, quarterMat, type PoseState } from "../src/cube/render/pose.ts";
 import { FACE_COLORS, RenderCube } from "../src/cube/render/RenderCube.ts";
+import { AUTO_SPIN_RAD_PER_SEC } from "../src/cube/render/RenderCubeHost.ts";
+import { baseFaceSetupAlg, FACES, type Face } from "../src/cube/stickering.ts";
 
 const PASS: string[] = [];
 const FAIL: string[] = [];
@@ -195,6 +197,87 @@ const randV3 = (): Vec3 => [RNG() * 2 - 1, RNG() * 2 - 1, RNG() * 2 - 1];
   rcL.reset();
   check("L1 reset 后 state == solved", stateEq(rcL.committedPose.state, solvedState()));
   check("L2 reset 后历史清（undo 返回 false）", rcL.undo() === false);
+}
+
+// ---- M：F7 播放中改速保持进度连续（不瞬移、不倒退）----
+{
+  // 加速 1 -> 4：原 dur=300ms 播了 150ms (p=0.5)，改速后 dur=75ms，t 应换算为 37.5ms (p=0.5)，不得立即完成
+  const rcFast = new RenderCube({ internalRaf: false, speed: 1 });
+  rcFast.playMove("R");
+  rcFast.step(0.15);
+  const pBefore = rcFast.debugAnimProgress()!;
+  rcFast.setSpeed(4);
+  const pAfterFast = rcFast.debugAnimProgress()!;
+  check("M0 播放中加速进度连续不瞬移", rcFast.isAnimating && Math.abs(pAfterFast - pBefore) < 1e-6, `before=${pBefore} after=${pAfterFast}`);
+  rcFast.step(0.01); // 推进 10ms / 75ms，仍在动画中且单调递增
+  check("M1 加速后单调前进未提前完成", rcFast.isAnimating && (rcFast.debugAnimProgress() ?? 0) > pAfterFast);
+  rcFast.step(0.1);
+  check("M2 加速后正常完成提交", !rcFast.isAnimating && stateEq(rcFast.committedPose.state, applyAlg(solvedState(), "R")));
+
+  // 减速 1 -> 0.25：原 dur=300ms 播了 180ms (p=0.6)，改速后 dur=900ms，t 应换算为 540ms (p=0.6)，不得倒退
+  const rcSlow = new RenderCube({ internalRaf: false, speed: 1 });
+  rcSlow.playMove("U");
+  rcSlow.step(0.18);
+  const pSlowBefore = rcSlow.debugAnimProgress()!;
+  rcSlow.setSpeed(0.25);
+  const pSlowAfter = rcSlow.debugAnimProgress()!;
+  check("M3 播放中减速进度连续不倒退", rcSlow.isAnimating && Math.abs(pSlowAfter - pSlowBefore) < 1e-6, `before=${pSlowBefore} after=${pSlowAfter}`);
+}
+
+// ---- N：F6 setMovesInstant 后复位重播，贴纸态不二次施加 ----
+{
+  const rcN = new RenderCube({ internalRaf: false });
+  rcN.setMovesInstant("R U F'");
+  const target = applyAlg(solvedState(), "R U F'");
+  check("N0 setMovesInstant 末态准确", stateEq(rcN.committedPose.state, target));
+  // 模拟 CubePlayer.play()：先 reset() 回起点，再逐帧播放序列
+  rcN.reset();
+  for (const mv of ["R", "U", "F'"]) {
+    rcN.playMove(mv);
+    rcN.step(0.4);
+  }
+  check("N1 reset+重播后末态严格等于 applyAlg(R U F')（无二次施加）", stateEq(rcN.committedPose.state, target));
+}
+
+// ---- O：F8 onMoveDone 同帧零空档链式队列播放 + step 返回脏标记 ----
+{
+  const seq = ["R", "U", "R'", "U'"];
+  let idx = 0;
+  let rcO!: RenderCube;
+  rcO = new RenderCube({
+    internalRaf: false,
+    onMoveDone: () => {
+      if (idx < seq.length) rcO.playMove(seq[idx++]);
+    },
+  });
+  check("O0 空闲 step 返回 false（按需渲染不空转）", rcO.step(0.016) === false);
+  rcO.playMove(seq[idx++]);
+  // 每步 300ms，连续 4×0.31s = 1.24s 内无任何轮询空档完成全部 4 步
+  let dirtyFrames = 0;
+  for (let k = 0; k < 4; k++) if (rcO.step(0.31)) dirtyFrames++;
+  check("O1 同帧链式队列 4 步零空档完成", dirtyFrames === 4 && !rcO.isAnimating && stateEq(rcO.committedPose.state, applyAlg(solvedState(), seq)));
+}
+
+// ---- P：F11 六色底 baseSetupAlg 支持 + reset 保持底色朝向 ----
+{
+  const FACE_IDX: Record<Face, number> = { U: 0, R: 1, F: 2, D: 3, L: 4, B: 5 };
+  let allBaseOk = true;
+  for (const f of FACES) {
+    const setup = baseFaceSetupAlg(f);
+    const rcP = new RenderCube({ internalRaf: false, baseSetupAlg: setup });
+    const dCenter0 = rcP.committedPose.state[3 * 9 + 4];
+    if (dCenter0 !== FACE_IDX[f]) allBaseOk = false;
+    rcP.applyMoveNow("R");
+    rcP.reset();
+    const dCenter1 = rcP.committedPose.state[3 * 9 + 4];
+    if (dCenter1 !== FACE_IDX[f]) allBaseOk = false;
+  }
+  check("P 六色底(U/R/F/D/L/B) 初始与 reset 后 D 面中心均与底色一致", allBaseOk);
+}
+
+// ---- Q：F13 autoSpin 角速度单位正确（rad/s ≈ 0.085）----
+{
+  check("Q RenderCubeHost AUTO_SPIN_RAD_PER_SEC 单位为 rad/s（非 1/1000）", AUTO_SPIN_RAD_PER_SEC >= 0.05 && AUTO_SPIN_RAD_PER_SEC <= 0.2);
 }
 
 

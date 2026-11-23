@@ -9,7 +9,7 @@
 - Vite 8 + TypeScript + Vue 3.5（vue-router 4，hash 路由）
 - UI：WinUI 风格控件（[WinUIonWeb](https://github.com/Furry-Xiyi/WinUIonWeb) vendored，GPL-3.0，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)）
 - 3D：cubing.js（TwistyPlayer 魔方）+ three.js（low-poly 手部模型，双手显示）
-- 桌面版：Tauri 2（NSIS 打包，当前为本地 `npm run tauri build` 手工发布）
+- 桌面版：Tauri 2（无边框自绘标题栏 + CSP；NSIS 打包，支持本地 `npm run tauri build` 或 `v*` tag 触发 Release CI，当前未代码签名）
 
 ## 项目结构
 
@@ -33,7 +33,7 @@ motion-cube/
 ├─ scripts/                # 验证与截图工具（verify-* / smoke-* / playtest-* / shot-* / gen-*）
 ├─ tools/icon-lab/         # 应用图标生成工具
 ├─ src-tauri/              # Tauri 桌面壳（Rust；NSIS 打包；应用图标）
-└─ .github/workflows/      # CI（typecheck / build / verify / 版本同步 / Rust check；playtest 与 Release 待补）
+└─ .github/workflows/      # CI（typecheck / build / verify / 版本同步 / Rust check / playtest）+ Release（v* tag 触发 NSIS 打包）
 ```
 
 数据持久化全在 localStorage（settings / keymap / editorKeymap / library / handRig 等）；进度与待办以 [docs/todo.md](docs/todo.md) 为唯一总账。
@@ -74,7 +74,8 @@ WinUI 控件预览页（壳与控件的独立验证载体）：`npm run dev` 后
 
 ```bash
 node scripts/verify-notation.mjs    # 记法解析/序列化自检（纯 Node）
-node scripts/playtest-ui.mjs        # 完整 UI 流程回归（需先起 dev server，可用 SPIKE_URL 指定地址）
+node scripts/run-playtest-ci.mjs    # 一键起 vite preview(4174) 跑 UI + Solver 全量回归（需先 npm run build）
+node scripts/playtest-ui.mjs        # 完整 UI 流程回归（支持 SPIKE_URL 指定地址）
 node scripts/shot-shell.mjs         # 壳回归截图（7 路由 + 主题/材质切换）
 node scripts/shot-preview.mjs       # WinUI 预览页截图
 ```

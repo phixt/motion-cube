@@ -13,7 +13,7 @@
  * 每 commit 一步用 engine.applyMove 同步；二者一致性由自检保证。
  */
 
-import { applyMove, CUBIES, MOVES, parseAlg, type State, type Vec3 } from "../solver/engine.ts";
+import { applyMove, MOVES, parseAlg, type State, type Vec3 } from "../solver/engine.ts";
 
 /** 3x3 单位矩阵（列向量基：mat[i] = 第 i 轴在世界中的像） */
 export const IDENT3: Vec3[] = [
@@ -92,16 +92,6 @@ export type PiecePose = { pos: Vec3; rot: Vec3[] };
 /** 27 块逻辑姿态（index 与 engine.CUBIES 对齐；home = CUBIES[i].pos） */
 export type PoseState = { pieces: PiecePose[]; state: State };
 
-/**
- * 求解器态（54 贴纸）→ 块姿态（颜色落到 home 槽位）。用于外部 setState 同步：
- * 每块贴纸颜色 = state[stickerIndex(home 当前像)]；仅对整数姿态可逆。
- * 注意：此映射是「从颜色反推块位置」，仅当 state 合法（isUniform 层次）时准确。
- */
-export function poseFromState(state: State): PoseState {
-  const pieces = CUBIES.map((c) => ({ pos: c.pos.slice() as Vec3, rot: IDENT3.map((v) => v.slice() as Vec3) }));
-  return { pieces, state: state.slice() as State };
-}
-
 /** 在逻辑姿态上执行一步（90° 整数步）：参与层块的 pos/rot 左乘轴矩阵并同步 54 贴纸态 */
 export function applyMovePose(p: PoseState, name: string): PoseState {
   const m = MOVES[name];
@@ -129,14 +119,4 @@ export function pieceStickerWorld(pc: PiecePose, dir: Vec3): { center: Vec3; nor
     pc.pos[2] + 1.5 * n[2],
   ];
   return { center, normal: n };
-}
-
-/** 54 贴纸的规范世界坐标（块未细分贴纸面时，用于 view 建贴纸） */
-export const STICKER_WORLD: Vec3[] = new Array(54);
-{
-  for (const c of CUBIES) {
-    for (const s of c.stickers) {
-      STICKER_WORLD[s.index] = [c.pos[0] + 1.5 * s.normal[0], c.pos[1] + 1.5 * s.normal[1], c.pos[2] + 1.5 * s.normal[2]];
-    }
-  }
 }

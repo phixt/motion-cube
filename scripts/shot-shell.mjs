@@ -1,29 +1,13 @@
 // WinUI 壳回归截图（开发用）：起 dev server 后运行 node scripts/shot-shell.mjs
 // 遍历 7 个路由，验证关键元素存在，并测试主题/材质切换。
-// 环境变量：SPIKE_URL（默认 http://localhost:5173）
-import { existsSync, mkdirSync, mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import puppeteer from "puppeteer-core";
+// 环境变量：SPIKE_URL（默认 http://localhost:5174）
+import { existsSync, mkdirSync } from "node:fs";
+import { launchBrowser } from "./_browser.mjs";
 
-const CHROME = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
-const EDGE = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
 const OUT = "spike-shots";
 if (!existsSync(OUT)) mkdirSync(OUT);
 
-const executablePath = existsSync(CHROME) ? CHROME : EDGE;
-const userDataDir = mkdtempSync(join(tmpdir(), "shell-shot-"));
-const browser = await puppeteer.launch({
-  executablePath,
-  headless: true,
-  args: [
-    "--enable-unsafe-swiftshader",
-    "--use-angle=swiftshader",
-    `--user-data-dir=${userDataDir}`,
-    "--window-size=1440,900",
-  ],
-  defaultViewport: { width: 1440, height: 900 },
-});
+const browser = await launchBrowser({ prefix: "shell-shot-", width: 1440, height: 900 });
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const page = await browser.newPage();
@@ -37,7 +21,7 @@ page.on("response", (r) => {
   if (r.status() >= 400) errors.push(`[http ${r.status()}] ${r.url()}`);
 });
 
-const base = process.env.SPIKE_URL ?? "http://localhost:5173";
+const base = process.env.SPIKE_URL ?? "http://localhost:5174";
 
 const ROUTES = [
   { route: "start", expect: ".start-page" },

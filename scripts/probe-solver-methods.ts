@@ -3,9 +3,9 @@
  * 目的：实证「CFOP 高级常比普通多步」是否仍存在；双路线取短修复后应恒 adv ≤ normal。
  * 运行：npx tsx scripts/probe-solver-methods.ts [N]（Windows 侧；WSL 缺 linux esbuild 二进制）
  */
-import { CFOP } from "../src/cube/solver/cfop";
-import { ROUX } from "../src/cube/solver/roux";
-import { applyAlg, solvedState, MOVE_NAMES, MOVES } from "../src/cube/solver/engine";
+import { CFOP } from "../src/cube/solver/cfop.ts";
+import { ROUX } from "../src/cube/solver/roux.ts";
+import { applyAlg, solvedState, MOVE_NAMES, MOVES } from "../src/cube/solver/engine.ts";
 
 const FACE_MOVES = MOVE_NAMES.filter((n) => {
   const l = MOVES[n].layers;

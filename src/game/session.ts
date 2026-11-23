@@ -43,10 +43,20 @@ export function createGameSession(
 ): GameSession {
   const settings = loadSettings();
   const activeBase = settings.sixColorBase ? settings.baseFace : "D";
-  // 回退（2026-08-20）：游戏页恢复 cubing 后端——render 后端在真机浏览器崩溃
-  // （headless/swiftshader 验证通过但真机 GPU 环境失败），R1 render 轨整体待重做
-  // （重做前必须先经真机验证，详见 docs/todo.md 技术债区）。
-  const player = new CubePlayer(stage, { cameraDistance: 6.5, baseFace: activeBase });
+  // 默认保持 cubing 后端（与 GrayOverlay / 全部现有回归稳定兼容）；
+  // 支持通过 URL `?backend=render` 或 localStorage["motion-cube.renderBackend"]="render" 试点切换自建 RenderCube。
+  const wantRender =
+    typeof window !== "undefined" &&
+    (window.location.hash.includes("backend=render") ||
+      window.location.search.includes("backend=render") ||
+      (() => {
+        try { return localStorage.getItem("motion-cube.renderBackend") === "render"; } catch { return false; }
+      })());
+  const player = new CubePlayer(stage, {
+    cameraDistance: 6.5,
+    baseFace: activeBase,
+    backend: wantRender ? "render" : "cubing",
+  });
 
   // ---- 标灰：状态 + 3D 覆盖层 + 面板 ----
   const grayState: { state: GrayState } = { state: createGrayState() };

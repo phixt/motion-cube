@@ -36,9 +36,12 @@
   ② **ZBLS 0% → 100% 四槽统一**（`zbls.ts` / `cfop.ts`）：重构为 1200 态特征键 `(DRF角, FR棱, 其余4活跃槽LL棱EO)` + `viewState` 四槽归一，全收录 302/302 case（含原被遗漏的 32 条棱 home 角乱）；`cfop.ts` 按「第 4 组 + LL」整体总步数择短，CFOP+ 均步数 59.2 → **47.1**（净省 **12.1 步**，0 例变长）；恢复 `verify-zbls-rounds` F 段硬断言（906/906）并新增 G 段生产路径断言（100/100）；
   ③ **Roux EOLR 真生效**（`roux.ts`）：新增 `eolrDb`/`eolrUb`/`eolrPseudo` 三张 `<M,U>` 轻量求解器（建表 ~15ms）+ 修复 cuberoot `lse-eolr` 命名表 `um` 配对；Roux+ 均步数 45.6 → **44.2**（0 例变长，不再退化为 `roux-merge`）；放宽 `block2` 14→16、`eo`/`ulur` 12→14 深度余量；
   ④ **回归与健壮性收口**：5 种方法全进 `smoke-solver`（CI 跑 15 轮含高级分支断言）与 `smoke-solver-edge`；`verify-solve-base` 补 A6 `endAlg` 与 A7 24×6=144 组合端到端收尾底色断言；`algs.ts` 非法状态抛错；删 `cfop.ts` 不可达 `EJECT[4]`；更新基线 `docs/solver-baseline.json` 与 i18n 提示文案。
-- ⬜ **Step 3｜按需二选一主线**：
-  - **A 线（编辑器 & 手部）**：自定义开始态批 → 拆 `EditorPage.vue`（4 composable + 复杂记法展开 + 未保存提示）→ 手部死参数/拇指 IP/碰撞箱。
-  - **B 线（基建 & 渲染）**：playtest 改造（`vite preview` + 跨平台 `_browser.mjs`）并入 CI + 可选补 `release.yml` → 修 `RenderCube` 5 处 bug 并试点切默认后端 → Tauri 双标题栏与 CSP。
+- 🚧 **Step 3｜按需二选一主线**：
+  - ⬜ **A 线（编辑器 & 手部）**：自定义开始态批 → 拆 `EditorPage.vue`（4 composable + 复杂记法展开 + 未保存提示）→ 手部死参数/拇指 IP/碰撞箱。
+  - ✅ **B 线（基建 & 渲染）**（2026-11-23 已落地 + 全量校验/真机回归通过）：
+    ① **Playtest 跨平台并入 CI + Release 流水线**：抽 `scripts/_browser.mjs`（跨平台 Chrome/Edge 探测 + 临时目录清理 + `domcontentloaded` 稳定 `openApp`，淘汰 `networkidle0`）与 `scripts/run-playtest-ci.mjs`（自启 `vite preview:4174` 跑 `playtest-ui` + `playtest-solver`，`playtest-solver` 兼容无 `__motionCube` 生产包）；接入 `.github/workflows/ci.yml` `playtest` job，新增 `.github/workflows/release.yml`（`v*` tag 版本一致性校验 + NSIS 打包 + GitHub Release）；顺手修 3 处误用 5173 端口的脚本、`probe-solver-methods.ts` 扩展名、删除失效 `playtest-spike.mjs`；
+    ② **`RenderCube` 5 处 bug 修复 + 试点开关**：修 `setMovesInstant`+`play()` 防二次施加（F6）、`setSpeed` 按进度比例换算防瞬移/倒退（F7）、删 60ms 轮询改 `onMoveDone` 同帧零空档队列 + `RenderCubeHost` 按需脏渲染（F8）、支持 `baseFace` 六色底 `baseSetupAlg`（F11）、修 `AUTO_SPIN_RAD_PER_SEC=0.085` 单位错误（F13）、清理 `pose.ts` 死代码（F16）、扩充 `verify-render-cube.ts` 至 32 项断言（M–Q）；游戏页开放 `?backend=render` / `localStorage["motion-cube.renderBackend"]="render"` 试点开关（默认保稳留 `cubing`）；
+    ③ **Tauri 无边框自绘标题栏 & CSP**：`decorations: false` + 最小窗口权限 capabilities + `App.vue` 仅桌面端渲染 Win11 最小化/最大化/关闭按钮及拖拽区；收紧 CSP（兼容 Web Worker / WinUI 内联样式 / `asset:` / `ipc:`）；清理无效 `.icns` 并补全描述与版权；`cargo check` 与浏览器端验证全绿。
 
 ### 代码审计轮（2026-10-27 新增）
 > 全面代码审查结论：**docs/audit/REVIEW-2026-10.md**（含逐条证据与复现方式）
@@ -187,15 +190,13 @@
 
 **P2 技术债（按主题，完整逐条证据见 docs/audit/*.md）**
 - ✅ 求解全程主线程同步（Step 1 已迁 Web Worker：`solver.worker.ts` + `solverClient.ts`，后台预热 + 真实取消）。
-- ⬜ `zbl.ts` 头注释「任意棱已定向顶层态都恰有一条 ZBLL 一步解」实测假（命中率 50%）。
-- ⬜ `cfop.solveSlot` 的 EJECT[4] 兜底不可达（0/2436）且语义写错（弹的是角不是棱）。
-- ⬜ verify-zbls-rounds F 段无硬断言（712/726 脱靶被容忍）、B 段自证式循环。
-- ⬜ smoke 只覆盖 3/5 方法；roux-merge / roux-adv 无任何 CI 覆盖。
+- ✅ `zbl.ts` 头注释与运行时命中率已于 Step 2 升级并统一为 **7776/7776 = 100%**。
+- ✅ `cfop.solveSlot` 的不可达 `EJECT[4]` 兜底与死条目 `EJECT_E[8]` 已于 Step 2 清理。
+- ✅ `verify-zbls-rounds` F 段已于 Step 2 恢复硬断言（906/906），并新增 G 段真实生产路径断言（100/100）。
+- ✅ `smoke-solver` / `smoke-solver-edge` 已于 Step 2 覆盖全部 5 种求解方法并进 CI（15 轮）。
 - ⬜ solver-baseline.json 是金标准但生成脚本直接覆写、无 --check、无校验。
 - ✅ `CubePlayer.dispose()` / 灰面板 `window` pointerup 清理 / `GrayOverlay.init` 重试 / 套用公式清 `history`（Step 1 已全部收口）。
-- ⬜ render 后端（休眠）尚有 5 处会坏：setMoves 重上色 22/54 错色、播中改速瞬移/倒退、
-  300ms/步 与 1000ms 基准冲突、setState 永久切 state 材质、play() 在当前态上重播；
-  RenderCubeHost 自动自转慢 1000 倍；pose.ts 死代码 + 误导注释。
+- ✅ render 后端 5 处缺陷（F6 `setMovesInstant`+`play`、F7 `setSpeed` 进度连续、F8 同帧队列+按需脏渲染、F11 `baseFace` 六色底、F13 `AUTO_SPIN_RAD_PER_SEC` 单位）+ `pose.ts` 死代码已于 Step 3 B 线修复并补齐 `verify-render-cube.ts` 32 项断言。
 - ✅ `HandRigView.dispose()` / 接触球共享几何材质复用池 / `HandCalibView.dispose()` 改 `clearRig()`（Step 1 已修）。
 - ⬜ `shape.web` 是死参数（被规范化/持久化/有滑条但几何从不消费）；拇指 IP 关节组为空
   → 编辑器 IP 弯曲滑条完全无视觉效果。
@@ -222,13 +223,9 @@
   公式库搜索结果落在默认折叠分组里 → 搜得到看不见；无标签/分类过滤。
 - ⬜ 完全没有单元测试运行器、无统一 npm test 入口（事实套件 = 40+ 一次性脚本）
   → 建议零依赖 node:test 最小骨架。
-- ⬜ 20 个浏览器脚本硬编码 Windows 浏览器路径；networkidle0 卡点根因实为 Vite 依赖预打包 reload
-  竞态；无人起 dev server → headless CI 目前不可行。
-- ⬜ extract-solver-data.mjs 用仓库外绝对路径静默覆写两个已跟踪的求解器源码文件；
-  probe-solver-methods.ts 无扩展名 import 必崩；playtest-spike.mjs 断言已不存在的 #alg-input；
-  3 个脚本默认落到 5173；measure-hand.mjs 什么都没测。
-- ⬜ Tauri：csp=null 无 CSP；NSIS 包无 Authenticode 签名与时间戳；bundle 仅 Windows；
-  Rust 侧 serde/serde_json 无用依赖。
+- ✅ 核心 playtest/回归脚本跨平台化（`scripts/_browser.mjs`）+ `vite preview` + `domcontentloaded` 消除 `networkidle0` 卡点 + `run-playtest-ci.mjs` 已并入 CI（Step 3 B 线）。
+- ⬜ extract-solver-data.mjs 用仓库外绝对路径静默覆写两个已跟踪的求解器源码文件；measure-hand.mjs 什么都没测（`probe-solver-methods.ts` 扩展名、失效 `playtest-spike.mjs`、3 处默认 5173 端口已于 Step 3 B 线清理）。
+- ⬜ Tauri 剩余项：NSIS 包无 Authenticode 签名与时间戳；bundle 仅 Windows；Rust 侧 serde/serde_json 无用依赖（无边框自绘标题栏 + 最小 capabilities + CSP 收紧已于 Step 3 B 线落地）。
 - ⬜ package.json 无 engines / 无 .node-version；CI 用浮动 node-version: 22。
 - ⬜ 文档漂移：todo.md:45 称 reference/「已入库」（实际被 gitignore）；hand-api-spec.md:61 禁改清单
   含已删除的 handGeometry.ts 且端口写成 5175（标准 5174）；AGENTS.md 对同一验证命令同时写 node 与 tsx。

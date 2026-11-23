@@ -7,23 +7,18 @@
  *          PlaneGeometry 半宽 0.95 @ dir*1.5，法向朝外）
  *
  * 块变换由逻辑姿态驱动（src/cube/render/pose.ts 的 PoseState：块中心规范尺度
- * {±1/0}³、rot 3x3 单位矩阵；贴纸面中心 = 块 + 法线*1.5）。动画 = C1 队列语义
- * （reference/rubik-anime-lab.html）：anim { mi, axis, layers, from, to, t, dur }；
- * step(dt) 用 easeOut(x)=1-(1-x)^3 在 [from,to] 间插值；到 dur 时 commit（applyMovePose
- * 同步逻辑姿态与 54 贴纸 state，压历史栈）。可中断：新 move 直接丢弃当前动画、几何 snap
- * 回 committed 姿态再开新动画（同 cubing experimentalAddMove(cancel:true)）。
+ * {±1/0}³、rot 3x3 单位矩阵；贴纸面中心 = 块 + 法线*1.5）。动画 = C1 队列语义：
+ * anim { mi, axis, layers, from, to, t, dur }；step(dt) 用 easeOut(x)=1-(1-x)^3
+ * 在 [from,to] 间插值；到 dur 时 commit（applyMovePose 同步逻辑姿态与 54 贴纸 state，
+ * 压历史栈）。可中断：新 move 直接丢弃当前动画、几何 snap 回 committed 姿态再开新动画。
  *
- * 拖转（B1 语义）：setLayerVisual 在无动画时把参与层按当前角视觉旋转（不触碰逻辑态）；
- * endPointer 用 dragMove(axis,layers,from,to,dur,mi) 开吸附动画——mi 为 null 时是净零
- * 拖转（|n|<半步），动画到点直接回 committed、不提交不压栈。anim.from 支持使吸附起点
- * 从拖拽当前角起。
- *
- * 贴纸 = 物理模型：颜色 = 所属块 home 面固定色（随块转）。外部 setState(state54)
- *（编辑器恢复/快照）时每张贴纸切到独立 stateMaterial 重涂为槽位色，几何保持 committed
- * 姿态。
- *
- * 渲染驱动：宿主已有 rAF 循环（编辑器场景）→ 每帧调 step(dt)；独立挂载置
- * internalRaf=true 自行驱动。
+ * 2026-11-23 Step 3 B 线修复（docs/audit/render.md F6/F7/F8/F11）：
+ *   - F6：新增 setMovesInstant(moves) 从 basePose 物理推进块姿态与贴纸态，
+ *     避免 setState 重涂后再播造成贴纸态二次施加；
+ *   - F7：setSpeed() 按比例换算 anim.t（保持进度 t/dur 连续），不再瞬移或倒退；
+ *   - F8：step(dt) 返回是否发生视觉变化 + onVisualChange 回调，支撑宿主按需脏渲染与
+ *     onMoveDone 同帧零空档队列驱动；
+ *   - F11：支持 baseSetupAlg（六色底整块旋转朝向），构造/reset/setMovesInstant 均保留底色朝向。
  */
 
 import {
@@ -38,9 +33,8 @@ import {
   Vector3,
   type Object3D,
 } from "three";
-import { CUBIES, MOVES, stickerIndex, type State, type Vec3 } from "../solver/engine.ts";
-import { applyMovePose, axisAngleMat, m3Apply, type PoseState } from "./pose.ts";
-import { IDENT3 } from "./pose.ts";
+import { CUBIES, MOVES, parseAlg, stickerIndex, type State, type Vec3 } from "../solver/engine.ts";
+import { applyAlgPose, applyMovePose, axisAngleMat, IDENT3, m3Apply, type PoseState } from "./pose.ts";
 
 /** cubing 3x3 官方配色（面序 U/R/F/D/L/B） */
 export const FACE_COLORS: number[] = [0xffffff, 0xff9900, 0x00ff00, 0xffff00, 0xff0000, 0x2266ff];
@@ -49,7 +43,7 @@ export const CUBE_WORLD_SCALE = 1 / 3;
 
 const easeOut = (x: number) => 1 - (1 - x) ** 3;
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-/** C1 playDur：300/speed ms 夹 [70, 900]（保留参考实现语义；基准统一已在重做清单） */
+/** C1 playDur：300/speed ms 夹 [70, 900] */
 const playDur = (speed: number) => clamp(300 / Math.max(0.05, speed), 70, 900);
 
 type BlockView = {
@@ -62,8 +56,12 @@ export type RenderCubeOptions = {
   internalRaf?: boolean;
   /** tempoScale 语义：1 = 1x，越大越快 */
   speed?: number;
+  /** 基础整块旋转朝向（如六色底 baseFaceSetupAlg(baseFace)）；构造与 reset() 时施加 */
+  baseSetupAlg?: string;
   onMoveDone?: (mi: string) => void;
   onStateChange?: (state: Uint8Array) => void;
+  /** 视觉发生改变时通知宿主标脏（按需渲染用） */
+  onVisualChange?: () => void;
 };
 
 type Anim = {
@@ -85,6 +83,7 @@ export class RenderCube {
   private stickerGeo!: PlaneGeometry;
   private bodyMaterial!: MeshBasicMaterial;
   private faceMaterials: MeshBasicMaterial[] = []; // 6 个 home 面色（物理模型）
+  private baseSetupAlg: string;
   private poseState!: PoseState;
   private history: PoseState[] = [];
   private anim: Anim | null = null;
@@ -95,15 +94,19 @@ export class RenderCube {
   private disposed = false;
   private onMoveDone?: (mi: string) => void;
   private onStateChange?: (state: Uint8Array) => void;
+  private onVisualChange?: () => void;
 
   constructor(options: RenderCubeOptions = {}) {
     this.speed = options.speed ?? 1;
     this.internalRaf = options.internalRaf ?? false;
+    this.baseSetupAlg = options.baseSetupAlg?.trim() ?? "";
     this.onMoveDone = options.onMoveDone;
     this.onStateChange = options.onStateChange;
-    this.poseState = RenderCube.solvedPose();
+    this.onVisualChange = options.onVisualChange;
+    this.poseState = this.createBasePose();
     this.history.push(this.clonePose(this.poseState));
     this.buildRoot();
+    this.syncBlocks();
   }
 
   private static solvedPose(): PoseState {
@@ -111,6 +114,11 @@ export class RenderCube {
       pieces: CUBIES.map((c) => ({ pos: c.pos.slice() as Vec3, rot: IDENT3.map((v) => v.slice() as Vec3) })),
       state: new Uint8Array(54).fill(0).map((_, i) => (i / 9) | 0),
     };
+  }
+
+  private createBasePose(): PoseState {
+    const solved = RenderCube.solvedPose();
+    return this.baseSetupAlg ? applyAlgPose(solved, this.baseSetupAlg) : solved;
   }
 
   private clonePose(p: PoseState): PoseState {
@@ -125,7 +133,7 @@ export class RenderCube {
     this.root.scale.setScalar(CUBE_WORLD_SCALE);
     this.bodyGeo = new BoxGeometry(1.96, 1.96, 1.96); // 半宽 0.98（微缝）
     this.bodyMaterial = new MeshBasicMaterial({ color: 0x000000 });
-    this.stickerGeo = new PlaneGeometry(1.9, 1.9); // 半宽 0.95（圆角后续可加）
+    this.stickerGeo = new PlaneGeometry(1.9, 1.9); // 半宽 0.95
     this.faceMaterials = FACE_COLORS.map((c) => new MeshBasicMaterial({ color: new Color(c) }));
 
     for (let i = 0; i < CUBIES.length; i++) {
@@ -151,6 +159,29 @@ export class RenderCube {
       this.blocks.push({ group: g, stickers });
       this.root.add(g);
     }
+  }
+
+  private restorePhysicalMaterials(): void {
+    for (const b of this.blocks) {
+      for (const st of b.stickers) {
+        if (st.mesh.material !== st.faceMaterial) st.mesh.material = st.faceMaterial;
+      }
+    }
+  }
+
+  private emitVisualChange(): void {
+    this.onVisualChange?.();
+  }
+
+  /** 注册视觉变更回调（供宿主 RenderCubeHost 标脏按需渲染） */
+  setVisualChangeHandler(cb: (() => void) | undefined): void {
+    this.onVisualChange = cb;
+  }
+
+  /** 更新基础底色旋转朝向并复位至新底色起点 */
+  setBaseSetup(alg: string): void {
+    this.baseSetupAlg = alg.trim();
+    this.reset();
   }
 
   /** 挂进宿主场景；internalRaf 时启动自驱循环 */
@@ -181,15 +212,16 @@ export class RenderCube {
     for (const b of this.blocks) for (const st of b.stickers) st.stateMaterial.dispose();
   }
 
-  /** 宿主渲染循环每帧调用；dt 秒 */
-  step(dt: number): void {
-    if (!this.anim) return;
+  /** 宿主渲染循环每帧调用；dt 秒。返回本帧是否有视觉更新（供按需渲染判断） */
+  step(dt: number): boolean {
+    if (!this.anim) return false;
     this.anim.t += dt * 1000;
     const a = this.anim;
     const x = clamp(a.t / a.dur, 0, 1);
     const theta = easeOut(x) * (a.to - a.from) + a.from;
     if (theta !== 0) this.applyVisualRotation(a, theta);
     if (x >= 1) this.commit(a);
+    return true;
   }
 
   private applyVisualRotation(a: { axis: number; layers: number[] }, theta: number): void {
@@ -207,14 +239,17 @@ export class RenderCube {
 
   private commit(a: Anim): void {
     this.anim = null;
-    this.syncBlocks();
-    if (a.mi == null) return; // 净零拖转：不提交、不改状态（视觉已回 committed）
+    if (a.mi == null) {
+      this.syncBlocks(); // 净零拖转：不提交、不改状态（视觉回 committed）
+      return;
+    }
     const before = this.clonePose(this.poseState);
     this.poseState = applyMovePose(this.poseState, a.mi);
     this.history.push(before);
     if (this.history.length > 256) this.history.shift();
-    this.onMoveDone?.(a.mi);
+    this.syncBlocks();
     this.onStateChange?.(this.poseState.state);
+    this.onMoveDone?.(a.mi);
   }
 
   /** 播放一步（可中断：正在播的动画直接丢弃、几何 snap 回 committed） */
@@ -232,6 +267,7 @@ export class RenderCube {
       t: 0,
       dur: playDur(this.speed),
     };
+    this.emitVisualChange();
   }
 
   /**
@@ -242,12 +278,14 @@ export class RenderCube {
     this.anim = null;
     this.syncBlocks();
     this.anim = { mi, axis, layers, from, to, t: 0, dur };
+    this.emitVisualChange();
   }
 
   /** 拖拽实时视觉：无动画时把「参与层」按 theta 视觉旋转（不触碰逻辑姿态/历史） */
   setLayerVisual(axis: number, layers: number[], theta: number): void {
     if (this.anim || theta === 0) return;
     this.applyVisualRotation({ axis, layers }, theta);
+    this.emitVisualChange();
   }
 
   /** 拾取清单：全部块体+贴纸 mesh（body userData={piece}；sticker userData={piece,sticker}） */
@@ -273,16 +311,44 @@ export class RenderCube {
     if (this.history.length > 256) this.history.shift();
     this.poseState = applyMovePose(this.poseState, mi);
     this.syncBlocks();
+    this.emitVisualChange();
+    this.onStateChange?.(this.poseState.state);
     this.onMoveDone?.(mi);
+  }
+
+  /**
+   * 整段公式瞬时直达末态（F6 修复：从 basePose 物理推进块姿态与贴纸，
+   * 保持几何与 54 贴纸严格一致，并恢复物理 faceMaterial）。
+   */
+  setMovesInstant(moves: string | string[]): void {
+    this.anim = null;
+    const base = this.createBasePose();
+    const seq = parseAlg(moves);
+    this.history = [this.clonePose(base)];
+    let cur = base;
+    for (const name of seq) {
+      if (!MOVES[name]) continue;
+      cur = applyMovePose(cur, name);
+      this.history.push(this.clonePose(cur));
+      if (this.history.length > 256) this.history.shift();
+    }
+    // 栈顶为当前态的前一态，与 applyMoveNow/undo 约定保持一致
+    if (this.history.length > 1) this.history.pop();
+    this.poseState = cur;
+    this.restorePhysicalMaterials();
+    this.syncBlocks();
+    this.emitVisualChange();
     this.onStateChange?.(this.poseState.state);
   }
 
-  /** 完全复位：姿态+state 回 solved、清历史栈（几何同步；区别于 setState 只重涂） */
+  /** 完全复位：姿态+state 回基础朝向（basePose）、恢复物理材质、清历史栈 */
   reset(): void {
     this.anim = null;
-    this.poseState = RenderCube.solvedPose();
+    this.poseState = this.createBasePose();
     this.history = [this.clonePose(this.poseState)];
+    this.restorePhysicalMaterials();
     this.syncBlocks();
+    this.emitVisualChange();
     this.onStateChange?.(this.poseState.state);
   }
 
@@ -292,11 +358,12 @@ export class RenderCube {
     this.anim = null;
     this.poseState = this.history.pop()!;
     this.syncBlocks();
+    this.emitVisualChange();
     this.onStateChange?.(this.poseState.state);
     return true;
   }
 
-  /** 外部 54 贴纸态同步（编辑器恢复/快照）：几何保持 committed 姿态，贴纸重涂为槽位色 */
+  /** 外部 54 贴纸态同步（快照重涂）：几何保持 committed 姿态，贴纸重涂为槽位色 */
   setState(state: Uint8Array): void {
     if (this.anim) {
       this.anim = null;
@@ -313,16 +380,24 @@ export class RenderCube {
         if (st.mesh.material !== st.stateMaterial) st.mesh.material = st.stateMaterial;
       }
     }
+    this.emitVisualChange();
     this.onStateChange?.(this.poseState.state);
   }
 
+  /** F7 修复：播放中改速按比例换算已耗时 t，保持进度 t/dur 连续，不瞬移不倒退 */
   setSpeed(speed: number): void {
     this.speed = speed;
-    if (this.anim) this.anim.dur = playDur(speed);
+    if (this.anim) {
+      const progress = this.anim.dur > 0 ? clamp(this.anim.t / this.anim.dur, 0, 1) : 0;
+      const nextDur = playDur(speed);
+      this.anim.dur = nextDur;
+      this.anim.t = progress * nextDur;
+    }
   }
 
   setVisible(v: boolean): void {
     this.root.visible = v;
+    this.emitVisualChange();
   }
 
   /** 调试：第 i 块第 j 张贴纸当前材质色 hex（不含 #）与 home 法线 dir */
@@ -332,6 +407,12 @@ export class RenderCube {
       dir: st.dir,
       hex: (st.mesh.material as MeshBasicMaterial).color.getHexString(),
     };
+  }
+
+  /** 调试：当前动画进度 [0, 1]（无动画时返回 null） */
+  debugAnimProgress(): number | null {
+    if (!this.anim || this.anim.dur <= 0) return null;
+    return clamp(this.anim.t / this.anim.dur, 0, 1);
   }
 
   /** 全块变换从 committed 姿态重设 */

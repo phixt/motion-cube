@@ -56,6 +56,8 @@ const deg = (d: number) => (d * Math.PI) / 180;
 const TAN_HALF = Math.tan(FOV / 2);
 /** 拖拽外表面平面（世界坐标）：规范面中心在 1.5，/3 → 0.5 */
 const FACE_PLANE = 1.5 * CUBE_WORLD_SCALE;
+/** 自动自转角速度（rad/s）：等价参考实现 0.000085 rad/ms，约 74 秒一圈（F13 修复秒/毫秒单位） */
+export const AUTO_SPIN_RAD_PER_SEC = 0.085;
 
 /** 由 engine 表反查（轴, 层集, 四分位）→ move 名；q==0 或未映射 → null（净零） */
 export function moveFor(axis: number, layers: number[], quarter: number): string | null {
@@ -142,6 +144,7 @@ export class RenderCubeHost {
   private dist: number;
   private autoSpin: boolean;
   private idle = 0;
+  private dirty = true;
   private rafId = 0;
   private lastT = 0;
   private disposed = false;
@@ -174,6 +177,9 @@ export class RenderCubeHost {
     this.onInteractionChange = options.onInteractionChange;
     this.onManualMove = options.onManualMove;
     this.optionsCanPick = options.canPick ?? null;
+    this.renderCube.setVisualChangeHandler(() => {
+      this.dirty = true;
+    });
     this.renderCube.mount(this.scene);
     this.canvas.style.display = "block";
     this.canvas.style.touchAction = "none";
@@ -202,10 +208,16 @@ export class RenderCubeHost {
       this.renderer.setSize(w, h);
       this.camera.aspect = w / h;
       this.camera.updateProjectionMatrix();
+      this.dirty = true;
     };
     this.ro = new ResizeObserver(apply);
     this.ro.observe(this.container);
     apply();
+  }
+
+  /** 显式标脏，下一帧执行渲染（按需渲染 F8） */
+  requestRender(): void {
+    this.dirty = true;
   }
 
   private start(): void {
@@ -219,15 +231,18 @@ export class RenderCubeHost {
         if (!this.drag && !this.renderCube.isAnimating) {
           this.idle += dt * 1000;
           if (this.idle > 2600) {
-            this.yaw += dt * 0.000085;
+            this.yaw += dt * AUTO_SPIN_RAD_PER_SEC;
             this.updateCamera();
           }
         } else {
           this.idle = 0;
         }
       }
-      this.renderCube.step(dt);
-      this.renderer.render(this.scene, this.camera);
+      if (this.renderCube.step(dt)) this.dirty = true;
+      if (this.dirty) {
+        this.renderer.render(this.scene, this.camera);
+        this.dirty = false;
+      }
       this.rafId = requestAnimationFrame(loop);
     };
     this.rafId = requestAnimationFrame(loop);
@@ -238,6 +253,7 @@ export class RenderCubeHost {
     const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw);
     this.camera.position.set(this.dist * cp * sy, this.dist * sp, this.dist * cp * cy);
     this.camera.lookAt(0, -0.1, 0);
+    this.dirty = true;
   }
 
   /** 设置相机球坐标（yaw/pitch/dist，rad）；cubing 对齐换算由调用方做 */

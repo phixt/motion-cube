@@ -12,22 +12,11 @@
 //   若断言本身写错（与 docs/ 规格或产品实际语义不符）则修正断言，并在脚本注释里写明理由。
 import { existsSync, mkdirSync, appendFileSync } from "node:fs";
 import { join } from "node:path";
-import puppeteer from "puppeteer-core";
+import { launchBrowser as launchSharedBrowser } from "./_browser.mjs";
 
-const CHROME = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
-const EDGE = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
 const BASE = process.env.SPIKE_URL ?? "http://localhost:5174/";
 const OUT = "spike-shots";
 const LOG = join(OUT, "batch2-matrix.log");
-
-const LAUNCH_ARGS = [
-  "--no-sandbox",
-  "--disable-dev-shm-usage",
-  "--enable-unsafe-swiftshader",
-  "--use-angle=swiftshader",
-  "--disable-gpu-sandbox",
-  "--window-size=1440,900",
-];
 
 const K = {
   library: "motion-cube.library",
@@ -66,13 +55,12 @@ const short = (v, n = 160) => {
 
 // ---------- 浏览器 / 页面 ----------
 async function launchBrowser(label) {
-  const executablePath = existsSync(CHROME) ? CHROME : EDGE;
-  const browser = await puppeteer.launch({
-    executablePath,
-    headless: true,
-    args: LAUNCH_ARGS,
-    defaultViewport: { width: 1440, height: 900 },
+  const browser = await launchSharedBrowser({
+    prefix: "motion-cube-b2-",
+    width: 1440,
+    height: 900,
     protocolTimeout: 120000,
+    extraArgs: ["--disable-gpu-sandbox"],
   });
   browser.__label = label;
   return browser;

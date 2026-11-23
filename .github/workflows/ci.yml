@@ -101,3 +101,34 @@ jobs:
 
       - name: Cargo check
         run: cargo check --manifest-path src-tauri/Cargo.toml
+
+  playtest:
+    name: Headless Browser Playtest (UI + Solver)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Run UI & Solver playtests against vite preview
+        run: node scripts/run-playtest-ci.mjs
+
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playtest-shots
+          path: spike-shots/*.png
+          if-no-files-found: ignore

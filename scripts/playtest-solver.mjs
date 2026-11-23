@@ -33,24 +33,13 @@
 //     - Roux EOLR 补 3 伪位 <M,U> ItemSolver + 修复 cuberoot 命名表 um 配对（0 例变长）。
 //     本脚本同时验证默认模式（CFOP / Roux）及勾选高级项（CFOP+ / Roux+）。
 // ============================================================================
-import { existsSync, mkdirSync, mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import puppeteer from "puppeteer-core";
+import { existsSync, mkdirSync } from "node:fs";
+import { launchBrowser, openApp } from "./_browser.mjs";
 
-const CHROME = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
-const EDGE = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
 const URL = process.env.SPIKE_URL ?? "http://localhost:5174/";
 const OUT = "spike-shots";
 if (!existsSync(OUT)) mkdirSync(OUT);
-const executablePath = existsSync(CHROME) ? CHROME : EDGE;
-const userDataDir = mkdtempSync(join(tmpdir(), "motion-cube-solver-"));
-const browser = await puppeteer.launch({
-  executablePath,
-  headless: true,
-  args: ["--enable-unsafe-swiftshader", "--use-angle=swiftshader", `--user-data-dir=${userDataDir}`, "--window-size=1280,800"],
-  defaultViewport: { width: 1280, height: 800 },
-});
+const browser = await launchBrowser({ prefix: "motion-cube-solver-", width: 1280, height: 800 });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const page = await browser.newPage();
 page.setDefaultTimeout(20000);
@@ -58,9 +47,7 @@ page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));
 
 const SCRA = "R U' F2 B2 D' R2 U L F' B2 U2 L2 B U' L D2 R B' U2 R' F' U L2 D' R B2";
 
-await page.goto(URL, { waitUntil: "networkidle0", timeout: 30000 });
-await page.reload({ waitUntil: "networkidle0", timeout: 30000 });
-await page.waitForSelector(".start-page");
+await openApp(page, URL, ".start-page", 30000);
 await page.click(".start-play");
 await page.waitForFunction(() => location.hash === "#/game", { timeout: 10000 });
 await page.waitForFunction(() => !!document.querySelector("twisty-player"), { timeout: 15000 });
@@ -220,6 +207,19 @@ function checkStages(base, key, sig, moves, titleTotal) {
   }
 }
 
+/** 读取当前魔方公式：dev 读 __motionCube（未合并），生产 preview 回退 twisty-player（experimentalAddMove 会 cancel 相邻同面步） */
+const readPlayerAlg = () =>
+  page.evaluate(async () => {
+    const devAlg = globalThis.__motionCube?.player?.currentAlg;
+    if (typeof devAlg === "string") return { alg: devAlg, source: "dev" };
+    const el = document.querySelector("twisty-player");
+    try {
+      return { alg: (await el?.experimentalModel?.alg?.get())?.alg?.toString() ?? "", source: "twisty" };
+    } catch {
+      return { alg: "", source: "twisty" };
+    }
+  });
+
 // 用输入框打乱（先清空再逐键输入，保证 Vue v-model 同步）
 await page.$eval(".hud-alg input", (el) => {
   el.value = "";
@@ -227,7 +227,7 @@ await page.$eval(".hud-alg input", (el) => {
 await page.type(".hud-alg input", SCRA);
 await page.click("#btn-apply");
 await sleep(800);
-const curAlg = await page.evaluate(() => globalThis.__motionCube?.player?.currentAlg ?? "");
+const { alg: curAlg } = await readPlayerAlg();
 if (!curAlg || !curAlg.includes("R")) throw new Error(`打乱未生效：${curAlg}`);
 console.log(`scrambled via box (${curAlg.split(/\s+/).filter(Boolean).length} moves)`);
 
@@ -422,10 +422,17 @@ await page.waitForFunction(
   { timeout: 30000 },
 );
 await sleep(400);
-const doneAlg = await page.evaluate(() => globalThis.__motionCube?.player?.currentAlg ?? "");
+const { alg: doneAlg, source: doneSrc } = await readPlayerAlg();
 const doneTokens = doneAlg.split(/\s+/).filter(Boolean);
-if (doneTokens.length !== 26 + totalSoln) throw new Error(`演示结束步数异常：${doneTokens.length} != ${26 + totalSoln}`);
-console.log(`demo finished: ${doneTokens.length} tokens (= scramble + solution)`);
+if (doneSrc === "dev") {
+  if (doneTokens.length !== 26 + totalSoln) throw new Error(`演示结束步数异常：${doneTokens.length} != ${26 + totalSoln}`);
+} else {
+  // preview 生产包不暴露 __motionCube；twisty experimentalAddMove({cancel:true}) 会合并相邻同面步
+  if (doneTokens.length <= 26 || doneTokens.length > 26 + totalSoln) {
+    throw new Error(`演示结束步数异常(${doneSrc})：${doneTokens.length} (期望 26 < len <= ${26 + totalSoln})`);
+  }
+}
+console.log(`demo finished: ${doneTokens.length} tokens (source=${doneSrc}, raw scramble+solution=${26 + totalSoln})`);
 
 // 已解状态：求解 → 提示已还原、0 步
 await page.click(".solve-actions button:last-child"); // 关闭
@@ -442,13 +449,24 @@ console.log(`solved-state solve ok: ${solvedText}`);
 // 打乱按钮：点击后魔方被随机打乱（currentAlg 非空且含合法步）
 // ⚠ 打乱是**逐步播放**的（GamePage.scrambleCube：20 步 × scrambleSpeed 0.33 s/步 ≈ 6.6s），
 //   旧脚本只等 600ms 就断言「20 步」→ 读到的是播放中的前几步（实测 2 步）→ 误报。
-//   这里改成等播放真正走完（currentAlg 满 20 步）再断言。
+//   这里改成等播放真正走完（状态进入「已打乱」且 alg 满 20 步）再断言。
 await page.click("#btn-scramble");
 await page.waitForFunction(
-  () => (globalThis.__motionCube?.player?.currentAlg ?? "").split(/\s+/).filter(Boolean).length >= 20,
+  async () => {
+    const devAlg = globalThis.__motionCube?.player?.currentAlg;
+    let alg = typeof devAlg === "string" ? devAlg : "";
+    if (!alg) {
+      try {
+        alg = (await document.querySelector("twisty-player")?.experimentalModel?.alg?.get())?.alg?.toString() ?? "";
+      } catch {
+        alg = "";
+      }
+    }
+    return alg.split(/\s+/).filter(Boolean).length >= 20;
+  },
   { timeout: 30000 },
 );
-const scrAlg = await page.evaluate(() => globalThis.__motionCube?.player?.currentAlg ?? "");
+const { alg: scrAlg } = await readPlayerAlg();
 const scrTokens = scrAlg.split(/\s+/).filter(Boolean);
 if (scrTokens.length !== 20) throw new Error(`打乱按钮应产生 20 步：${scrTokens.length}`);
 const scrStatus = await page.$eval("#hud-status", (el) => el.textContent ?? "");

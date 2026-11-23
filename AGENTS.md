@@ -13,7 +13,9 @@
   （tauri 打包以 conf 为准）；功能/修复提交时评估 bump
 - **自动化（GitHub Actions）**：已配置 `.github/workflows/ci.yml`（CI:
   typecheck+build / 版本四处同步校验 / verify-data+hand+solver+base+zbls+i18n+notation /
-  Rust cargo check；playtest 与 Release 流水线待补，当前发布为本地手工 `npm run tauri build`）
+  Rust cargo check / `windows-latest` playtest 跑 `vite preview` + UI & Solver 全流程）
+  与 `.github/workflows/release.yml`（`v*` tag / 手动触发 Tauri NSIS 打包并发布 Release，
+  校验 tag 与四处版本一致，当前未 Authenticode 签名）
 - **Windows**：优先 PowerShell 7（pwsh）；中文输出前设置 UTF-8
   （PowerShell `[Console]::OutputEncoding`、Python `sys.stdout.reconfigure`）；
   沙箱受限进程无法启动 WindowsApps 目录下的别名程序时，用完整路径或提权通道。

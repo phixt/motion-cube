@@ -1,30 +1,14 @@
 // UI 流程验证：路由切换 / 游戏页 / 按键设置（改键+冷却）/ 改键后生效 / 快速连击冷却。
-// 运行：node scripts/playtest-ui.mjs（先起 dev server）
-import { existsSync, mkdirSync, mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import puppeteer from "puppeteer-core";
+// 运行：node scripts/playtest-ui.mjs（先起 dev/preview server，或直接跑 node scripts/run-playtest-ci.mjs）
+import { existsSync, mkdirSync } from "node:fs";
+import { launchBrowser, openApp } from "./_browser.mjs";
 
-const CHROME = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
-const EDGE = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
 const URL = process.env.SPIKE_URL ?? "http://localhost:5174/";
 const OUT = "spike-shots";
 
 if (!existsSync(OUT)) mkdirSync(OUT);
-const executablePath = existsSync(CHROME) ? CHROME : EDGE;
-const userDataDir = mkdtempSync(join(tmpdir(), "motion-cube-ui-"));
 
-const browser = await puppeteer.launch({
-  executablePath,
-  headless: true,
-  args: [
-    "--enable-unsafe-swiftshader",
-    "--use-angle=swiftshader",
-    `--user-data-dir=${userDataDir}`,
-    "--window-size=1280,800",
-  ],
-  defaultViewport: { width: 1280, height: 800 },
-});
+const browser = await launchBrowser({ prefix: "motion-cube-ui-", width: 1280, height: 800 });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const page = await browser.newPage();
 page.setDefaultTimeout(20000);
@@ -105,9 +89,7 @@ const clickTecItem = (name) =>
 const edAlg = () => page.evaluate(() => globalThis.__motionCubeEditor?.player?.currentAlg ?? "");
 
 // 1) 开始页
-await page.goto(URL, { waitUntil: "networkidle0", timeout: 30000 });
-await page.reload({ waitUntil: "networkidle0", timeout: 30000 }); // 预热 Vite 依赖优化，规避 Outdated Optimize Dep
-await page.waitForSelector(".start-page");
+await openApp(page, URL, ".start-page", 30000);
 const startTitle = await page.$eval(".start-title", (el) => el.textContent);
 if (startTitle !== "Motion Cube") throw new Error(`开始页标题异常：${startTitle}`);
 const hasPlayBtn = (await page.$(".start-play")) !== null;

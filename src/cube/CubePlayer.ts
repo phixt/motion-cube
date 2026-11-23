@@ -2,7 +2,7 @@ import { TwistyPlayer } from "cubing/twisty";
 import type { Object3D } from "three";
 import { RenderCube } from "./render/RenderCube.ts";
 import { RenderCubeHost, type RenderCubeHostOptions } from "./render/RenderCubeHost.ts";
-import { applyAlg, MOVES, solvedState, type State } from "./solver/engine.ts";
+import { MOVES, parseAlg, type State } from "./solver/engine.ts";
 import { baseFaceSetupAlg, type Face } from "./stickering";
 
 /**
@@ -30,7 +30,7 @@ export type CubePlayerOptions = {
   cameraLatitude?: number;
   cameraLongitude?: number;
   cameraDistance?: number;
-  /** 全局底色：游戏起始时旋转魔方使底色面朝下（cubing 后端经 setupAlg；render 后端暂忽略） */
+  /** 全局底色：游戏起始时旋转魔方使底色面朝下（cubing 走 setupAlg，render 走 baseSetupAlg） */
   baseFace?: Face;
   /** 渲染后端：'cubing'（默认）| 'render'（R1 阶段1 自建） */
   backend?: "cubing" | "render";
@@ -50,9 +50,8 @@ export class CubePlayer {
   element: TwistyPlayer | null = null;
   private renderHost: RenderCubeHost | null = null;
   private renderCube: RenderCube | null = null;
-  /** render 后端播放队列 {seq, i, playing}；playing=false 表示已暂停 */
+  /** render 后端播放队列 {seq, i, playing}；由 onMoveDone 同帧驱动（0ms 空档，F8 修复） */
   private renderQueue: { seq: string[]; i: number; playing: boolean } | null = null;
-  private renderPollId = 0;
   private baseFace: Face;
   private cubeObj: Object3D | null = null;
   private cubeVisible = true;
@@ -133,41 +132,52 @@ export class CubePlayer {
     }
   }
 
-  // ---- render 后端（R1 阶段1） ----
+  // ---- render 后端（R1 阶段1，F6/F7/F8/F11 已修） ----
   private initRenderBackend(container: HTMLElement, options: CubePlayerOptions): void {
     const rc = new RenderCube({
       speed: 1,
+      baseSetupAlg: baseFaceSetupAlg(this.baseFace),
+      onMoveDone: () => this.onRenderMoveDone(),
       onStateChange: (s) => options.onStateChange?.(s),
     });
+    const hasCustomCam =
+      options.cameraLatitude !== undefined ||
+      options.cameraLongitude !== undefined ||
+      options.cameraDistance !== undefined;
+    const cameraOpt = hasCustomCam
+      ? {
+          yaw: ((options.cameraLongitude ?? 30) * Math.PI) / 180,
+          pitch: ((options.cameraLatitude ?? 20) * Math.PI) / 180,
+          dist: options.cameraDistance ?? 6.5,
+        }
+      : "cubing";
     const host = new RenderCubeHost({
       container,
       renderCube: rc,
+      camera: cameraOpt,
       onManualMove: (ev) => options.onManualMove?.(ev),
       onStateChange: (s) => options.onStateChange?.(s),
       ...options.hostOptions,
     });
     this.renderCube = rc;
     this.renderHost = host;
-    this.renderPollId = window.setInterval(() => this.renderPoll(), 60);
   }
 
-  /** render 后端播放队列驱动：空闲时播下一条；播完或暂停后清队列 */
-  private renderPoll(): void {
+  /** F8：每步动画 commit 后同帧无缝拉起队列下一步（取代 60ms setInterval 轮询） */
+  private onRenderMoveDone(): void {
     const rc = this.renderCube;
     const q = this.renderQueue;
     if (!rc || !q) return;
-    if (!q.playing) {
-      if (!rc.isAnimating) this.renderQueue = null;
-      return;
-    }
-    if (!rc.isAnimating && q.i < q.seq.length) {
+    if (!q.playing) return;
+    while (q.i < q.seq.length) {
       const name = q.seq[q.i++];
-      if (MOVES[name]) rc.playMove(name);
+      if (MOVES[name]) {
+        rc.playMove(name);
+        return;
+      }
     }
-    if (q.i >= q.seq.length && !rc.isAnimating) {
-      this.renderQueue = null;
-      this.notifyPlaying(false);
-    }
+    this.renderQueue = null;
+    this.notifyPlaying(false);
   }
 
   private notifyPlaying(isPlaying: boolean): void {
@@ -184,8 +194,12 @@ export class CubePlayer {
     };
   }
 
-  private stopRenderQueue(): void {
-    if (this.renderQueue) this.renderQueue.playing = false;
+  private stopRenderQueue(clear = false): void {
+    if (this.renderQueue) {
+      if (clear) this.renderQueue = null;
+      else this.renderQueue.playing = false;
+    }
+    this.notifyPlaying(false);
   }
 
   /// ---- 抽象渲染接口（阶段 0 收敛；两后端等价实现） ----
@@ -205,7 +219,10 @@ export class CubePlayer {
   }
 
   async requestRender(): Promise<void> {
-    if (this.renderHost) return; // 宿主自驱 rAF 每帧渲染
+    if (this.renderHost) {
+      this.renderHost.requestRender();
+      return;
+    }
     try {
       const vantages = await this.element!.experimentalCurrentVantages();
       for (const v of vantages) v.scheduleRender();
@@ -228,6 +245,7 @@ export class CubePlayer {
   applyMove(move: string): void {
     this._alg = this._alg ? `${this._alg} ${move}` : move;
     if (this.renderCube) {
+      this.stopRenderQueue(true);
       const name = move.trim();
       if (MOVES[name]) this.renderCube.playMove(name);
       return;
@@ -235,12 +253,12 @@ export class CubePlayer {
     this.element!.experimentalAddMove(move, { cancel: true });
   }
 
-  /** 整段公式替换并直达末态（cubing jumpToEnd 等价；render 后端 = setState 末态） */
+  /** 整段公式替换并直达末态（cubing jumpToEnd 等价；render 后端物理推进块姿态+贴纸态，修复 F6） */
   setMoves(moves: string): void {
     this._alg = moves;
     if (this.renderCube) {
-      this.stopRenderQueue();
-      this.renderCube.setState(applyAlg(solvedState(), moves));
+      this.stopRenderQueue(true);
+      this.renderCube.setMovesInstant(moves);
       return;
     }
     this.element!.alg = moves;
@@ -266,16 +284,26 @@ export class CubePlayer {
     }
   }
 
-  /** 播放：render 后端从头连播 _alg 序列（cubing 时间轴从头播放等价） */
+  /** 播放：render 后端若未在暂停续播状态则先复位到 basePose 起点再从头连播（F6 修复） */
   play(): void {
     if (this.renderCube) {
-      const seq = this._alg.split(/\s+/).filter(Boolean);
+      const seq = parseAlg(this._alg);
       if (seq.length === 0) {
-        this.renderQueue = null;
+        this.stopRenderQueue(true);
         return;
       }
-      this.stopRenderQueue();
+      // 暂停后恢复：若已有未播完的同序列队列，从当前位置续播
+      if (this.renderQueue && !this.renderQueue.playing && this.renderQueue.i < this.renderQueue.seq.length) {
+        this.renderQueue.playing = true;
+        this.notifyPlaying(true);
+        if (!this.renderCube.isAnimating) this.onRenderMoveDone();
+        return;
+      }
+      // 从头播放：先复位至基础朝向起点，避免在末态上二次施加
       this.renderQueue = { seq, i: 0, playing: true };
+      this.renderCube.reset();
+      this.notifyPlaying(true);
+      this.onRenderMoveDone();
       return;
     }
     this.element!.play();
@@ -283,7 +311,7 @@ export class CubePlayer {
 
   pause(): void {
     if (this.renderCube) {
-      this.stopRenderQueue();
+      this.stopRenderQueue(false);
       return;
     }
     this.element!.pause();
@@ -292,7 +320,7 @@ export class CubePlayer {
   reset(): void {
     this._alg = "";
     if (this.renderCube) {
-      this.stopRenderQueue();
+      this.stopRenderQueue(true);
       this.renderCube.reset();
       return;
     }
@@ -306,6 +334,7 @@ export class CubePlayer {
   undoLastMove(): void {
     this._alg = this._alg.split(/\s+/).filter(Boolean).slice(0, -1).join(" ");
     if (this.renderCube) {
+      this.stopRenderQueue(true);
       this.renderCube.undo();
       return;
     }
@@ -344,7 +373,6 @@ export class CubePlayer {
     this.detachPlayingModel?.();
     this.detachPlayingModel = null;
     if (this.renderHost) {
-      window.clearInterval(this.renderPollId);
       this.renderHost.dispose();
       this.renderHost = null;
       this.renderCube = null;
