@@ -104,13 +104,19 @@ export function mirrorPose(pose: Pose): Pose {
       z: -t.quaternion.z,
     },
   });
+  const bends = {} as Pose["bends"];
+  for (const name of FINGER_ORDER) {
+    bends[name] = [...(pose.bends[name] ?? [])];
+  }
   return {
     ...pose,
     palm: {
       transform: mirrorT(pose.palm.transform),
       thumbBase: mirrorT(pose.palm.thumbBase),
     },
+    bends,
     thumbCMC: { ...pose.thumbCMC },
+    contacts: (pose.contacts ?? []).map((c) => ({ ...c })),
   };
 }
 

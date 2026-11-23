@@ -53,6 +53,9 @@ export type Technique = {
 
 export class TechniqueError extends Error {}
 
+/** 帧率硬上限（与编辑器预设最高挡 1000fps 一致，防止恶意导入 1e9 帧率导致步进溢爆） */
+export const MAX_FRAME_RATE = 1000;
+
 export function validateTechnique(t: Technique): void {
   if (!t.id || !t.name.trim()) throw new TechniqueError("id/name 不能为空");
   if (!t.formulaId) throw new TechniqueError("手法必须关联一个公式（formulaId 不能为空）");
@@ -62,7 +65,9 @@ export function validateTechnique(t: Technique): void {
   if (t.reverseStart !== undefined && t.reverseStart !== "" && !parseMoves(t.reverseStart).ok) {
     throw new TechniqueError("reverseStart 不是合法记法");
   }
-  if (!Number.isFinite(t.frameRate) || t.frameRate <= 0) throw new TechniqueError(`frameRate 必须 > 0：${t.frameRate}`);
+  if (!Number.isFinite(t.frameRate) || t.frameRate <= 0 || t.frameRate > MAX_FRAME_RATE) {
+    throw new TechniqueError(`frameRate 必须在 (0, ${MAX_FRAME_RATE}] 之间：${t.frameRate}`);
+  }
   const kfErr = validateKeyframes(t.keyframes);
   if (kfErr) throw new TechniqueError(kfErr);
   for (const m of t.stepMapping) {
@@ -163,6 +168,13 @@ function parseQuat(v: unknown, name: string): { w: number; x: number; y: number;
   const { w, x, y, z } = o;
   if (!isFiniteNum(w) || !isFiniteNum(x) || !isFiniteNum(y) || !isFiniteNum(z)) {
     throw new TechniqueError(`关键帧姿态非法：${name} 含非数字分量`);
+  }
+  const len = Math.hypot(w, x, y, z);
+  if (len < 1e-6) {
+    throw new TechniqueError(`关键帧姿态非法：${name} 为零四元数`);
+  }
+  if (Math.abs(len - 1) > 1e-4) {
+    return { w: w / len, x: x / len, y: y / len, z: z / len };
   }
   return { w, x, y, z };
 }
@@ -282,6 +294,14 @@ function parseStepMapping(v: unknown): StepMapping[] {
     if (!Number.isInteger(stepIndex) || !Number.isInteger(startFrame) || !Number.isInteger(endFrame)) {
       throw new TechniqueError(`stepMapping[${i}] 的帧字段必须为整数`);
     }
+    if (
+      (startFrame as number) < 0 ||
+      (endFrame as number) < (startFrame as number) ||
+      (startFrame as number) > MAX_KEYFRAME_FRAME ||
+      (endFrame as number) > MAX_KEYFRAME_FRAME
+    ) {
+      throw new TechniqueError(`stepMapping[${i}] 帧区间非法或超上限：${String(startFrame)}–${String(endFrame)}`);
+    }
     const sm: StepMapping = {
       stepIndex: stepIndex as number,
       startFrame: startFrame as number,
@@ -303,7 +323,9 @@ function parseContactTracks(v: unknown): ContactTrack[] {
       !Number.isInteger(startFrame) ||
       !Number.isInteger(endFrame) ||
       (startFrame as number) < 0 ||
-      (endFrame as number) < (startFrame as number)
+      (endFrame as number) < (startFrame as number) ||
+      (startFrame as number) > MAX_KEYFRAME_FRAME ||
+      (endFrame as number) > MAX_KEYFRAME_FRAME
     ) {
       throw new TechniqueError(`contactTracks[${i}] 帧区间非法：${String(startFrame)}–${String(endFrame)}`);
     }

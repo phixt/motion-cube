@@ -161,6 +161,8 @@ export function renderGrayPanel(
     getPositions: () => Map<StickerId, { x: number; y: number; z: number }>;
     /** 面板可见性判据（P1-5）：隐藏时跳过每帧 SVG 重建；缺省按 `!root.hidden` 判断 */
     isVisible?: () => boolean;
+    /** true = 锁定标准未转动朝向（解决编辑器起始态逆转公式导致小魔方默认转了 U 的观感） */
+    canonicalView?: () => boolean;
   },
 ): GrayPanelApi {
   root.innerHTML = "";
@@ -291,7 +293,8 @@ export function renderGrayPanel(
     const state = opts.getState();
     const mutableSet = new Set(state.mutable);
     const immutableSet = new Set(state.immutable);
-    const positions = opts.getPositions();
+    const canonical = opts.canonicalView?.() === true;
+    const positions = canonical ? null : opts.getPositions();
 
     let minX = bodyMinX;
     let maxX = bodyMaxX;
@@ -303,7 +306,7 @@ export function renderGrayPanel(
       for (let i = 0; i < 9; i++) {
         const id = `${face}${i}` as StickerId;
         const poly = cells.get(id)!;
-        const p = positions.get(id) ?? stickerWorldPos(id);
+        const p = positions?.get(id) ?? stickerWorldPos(id);
         const v = applyMat(viewRot, p);
         const polyFace = viewFaceOf(v);
         const corners = stickerPolygonView(v, polyFace);

@@ -246,7 +246,7 @@ function webLensGeometry(
   segs: number,
 ): BufferGeometry {
   const cx = (xL + xR) / 2;
-  const half = (xR - xL) / 2;
+  const half = Math.max(Math.abs(xR - xL) / 2, 1e-4);
   const bell = (x: number): number => {
     const t = Math.max(-1, Math.min(1, (x - cx) / half));
     return Math.sqrt(1 - t * t); // 圆弧逼近：中心 1、两端 0
@@ -322,29 +322,38 @@ function buildFingerChain(
   const segments: SegmentNode[] = [];
   let cursor: Group = root;
   const lastSegIndex = def.segments.length - 1;
+  // 拇指特例：3 关节 [CMC, MCP, IP] 对应 2 段 [近节, 远节]（segOffset=1）——
+  // joints[0](CMC) 作为根弯折组，joints[1](MCP) 承载近节 seg0，joints[2](IP) 承载远节 seg1+指甲，
+  // 使编辑器三个拇指关节输入全部产生真实视觉弯折（四指 segOffset=0 保持原样）。
+  const segOffset = Math.max(0, def.joints.length - def.segments.length);
   for (let j = 0; j < def.joints.length; j++) {
     const joint = new Group();
     cursor.add(joint);
     joints.push(joint);
-    const seg = def.segments[j];
-    if (!seg) break; // 末梢关节（拇指 IP）：无后续段，不放关节球——指尖与四指统一为收口圆头
+    const segIdx = j - segOffset;
+    if (segIdx < 0) {
+      cursor = joint;
+      continue;
+    }
+    const seg = def.segments[segIdx];
+    if (!seg) break;
     const wHalf = (seg.width / 2) * H;
     // 关节球：弯折兜底 + 隆起（MCP 最大，向指尖递减）；
     // 十四轮弱化：系数组 0.98/1.0/0.96→0.93/0.95/0.92（默认 bulge 1.1 下球径
     // 1.02/1.05/1.01 半宽，仍 ≥ 段宽保弯折兜底；系数在代码侧，旧存档立即生效）
-    const bulge = shape.knuckleBulge * (j === 0 ? 0.93 : j === 1 ? 0.95 : 0.92);
+    const bulge = shape.knuckleBulge * (segIdx === 0 ? 0.93 : segIdx === 1 ? 0.95 : 0.92);
     const ballMesh = tintedMesh(
       facetize(new SphereGeometry(wHalf * bulge, Math.max(F, 8), 4), SKIN, opts.linearOutput, shape.facetJitter, rng),
-      `${name}-joint${j}`,
+      `${name}-joint${segIdx}`,
     );
     joint.add(ballMesh);
     addOutline(ballMesh);
     const len = seg.length * H;
     const tHalf = wHalf * 0.94;
-    const isLast = j === lastSegIndex;
+    const isLast = segIdx === lastSegIndex;
     // 近圆锥（0.4.0 十轮）：段内连续收分、末环半径=下一段宽（跨段连续无分界）；
     // 关节环指面独立微凹成折痕（背侧不凹）；根球系数下调——指根不凸出掌面
-    const nextW = isLast ? 0 : def.segments[j + 1].width;
+    const nextW = isLast ? 0 : def.segments[segIdx + 1].width;
     const endF = isLast ? shape.tipTaper : nextW / seg.width;
     const lf = (p: number, q: number, k: number): number => p + (q - p) * k;
     const back = 0.24 * wHalf;
@@ -370,7 +379,7 @@ function buildFingerChain(
       rings.push(ringPoints(F, wHalf * endF, tHalf * endF, tHalf * endF, nPad, nBack, 0, len));
       geo = loftGeometry(rings, false, false);
     }
-    const mesh = tintedMesh(facetize(geo, SKIN, opts.linearOutput, shape.facetJitter, rng), `${name}-seg${j}`);
+    const mesh = tintedMesh(facetize(geo, SKIN, opts.linearOutput, shape.facetJitter, rng), `${name}-seg${segIdx}`);
     joint.add(mesh);
     addOutline(mesh);
     if (isLast) {
@@ -584,7 +593,7 @@ function buildKnuckleFiller(
 ): Mesh {
   const F = Math.max(shape.facets, 10);
   const mid = (x0 + x1) / 2;
-  const half = Math.abs(x1 - x0) / 2;
+  const half = Math.max(Math.abs(x1 - x0) / 2, 1e-4);
   const crestMid = 0.022 * H; // 两窝之间：浅凹谷底
   const crestEnd = 0.045 * H; // 没入根窝端：衔接窝锥面
   // 底面随掌前缘斜坡（frontFaceZ 在环心高度取值）——端环在窝内无所谓，
@@ -742,10 +751,14 @@ export function buildHandMesh(
     ),
   );
 
-  // 指蹼（0.4.0 十一轮定版）：内凹 U 谷棱柱——谷线顶低于指根球顶，只凹不凸；
-  // 后撤缩窄（z 至 mcpZ+0.14、弧半径收 0.5），y 随横弓；z0 随斜坡（十六轮）
+  // 指蹼（0.4.0 十一轮定版 + 接入 shape.web ∈ [0,1]）：默认 web=0.5 精确保持原定版观感
+  // （z1 = mcpZ+0.14H、背凹 0.045H、掌凹 0.035H）；web 增大→前伸更满、谷更浅，web 减小→后缩、谷更深
   const FOUR = ["index", "middle", "ring", "pinky"] as const;
   const grad = [0.8, 1, 0.7];
+  const webK = Math.max(0, Math.min(1, Number.isFinite(shape.web) ? shape.web : 0.5));
+  const webZ1 = mcpZ + (0.04 + 0.2 * webK) * H;
+  const webDipTBase = (0.065 - 0.04 * webK) * H;
+  const webDipB = (0.045 - 0.02 * webK) * H;
   for (let i = 0; i < 3; i++) {
     const a = cfg.bases[FOUR[i]];
     const b = cfg.bases[FOUR[i + 1]];
@@ -763,10 +776,10 @@ export function buildHandMesh(
           xR,
           yRoot + 0.02 * H, // 背缘（低于指根球顶）
           yRoot - 0.14 * H, // 掌缘
-          0.045 * H * grad[i], // 背侧凹深（中缝最深）
-          0.035 * H,        // 掌侧凹深
+          webDipTBase * grad[i], // 背侧凹深（中缝最深）
+          webDipB,               // 掌侧凹深
           frontFaceZ(yRoot - 0.14 * H) - 0.005 * H, // 掌缘端扎根于斜坡
-          mcpZ + 0.14 * H,
+          webZ1,
           6,
         ),
         SKIN,

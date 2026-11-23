@@ -6,9 +6,14 @@
  * B 期（WebSocket 帧流、生产 opt-in）暂缓。
  */
 import { parsePose } from "../data/technique";
-import { DEFAULT_FRAME_RATE } from "../timeline/Timeline";
+import { DEFAULT_FRAME_RATE, MAX_KEYFRAME_FRAME } from "../timeline/Timeline";
 import { mirrorPose, type HandType, type Pose } from "./HandRig";
 import type { HandRigView } from "./HandRigView";
+
+/** 外部 API 播放帧率上限（防恶意高帧率压垮定时器） */
+export const MAX_API_FPS = 240;
+/** 外部 API 单次帧序列长度上限 */
+export const MAX_API_FRAMES = MAX_KEYFRAME_FRAME + 1;
 
 export type HandApiPlayOptions = { fps?: number; loop?: boolean };
 
@@ -119,8 +124,13 @@ function playFrames(
   if (!Array.isArray(frames) || frames.length === 0) {
     return err("frames 必须为非空数组");
   }
+  if (frames.length > MAX_API_FRAMES) {
+    return err(`frames 数量超出上限（${MAX_API_FRAMES}）：${frames.length}`);
+  }
   const fps = opts?.fps ?? DEFAULT_FRAME_RATE;
-  if (!Number.isFinite(fps) || fps <= 0) return err(`fps 必须 > 0：${String(fps)}`);
+  if (!Number.isFinite(fps) || fps <= 0 || fps > MAX_API_FPS) {
+    return err(`fps 必须在 (0, ${MAX_API_FPS}] 之间：${String(fps)}`);
+  }
   // 先全量 parsePose 再开播：任一帧非法即整段拒绝，避免播到一半才失败
   const parsed: { frame: number; pose: Pose }[] = [];
   for (let i = 0; i < frames.length; i++) {
@@ -172,7 +182,8 @@ export function registerHandApi(view: HandRigView, mirror?: HandRigView): void {
   if (!import.meta.env.DEV) return;
   handView = view;
   mirrorView = mirror ?? null;
-  lastVisible = true;
+  lastVisible = view.visible || (mirror?.visible ?? false);
+  lastHandType = view.type;
   window.motionCubeHand = {
     setPose(json: unknown): HandApiResult {
       if (!handView) return err("API 未挂载（需在编辑器页）");
@@ -219,10 +230,13 @@ export function registerHandApi(view: HandRigView, mirror?: HandRigView): void {
       return ok();
     },
     getState(): HandApiState {
+      const visible = handView
+        ? handView.visible || (mirrorView?.visible ?? false)
+        : lastVisible;
       return {
         ok: true,
         handType: lastHandType,
-        visible: lastVisible,
+        visible,
         playing: playTimer !== null,
         pose: handView?.currentPose() ?? null,
       };
@@ -234,6 +248,8 @@ export function registerHandApi(view: HandRigView, mirror?: HandRigView): void {
 export function unregisterHandApi(): void {
   stopPlayTimer();
   externalDrive.active = false;
+  lastHandType = "left";
+  lastVisible = true;
   handView = null;
   mirrorView = null;
   delete window.motionCubeHand;

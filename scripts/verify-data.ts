@@ -29,7 +29,16 @@ import {
   toggleSticker,
   type Face,
 } from "../src/cube/stickering.ts";
-import { parseMoves } from "../src/notation/alg.ts";
+import { parseMoves, splitCompoundMove } from "../src/notation/alg.ts";
+import {
+  buildAutoPathKeyframes,
+  buildSinePathKeyframes,
+  expandFormulaMoves,
+  insertTechniquePauseAfter,
+  rebuildTechniqueWithDurations,
+  rescaleTechniqueFrames,
+} from "../src/editor/timelineOps.ts";
+import { eulerDegToQuat, poseRotationDeg, trackPoseAtFrame } from "../src/editor/poseHelpers.ts";
 import {
   EMPTY_LIBRARY,
   loadLibrary,
@@ -734,6 +743,164 @@ check("handApi: externalDrive 契约 + releaseExternalDrive（P1-1）", () => {
   externalDrive.active = true;
   releaseExternalDrive();
   expect(!externalDrive.active, "releaseExternalDrive 应置 active=false");
+});
+
+// ---------- Step 3A：记法展开 / 时间线纯逻辑 / 校验加固 / mirrorPose 深拷贝 ----------
+check("notation: splitCompoundMove 保留 w 宽层修饰", () => {
+  expect(splitCompoundMove("UD'").join(",") === "U,D'", "UD' 应拆成 U,D'");
+  expect(splitCompoundMove("RwUw").join(",") === "Rw,Uw", `RwUw 应拆成 Rw,Uw（实得 ${splitCompoundMove("RwUw").join(",")}）`);
+  expect(splitCompoundMove("Rw2'Uw'").join(",") === "Rw2',Uw'", `Rw2'Uw' 应保留宽层与修饰（实得 ${splitCompoundMove("Rw2'Uw'").join(",")}）`);
+});
+
+check("timelineOps: expandFormulaMoves 展开交换子/共轭/分组/宽层", () => {
+  expect(expandFormulaMoves("[R, U]").join(" ") === "R U R' U'", `[R, U] 展开异常：${expandFormulaMoves("[R, U]").join(" ")}`);
+  expect(expandFormulaMoves("[F: [R, U]]").join(" ") === "F R U R' U' F'", `[F: [R, U]] 展开异常：${expandFormulaMoves("[F: [R, U]]").join(" ")}`);
+  expect(expandFormulaMoves("(R U)2 RwUw").join(" ") === "R U R U Rw Uw", `(R U)2 RwUw 展开异常：${expandFormulaMoves("(R U)2 RwUw").join(" ")}`);
+});
+
+check("timelineOps: 重映射（帧率/时长/空拍）正常与冲突拒绝", () => {
+  const p = defaultHandPose("right");
+  const t = createTechnique({
+    name: "remap",
+    formulaId: "f-r",
+    frameRate: 60,
+    keyframes: [
+      { frame: 0, left: mirrorPose(p), right: p },
+      { frame: 18, left: mirrorPose(p), right: p },
+    ],
+    stepMapping: [
+      { stepIndex: 0, startFrame: 0, endFrame: 18 },
+      { stepIndex: 1, startFrame: 18, endFrame: 36 },
+    ],
+  });
+  const scaled = rescaleTechniqueFrames(t, 60, 120, (a, b, f) => `collide ${a}/${b}->${f}`);
+  expect(scaled.frameRate === 120 && scaled.keyframes[1].frame === 36 && scaled.stepMapping[1].endFrame === 72, "帧率翻倍应等比翻倍");
+  const paused = insertTechniquePauseAfter(t, 0, 0.3, (a, b, f) => `collide ${a}/${b}->${f}`);
+  expect(paused.stepMapping.length === 3 && paused.stepMapping[1].kind === "pause", "应插入空拍步");
+  const rebuilt = rebuildTechniqueWithDurations(t, () => 0.5, (a, b, f) => `collide ${a}/${b}->${f}`);
+  expect(rebuilt.stepMapping[0].endFrame === 30 && rebuilt.keyframes[1].frame === 30, "改时长应同步重映射关键帧");
+  // 冲突拒绝：1000fps 下帧 0/1 缩到 24fps 塌陷到 0
+  const t1000 = createTechnique({
+    name: "t1000",
+    formulaId: "f-r",
+    frameRate: 1000,
+    keyframes: [
+      { frame: 0, left: mirrorPose(p), right: p },
+      { frame: 1, left: mirrorPose(p), right: p },
+    ],
+  });
+  let collided = false;
+  try {
+    rescaleTechniqueFrames(t1000, 1000, 24, (a, b, f) => `collide ${a}/${b}->${f}`);
+  } catch (e) {
+    collided = e instanceof TechniqueError && e.message.includes("collide");
+  }
+  expect(collided, "帧号塌陷应抛 TechniqueError");
+});
+
+check("timelineOps: 自动/正弦路径 O(n log n) 批量生成", () => {
+  const a = defaultHandPose("right");
+  const b = defaultHandPose("right");
+  b.bends.index[1] = 90;
+  const kfs = [
+    { frame: 0, left: mirrorPose(a), right: a },
+    { frame: 600, left: mirrorPose(b), right: b },
+  ];
+  const auto = buildAutoPathKeyframes(kfs, 15);
+  expect(auto !== null && auto.length === 41, `自动路径帧数应为 41（实得 ${auto?.length}）`);
+  const sine = buildSinePathKeyframes(kfs, 15);
+  expect(sine !== null && sine.length === 41, `正弦路径帧数应为 41（实得 ${sine?.length}）`);
+  // 正弦路径在 1/4 处（150 帧）sin²(π/8) ≈ 0.1464 ≠ 0.25
+  const autoQ = auto!.find((k) => k.frame === 150)!.right.bends.index[1];
+  const sineQ = sine!.find((k) => k.frame === 150)!.right.bends.index[1];
+  expect(Math.abs(autoQ - sineQ) > 1, `正弦路径与线性路径弯屈值应不同：${autoQ} vs ${sineQ}`);
+});
+
+check("poseHelpers: 欧拉↔四元数往返与单轨插值", () => {
+  const q = eulerDegToQuat(30, -45, 60);
+  const p = defaultHandPose("right");
+  p.palm.transform.quaternion = q;
+  const deg = poseRotationDeg(p);
+  expect(
+    Math.abs(deg.x - 30) < 1e-4 && Math.abs(deg.y + 45) < 1e-4 && Math.abs(deg.z - 60) < 1e-4,
+    `欧拉往返偏差过大：${JSON.stringify(deg)}`,
+  );
+  const r = trackPoseAtFrame([{ frame: 0, left: mirrorPose(p), right: p }], 10, "right");
+  expect(!r.broken && r.pose !== null, "单帧应返回可用姿态");
+});
+
+check("technique: 帧率上限/导入帧上限/四元数归一化与零四元数拒绝", () => {
+  let threw = false;
+  try {
+    createTechnique({ name: "hi-fr", formulaId: "f-1", frameRate: 1e9 });
+  } catch (e) {
+    threw = e instanceof TechniqueError;
+  }
+  expect(threw, "frameRate=1e9 应被拒绝");
+  threw = false;
+  try {
+    deserializeTechnique(
+      JSON.stringify({
+        id: "t-huge",
+        name: "huge",
+        formulaId: "f-1",
+        frameRate: 60,
+        keyframes: [],
+        stepMapping: [{ stepIndex: 0, startFrame: 0, endFrame: 1e8 }],
+        contactTracks: [],
+      }),
+    );
+  } catch (e) {
+    threw = e instanceof TechniqueError;
+  }
+  expect(threw, "stepMapping endFrame=1e8 导入应被拒绝");
+
+  const p = defaultHandPose("right");
+  const nonUnit = structuredClone(p);
+  nonUnit.palm.transform.quaternion = { w: 2, x: 0, y: 0, z: 0 };
+  const parsed = deserializeTechnique(
+    JSON.stringify({
+      id: "t-q",
+      name: "q",
+      formulaId: "f-1",
+      frameRate: 60,
+      keyframes: [{ frame: 0, left: nonUnit, right: nonUnit }],
+      stepMapping: [],
+      contactTracks: [],
+    }),
+  );
+  const qNorm = parsed.keyframes[0].right.palm.transform.quaternion;
+  expect(Math.abs(Math.hypot(qNorm.w, qNorm.x, qNorm.y, qNorm.z) - 1) < 1e-9, "非单位四元数应自动归一化");
+
+  const zeroQ = structuredClone(p);
+  zeroQ.palm.transform.quaternion = { w: 0, x: 0, y: 0, z: 0 };
+  threw = false;
+  try {
+    deserializeTechnique(
+      JSON.stringify({
+        id: "t-zq",
+        name: "zq",
+        formulaId: "f-1",
+        frameRate: 60,
+        keyframes: [{ frame: 0, left: zeroQ, right: zeroQ }],
+        stepMapping: [],
+        contactTracks: [],
+      }),
+    );
+  } catch (e) {
+    threw = e instanceof TechniqueError;
+  }
+  expect(threw, "零四元数应被拒绝");
+});
+
+check("HandRig: mirrorPose 深拷贝 bends 与 contacts（不共享引用）", () => {
+  const src = defaultHandPose("right");
+  src.contacts.push({ finger: "index", segmentIndex: 2, side: "pad", t: 0.7, target: "U2" });
+  const m = mirrorPose(src);
+  m.bends.index[1] = 100;
+  m.contacts[0].target = "F0";
+  expect(src.bends.index[1] !== 100, "修改镜像 bends 不得污染源姿态");
+  expect(src.contacts[0].target === "U2", "修改镜像 contacts 不得污染源姿态");
 });
 
 if (failures) {

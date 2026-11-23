@@ -18,6 +18,7 @@ import {
 } from "three";
 import type { CubePlayer } from "../cube/CubePlayer";
 import {
+  clampBend,
   FINGER_ORDER,
   type Contact,
   type FingerName,
@@ -25,6 +26,12 @@ import {
   type HandType,
   type Pose,
 } from "./HandRig";
+import {
+  checkHandCubeCollision,
+  computeHandSegmentBoxes,
+  type CubeCollisionHit,
+  type HandSegmentBox,
+} from "./handCollision";
 import { buildHandMesh, meshSurfaceOffset, type FingerNodes } from "./handMesh";
 import { createRigFromConfig, loadHandRigConfig, type HandRigConfig } from "./handRigStore";
 
@@ -115,6 +122,11 @@ export class HandRigView {
     void this.requestRender();
   }
 
+  /** 当前显隐开关状态（只读，不改动既有公开方法签名） */
+  get visible(): boolean {
+    return this.userVisible;
+  }
+
   /** 强制重绘一帧（同 GrayOverlay；走 CubePlayer 抽象接口） */
   private async requestRender(): Promise<void> {
     await this.player.requestRender();
@@ -123,6 +135,16 @@ export class HandRigView {
   /** 当前驱动姿态（测试/调试用） */
   currentPose(): Pose | null {
     return this.pose;
+  }
+
+  /** 当前手掌与各指段在魔方单位空间下的 AABB 代理（用于接触校验/穿透检测） */
+  getSegmentBoxes(): HandSegmentBox[] {
+    return computeHandSegmentBoxes(this.root, this.fingers);
+  }
+
+  /** 检测当前姿态与 3×3×3 魔方包围盒的穿透碰撞（魔方单位） */
+  checkCubeCollision(cubeHalfExtent = 1.5, tolerance = 0): CubeCollisionHit[] {
+    return checkHandCubeCollision(this.getSegmentBoxes(), cubeHalfExtent, tolerance);
   }
 
   private get sideSign(): number {
@@ -168,10 +190,13 @@ export class HandRigView {
 
     for (const name of FINGER_ORDER) {
       const nodes = this.fingers[name];
+      const def = this.rig.fingers[name];
       const bends = pose.bends[name];
       for (let j = 0; j < nodes.joints.length; j++) {
-        // bend = 指腹侧夹角（180 伸直）；绕 X 旋转使段向指腹（-Y）弯
-        nodes.joints[j].rotation.x = degToRad(180 - (bends[j] ?? 180));
+        // bend = 指腹侧夹角（180 伸直）；按关节解剖范围钳制后绕 X 旋转使段向指腹（-Y）弯
+        const raw = bends[j] ?? def.joints[j]?.bend ?? 180;
+        const clamped = def.joints[j] ? clampBend(def.joints[j], raw) : raw;
+        nodes.joints[j].rotation.x = degToRad(180 - clamped);
       }
     }
 

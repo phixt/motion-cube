@@ -36,8 +36,11 @@
   ② **ZBLS 0% → 100% 四槽统一**（`zbls.ts` / `cfop.ts`）：重构为 1200 态特征键 `(DRF角, FR棱, 其余4活跃槽LL棱EO)` + `viewState` 四槽归一，全收录 302/302 case（含原被遗漏的 32 条棱 home 角乱）；`cfop.ts` 按「第 4 组 + LL」整体总步数择短，CFOP+ 均步数 59.2 → **47.1**（净省 **12.1 步**，0 例变长）；恢复 `verify-zbls-rounds` F 段硬断言（906/906）并新增 G 段生产路径断言（100/100）；
   ③ **Roux EOLR 真生效**（`roux.ts`）：新增 `eolrDb`/`eolrUb`/`eolrPseudo` 三张 `<M,U>` 轻量求解器（建表 ~15ms）+ 修复 cuberoot `lse-eolr` 命名表 `um` 配对；Roux+ 均步数 45.6 → **44.2**（0 例变长，不再退化为 `roux-merge`）；放宽 `block2` 14→16、`eo`/`ulur` 12→14 深度余量；
   ④ **回归与健壮性收口**：5 种方法全进 `smoke-solver`（CI 跑 15 轮含高级分支断言）与 `smoke-solver-edge`；`verify-solve-base` 补 A6 `endAlg` 与 A7 24×6=144 组合端到端收尾底色断言；`algs.ts` 非法状态抛错；删 `cfop.ts` 不可达 `EJECT[4]`；更新基线 `docs/solver-baseline.json` 与 i18n 提示文案。
-- 🚧 **Step 3｜按需二选一主线**：
-  - ⬜ **A 线（编辑器 & 手部）**：自定义开始态批 → 拆 `EditorPage.vue`（4 composable + 复杂记法展开 + 未保存提示）→ 手部死参数/拇指 IP/碰撞箱。
+- ✅ **Step 3｜按需二选一主线（A 线 + B 线均已落地）**：
+  - ✅ **A 线（编辑器 & 手部）**（2026-11-23 已落地 + 全套单测/CI Playtest/Batch 2 8/8 浏览器回归通过）：
+    ① **自定义开始态批 & 标灰朝向**：`grayPanel` 新增 `canonicalView` 选项，编辑器标灰面板默认锁定标准朝向（修「默认转了 U」观感，可切换跟随魔方）；侧边栏「开始状态」组新增正放/倒放公式直输与校验应用，与捕获/清除并存；
+    ② **`EditorPage.vue` 瘦身与修复**（2886 行 → ~840 行）：抽纯逻辑模块 `src/editor/timelineOps.ts`（统一 3 套帧重映射、复杂记法 `[R,U]`/`[F:[R,U]]`/`RwUw` 展开、O(n log n) 自动/正弦路径）与 `src/editor/poseHelpers.ts`（复用暂存欧拉/四元数零热路径分配），外提 660+ 行样式至 `src/styles/editor.css`；缓存弯屈/CMC 输入引用消除播放热路径 18× `getElementById`；修 `splitCompoundMove` 丢 `w`、`commit()` 重置 `moveCursor`/`revApplied` 并停播同步内存库、新增 `.dirty` 未保存提示 + `Ctrl+S`、修点轨道首次打开面板数值陈旧、保留 `singleHandPref`、清理 `maskTimer`、删除零引用 `src/input/pointer.ts`、同步更新 `help.editorPlaceholder` 与中英 i18n；`technique.ts` 补 `MAX_FRAME_RATE=1000`、导入帧号上限与四元数归一化/零四元数拒绝；
+    ③ **手部缺陷收口 & 碰撞箱代理**：`handMesh.ts` 接入死参数 `shape.web`（默认 0.5 保持原观感）、修复拇指 IP 关节组为空（`joints=[CMC, MCP, IP]` 末节+指甲随 IP 真实弯折）、退化 `bases` 在 `handRigStore.ts` 单调校验 + `handMesh.ts` 除零兜底；`mirrorPose` 深拷贝 `bends`/`contacts`；`HandRigView.ts` 渲染期应用 `clampBend`、暴露只读 `visible` getter 与段级碰撞代理 `src/hand/handCollision.ts`（`getSegmentBoxes()` / `checkCubeCollision()`，既有公开方法签名零破坏）；`handApi.ts` 补 `fps`/`frames` 上限、卸载重置状态并读取真实 `visible`。
   - ✅ **B 线（基建 & 渲染）**（2026-11-23 已落地 + 全量校验/真机回归通过）：
     ① **Playtest 跨平台并入 CI + Release 流水线**：抽 `scripts/_browser.mjs`（跨平台 Chrome/Edge 探测 + 临时目录清理 + `domcontentloaded` 稳定 `openApp`，淘汰 `networkidle0`）与 `scripts/run-playtest-ci.mjs`（自启 `vite preview:4174` 跑 `playtest-ui` + `playtest-solver`，`playtest-solver` 兼容无 `__motionCube` 生产包）；接入 `.github/workflows/ci.yml` `playtest` job，新增 `.github/workflows/release.yml`（`v*` tag 版本一致性校验 + NSIS 打包 + GitHub Release）；顺手修 3 处误用 5173 端口的脚本、`probe-solver-methods.ts` 扩展名、删除失效 `playtest-spike.mjs`；
     ② **`RenderCube` 5 处 bug 修复 + 试点开关**：修 `setMovesInstant`+`play()` 防二次施加（F6）、`setSpeed` 按进度比例换算防瞬移/倒退（F7）、删 60ms 轮询改 `onMoveDone` 同帧零空档队列 + `RenderCubeHost` 按需脏渲染（F8）、支持 `baseFace` 六色底 `baseSetupAlg`（F11）、修 `AUTO_SPIN_RAD_PER_SEC=0.085` 单位错误（F13）、清理 `pose.ts` 死代码（F16）、扩充 `verify-render-cube.ts` 至 32 项断言（M–Q）；游戏页开放 `?backend=render` / `localStorage["motion-cube.renderBackend"]="render"` 试点开关（默认保稳留 `cubing`）；
@@ -198,18 +201,13 @@
 - ✅ `CubePlayer.dispose()` / 灰面板 `window` pointerup 清理 / `GrayOverlay.init` 重试 / 套用公式清 `history`（Step 1 已全部收口）。
 - ✅ render 后端 5 处缺陷（F6 `setMovesInstant`+`play`、F7 `setSpeed` 进度连续、F8 同帧队列+按需脏渲染、F11 `baseFace` 六色底、F13 `AUTO_SPIN_RAD_PER_SEC` 单位）+ `pose.ts` 死代码已于 Step 3 B 线修复并补齐 `verify-render-cube.ts` 32 项断言。
 - ✅ `HandRigView.dispose()` / 接触球共享几何材质复用池 / `HandCalibView.dispose()` 改 `clearRig()`（Step 1 已修）。
-- ⬜ `shape.web` 是死参数（被规范化/持久化/有滑条但几何从不消费）；拇指 IP 关节组为空
-  → 编辑器 IP 弯曲滑条完全无视觉效果。
-- ⬜ normalizeHandRigConfig 接受退化指根基准 → NaN 顶点 → 手部包围盒 NaN → 相机拟合失效。
+- ✅ `shape.web` 已接入 `handMesh.ts`（默认 0.5 保持原观感）；拇指 IP 关节组已修复非空（末节+指甲随 IP 弯折）（Step 3 A 线）。
+- ✅ `normalizeHandRigConfig` 已校验 `bases` 严格单调并回退默认，`handMesh.ts` 同步加除零兜底（Step 3 A 线）。
 - ⬜ shape.facets=15（奇数）使环采样不对称，左右手非严格镜像（差 0.0087）。
-- ⬜ clampBend / JointDef.range 从未在渲染时应用；parsePose 不校验四元数归一化；
-  mirrorPose 与输入共享 bends/contacts 引用。
-- ⬜ EditorPage.vue 2536 行：3 套帧重映射 / 4 处姿态输入 / 2 套面板回写并存 → 拆 4 个 composable；
-  播放热路径每帧 18 次 getElementById；commit() 不重置 moveCursor → 播放中改姿态执行错位动作。
-- ⬜ 复杂记法（交换子/共轭/宽层）未展开 → 播放时 applyMove 抛异常；splitCompoundMove 丢 w。
-- ⬜ 主位手规则三处越界（双手态允许左手主位 / 双手开关覆盖用户选择 / API 主手固定左手）；
-  无「未保存」状态；时间线打开编辑面板不刷新数值；自动路径 O(n² log n) 长手法可卡数秒；
-  src/input/pointer.ts 整个文件未被引用。
+- ✅ `HandRigView.applyPose` 已应用 `clampBend`；`parsePose`/`parseQuat` 已归一化非单位四元数并拒绝零四元数；`mirrorPose` 已深拷贝 `bends`/`contacts`（Step 3 A 线）。
+- ✅ `EditorPage.vue` 已拆出 `timelineOps.ts`/`poseHelpers.ts`/`editor.css`（统一重映射/姿态输入/面板回写）；弯屈/CMC 输入 ref 缓存消除 18× `getElementById`；`commit()` 已重置 `moveCursor`/`revApplied` 并停播（Step 3 A 线）。
+- ✅ 复杂记法（交换子/共轭/分组/宽层）已在 `expandFormulaMoves` 展开；`splitCompoundMove` 已保留 `w` 宽层修饰（Step 3 A 线）。
+- ✅ 已补未保存 `.dirty` 指示 + `Ctrl+S`、保留单手偏好 `singleHandPref`、点轨道打开面板立即刷新、自动/正弦路径 O(n log n) 批量生成、删除死文件 `src/input/pointer.ts`（Step 3 A 线）。
 - ⬜ 无错误边界（WebGL 失败 → 静默白屏）；KeymapPage 写回过期 settings 快照回滚语言切换；
   KeymapPage 按键捕获吞掉全部键盘输入（Tab 被绑成动作、F5/Ctrl+C/Ctrl+V 失效、无键盘逃逸）；
   捕获中途切作用域会写错键位并误报冲突；求解面板与灰面板 z-index 完全相同 → 求解面板盖住灰面板。
@@ -241,13 +239,10 @@
 
 ### 手部
 - ⬜ 用户**真机定版**十二~十六轮手部观感（feat/hand-lowpoly 分支保留至定版后删）。
-- ⬜ **碰撞箱**：手-魔方简化相交判断（段级 AABB/胶囊代理），供接触可行性校验 /
-  自动姿态 / 穿透检测。
+- ✅ **碰撞箱**（Step 3 A 线）：手-魔方段级 AABB 代理（`src/hand/handCollision.ts` + `HandRigView.getSegmentBoxes()` / `checkCubeCollision()`），供接触可行性校验 / 穿透检测。
 
 ### 编辑器批
-- ⬜ **自定义开始态批**（下一轮开工项）：标灰页小魔方默认转动了 U 的 bug +
-  正放/倒放起始态统一 + 自定义开始状态 UI（公式页适配；缺省回退正放=公式逆序态、
-  倒放=还原态已实现）。
+- ✅ **自定义开始态批**（Step 3 A 线）：标灰面板新增 `canonicalView`（默认标准朝向解决「默认转了 U」，可切跟随魔方）+ 侧边栏正放/倒放起始公式直输与捕获/清除统一。
 - ⬜ **搜索优化**：模糊搜索（子串/编辑距离/拼音）、标签/分类过滤。
 - ⬜ **拍扩展**：接触轨道按拍编辑；关键帧箭头拖动吸附拍网格；拍网格吸附开关。
 

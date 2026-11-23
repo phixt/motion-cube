@@ -195,6 +195,21 @@ export function normalizeHandRigConfig(input: unknown): HandRigConfig | null {
   const th = (obj.thenar ?? {}) as Record<string, unknown>;
   const cmc = (obj.thumbCmc ?? {}) as Record<string, unknown>;
   const sh = (obj.shape ?? {}) as Record<string, unknown>;
+  const rawBases: HandRigConfig["bases"] = {
+    index: { x: clampNum(base("index").x, -2, 2, 0.52), y: clampNum(base("index").y, -1, 1, 0.1) },
+    middle: { x: clampNum(base("middle").x, -2, 2, 0.17), y: clampNum(base("middle").y, -1, 1, 0.12) },
+    ring: { x: clampNum(base("ring").x, -2, 2, -0.17), y: clampNum(base("ring").y, -1, 1, 0.1) },
+    pinky: { x: clampNum(base("pinky").x, -2, 2, -0.52), y: clampNum(base("pinky").y, -1, 1, 0.06) },
+  };
+  // 防止退化/交叉的指根基准导致 webLens / knuckleFiller 除零出 NaN 或绕向错乱：
+  // 必须严格满足 index.x > middle.x > ring.x > pinky.x（相邻间距 ≥ 0.05），否则回退默认布局
+  const basesValid =
+    rawBases.index.x - rawBases.middle.x >= 0.05 &&
+    rawBases.middle.x - rawBases.ring.x >= 0.05 &&
+    rawBases.ring.x - rawBases.pinky.x >= 0.05;
+  const normalizedBases: HandRigConfig["bases"] = basesValid
+    ? rawBases
+    : structuredClone(DEFAULT_HAND_CONFIG.bases);
   // version 1（拇指根仍在掌前缘角落的旧语义）→ 迁移到掌根锚点 + 大鱼际默认值
   const legacy = version === 1;
   return {
@@ -207,12 +222,7 @@ export function normalizeHandRigConfig(input: unknown): HandRigConfig | null {
       length: clampNum(palm.length, 0.2, 5, DEFAULT_HAND_CONFIG.palm.length),
       mcpZ: clampNum(palm.mcpZ, -2, 3, DEFAULT_HAND_CONFIG.palm.mcpZ),
     },
-    bases: {
-      index: { x: clampNum(base("index").x, -2, 2, 0.52), y: clampNum(base("index").y, -1, 1, 0.1) },
-      middle: { x: clampNum(base("middle").x, -2, 2, 0.17), y: clampNum(base("middle").y, -1, 1, 0.12) },
-      ring: { x: clampNum(base("ring").x, -2, 2, -0.17), y: clampNum(base("ring").y, -1, 1, 0.1) },
-      pinky: { x: clampNum(base("pinky").x, -2, 2, -0.52), y: clampNum(base("pinky").y, -1, 1, 0.06) },
-    },
+    bases: normalizedBases,
     thumbCorner: legacy
       ? { ...DEFAULT_HAND_CONFIG.thumbCorner }
       : {

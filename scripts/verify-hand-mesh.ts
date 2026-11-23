@@ -15,8 +15,13 @@ import {
   type HandType,
   type Pose,
 } from "../src/hand/HandRig.ts";
-import { createRigFromConfig, DEFAULT_HAND_CONFIG } from "../src/hand/handRigStore.ts";
+import {
+  createRigFromConfig,
+  DEFAULT_HAND_CONFIG,
+  normalizeHandRigConfig,
+} from "../src/hand/handRigStore.ts";
 import { buildHandMesh, type HandMeshResult } from "../src/hand/handMesh.ts";
+import { checkHandCubeCollision, computeHandSegmentBoxes } from "../src/hand/handCollision.ts";
 
 let failed = 0;
 function expect(cond: boolean, msg: string): void {
@@ -325,6 +330,79 @@ function thumbWorldFrame(handType: HandType, pose: Pose): { dir: Vector3; quat: 
       `P0-7 ${name}: 左手 CMC 世界朝向应为右手朝向的 X 镜像（|cos 偏差|=${(1 - qDot).toExponential(2)}）`,
     );
   }
+}
+
+// ---- 6) Step 3A：shape.web 接入 / 拇指 IP 非空 / 退化 bases 防 NaN / 碰撞箱代理 ----
+{
+  const cfgWeb0 = { ...DEFAULT_HAND_CONFIG, shape: { ...DEFAULT_HAND_CONFIG.shape, web: 0 } };
+  const cfgWeb1 = { ...DEFAULT_HAND_CONFIG, shape: { ...DEFAULT_HAND_CONFIG.shape, web: 1 } };
+  const r0 = buildHandMesh(cfgWeb0, createRigFromConfig(cfgWeb0, "right"), 1);
+  const r1 = buildHandMesh(cfgWeb1, createRigFromConfig(cfgWeb1, "right"), 1);
+  noNaN(r0, "web=0");
+  noNaN(r1, "web=1");
+  const webMaxZ = (res: HandMeshResult): number => {
+    let z = -Infinity;
+    res.root.traverse((o) => {
+      const m = o as unknown as { isMesh?: boolean; userData?: { part?: string }; geometry?: { getAttribute(n: string): { array: ArrayLike<number> } | undefined } };
+      if (!m.isMesh || m.userData?.part !== "web-1") return;
+      const arr = m.geometry?.getAttribute("position")?.array;
+      if (!arr) return;
+      for (let i = 2; i < arr.length; i += 3) if (arr[i] > z) z = arr[i];
+    });
+    return z;
+  };
+  expect(webMaxZ(r1) - webMaxZ(r0) > 0.2, `shape.web=1 应显著长于 web=0（实得 ${webMaxZ(r0).toFixed(3)} vs ${webMaxZ(r1).toFixed(3)}）`);
+}
+
+{
+  // 拇指 IP 关节组非空：joints=[CMC, MCP, IP]，IP（joints[2]）挂载末节与指甲
+  const res = buildHandMesh(DEFAULT_HAND_CONFIG, createRigFromConfig(DEFAULT_HAND_CONFIG, "right"), 1);
+  const thumb = res.fingers.thumb;
+  expect(thumb.joints.length === 3, `拇指应有 3 个关节组（实得 ${thumb.joints.length}）`);
+  expect(thumb.joints[2].children.length > 0, "拇指 IP 关节组（joints[2]）不应为空");
+  const ipParts: string[] = [];
+  thumb.joints[2].traverse((o) => {
+    const m = o as unknown as { isMesh?: boolean; userData?: { part?: string } };
+    if (m.isMesh && m.userData?.part) ipParts.push(m.userData.part);
+  });
+  expect(ipParts.includes("thumb-seg1") && ipParts.includes("thumb-nail"), `拇指 IP 应包含末节与指甲（实得 ${ipParts.join(",")}）`);
+}
+
+{
+  // 退化 bases：normalizeHandRigConfig 拦截重合并回退默认；直接喂进 buildHandMesh 也无 NaN
+  const deg = structuredClone(DEFAULT_HAND_CONFIG);
+  deg.bases.index.x = 0.2;
+  deg.bases.middle.x = 0.2;
+  const norm = normalizeHandRigConfig(deg);
+  expect(norm !== null && norm.bases.index.x > norm.bases.middle.x, "退化 bases 应由 normalizeHandRigConfig 纠偏");
+  const direct = buildHandMesh(deg, createRigFromConfig(deg, "right"), 1);
+  noNaN(direct, "退化 bases 直接构建兜底");
+}
+
+{
+  // 碰撞箱代理：默认贴面手位（x=1.95）掌体不穿透魔方；把掌心移到原点必然检出掌体穿透
+  const res = buildHandMesh(DEFAULT_HAND_CONFIG, createRigFromConfig(DEFAULT_HAND_CONFIG, "right"), 1);
+  const pose = defaultHandPose("right");
+  const apply = (px: number, py: number, pz: number) => {
+    res.root.position.set(px, py, pz);
+    res.root.quaternion.set(
+      pose.palm.transform.quaternion.x,
+      pose.palm.transform.quaternion.y,
+      pose.palm.transform.quaternion.z,
+      pose.palm.transform.quaternion.w,
+    );
+  };
+  apply(pose.palm.transform.position.x, pose.palm.transform.position.y, pose.palm.transform.position.z);
+  const boxesRest = computeHandSegmentBoxes(res.root, res.fingers);
+  expect(boxesRest.length === 15, `手部碰撞盒应含 1 掌 + 14 指段 = 15（实得 ${boxesRest.length}）`);
+  const restPalmHit = checkHandCubeCollision(boxesRest, 1.5, 0.05).find((h) => h.part === "palm");
+  expect(!restPalmHit, `默认贴面手位掌体不应穿透魔方（实得 ${JSON.stringify(restPalmHit)}）`);
+
+  apply(0, 0, 0);
+  const boxesInside = computeHandSegmentBoxes(res.root, res.fingers);
+  const insideHits = checkHandCubeCollision(boxesInside, 1.5, 0);
+  const insidePalm = insideHits.find((h) => h.part === "palm");
+  expect(!!insidePalm && insidePalm.penetration > 0.3, `掌心在原点时应检出明显穿透（实得 ${JSON.stringify(insidePalm)}）`);
 }
 
 console.log(failed === 0 ? "verify-hand-mesh: ALL PASS ✓" : `verify-hand-mesh: ${failed} FAIL`);
