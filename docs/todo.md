@@ -203,7 +203,7 @@
 - ✅ `HandRigView.dispose()` / 接触球共享几何材质复用池 / `HandCalibView.dispose()` 改 `clearRig()`（Step 1 已修）。
 - ✅ `shape.web` 已接入 `handMesh.ts`（默认 0.5 保持原观感）；拇指 IP 关节组已修复非空（末节+指甲随 IP 弯折）（Step 3 A 线）。
 - ✅ `normalizeHandRigConfig` 已校验 `bases` 严格单调并回退默认，`handMesh.ts` 同步加除零兜底（Step 3 A 线）。
-- ⬜ shape.facets=15（奇数）使环采样不对称，左右手非严格镜像（差 0.0087）。
+- ✅ `shape.facets=15`（奇数）环采样不对称已修：`ringPoints` 起点移至指背中线 `θ=π/2`，奇偶边数均严格 X 镜像对称（偏差 < 1e-5）；同步精修低模手部外观（焊接平滑法线+三点柔光、饱满指节与半球指尖、弧形指甲、圆润掌缘/指根弧线、虎口第一指蹼，接缝显著弱化）。
 - ✅ `HandRigView.applyPose` 已应用 `clampBend`；`parsePose`/`parseQuat` 已归一化非单位四元数并拒绝零四元数；`mirrorPose` 已深拷贝 `bends`/`contacts`（Step 3 A 线）。
 - ✅ `EditorPage.vue` 已拆出 `timelineOps.ts`/`poseHelpers.ts`/`editor.css`（统一重映射/姿态输入/面板回写）；弯屈/CMC 输入 ref 缓存消除 18× `getElementById`；`commit()` 已重置 `moveCursor`/`revApplied` 并停播（Step 3 A 线）。
 - ✅ 复杂记法（交换子/共轭/分组/宽层）已在 `expandFormulaMoves` 展开；`splitCompoundMove` 已保留 `w` 宽层修饰（Step 3 A 线）。

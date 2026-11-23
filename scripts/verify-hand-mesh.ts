@@ -125,7 +125,7 @@ for (const side of [1, -1] as const) {
   if (side === -1) {
     const r = buildHandMesh(DEFAULT_HAND_CONFIG, createDefaultRig("right"), 1);
     const br = bbox(r);
-    expect(Math.abs(br.min.x + b.max.x) < 1e-4, "左右手 X 包围盒应镜像");
+    expect(Math.abs(br.min.x + b.max.x) < 1e-5 && Math.abs(br.max.x + b.min.x) < 1e-5, "左右手 X 包围盒应严格镜像（含奇数 facets=15）");
     expect(
       Math.abs(r.thumbRoot.position.x + res.thumbRoot.position.x) < 1e-6,
       "拇指根 X 应镜像",
