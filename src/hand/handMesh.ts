@@ -498,11 +498,14 @@ function buildFingerChain(
     const len = seg.length * H;
     const isLast = segIdx === lastSegIndex;
 
-    // 椭球关节：与段截面 (wHalf, tHalf) 精确共形，默认 bulge 1.1 下微隆 ~1.035，
+    // 椭球关节：与段截面 (wHalf, tHalf) 精确共形；MCP 根关节背侧微收避免凸高于掌背，
     // 弯曲兜底不露缝，伸直时在平滑法线下几乎无接缝
-    const bulgeK = 0.995 + (shape.knuckleBulge - 1) * (segIdx === 0 ? 0.25 : 0.32);
+    const bulgeX = 0.99 + (shape.knuckleBulge - 1) * (segIdx === 0 ? 0.16 : 0.28);
+    const bulgeY = segIdx === 0
+      ? 0.975 + (shape.knuckleBulge - 1) * 0.14
+      : 0.992 + (shape.knuckleBulge - 1) * 0.24;
     const ballGeo = new SphereGeometry(1, Math.max(F, 12), 8);
-    ballGeo.scale(wHalf * bulgeK, tHalf * bulgeK, wHalf * (bulgeK * 0.98));
+    ballGeo.scale(wHalf * bulgeX, tHalf * bulgeY, wHalf * (bulgeX * 0.98));
     const ballMesh = tintedMesh(
       shadeGeometry(ballGeo, SKIN, opts.linearOutput, shape.facetJitter, rng),
       `${name}-joint${segIdx}`,
@@ -731,8 +734,9 @@ function buildThumbWeb(
 
 /**
  * 饱满有机手掌：
- * - 7 站连续放样：腕缘圆润倒角（告别一刀切平板）→ 掌中饱满 → 指根外缘完整包住食指/小指外侧（消除外缘阶梯）；
- * - 前缘随解剖指根弧线 knuckleArcOffset + frontFaceZ 斜坡自然弯曲，与指根严丝合缝。
+ * - 7 站连续放样：腕缘圆润倒角 → 掌中饱满 → 掌背（+Y）顺滑加厚并展宽背弓（nBack 2.45→3.25），
+ *   使掌背与四指根（食/中/无名/小指）背侧齐平过渡、消除指根上凸台阶；
+ * - 掌心（-Y）保持 halfT 厚度上限，确保默认贴面手位（x=±1.95）不穿透魔方。
  */
 function buildPalm(
   cfg: HandRigConfig,
@@ -750,26 +754,36 @@ function buildPalm(
   const halfT = (cfg.palm.height / 2) * H;
   const len = cfg.palm.length * H;
   const mcpZ = cfg.palm.mcpZ * H;
-  const nShape = 2.45;
 
   const frontArch = (xData: number): number => shape.arch * H * archBell(xData / halfWData);
 
-  const specs: Array<{ t: number; wK: number; thK: number; archK: number; arcK: number }> = [
-    { t: 0.0, wK: shape.palmTaper * 0.88, thK: 0.78, archK: 0.0, arcK: 0.0 },
-    { t: 0.05, wK: shape.palmTaper * 0.98, thK: 0.95, archK: 0.05, arcK: 0.0 },
-    { t: 0.22, wK: shape.palmTaper + (1 - shape.palmTaper) * 0.34, thK: 1.0, archK: 0.2, arcK: 0.0 },
-    { t: 0.55, wK: shape.palmTaper + (1 - shape.palmTaper) * 0.8, thK: 1.0, archK: 0.55, arcK: 0.15 },
-    { t: 0.82, wK: 1.0, thK: 0.98, archK: 0.88, arcK: 0.65 },
-    { t: 0.94, wK: 0.99, thK: 0.94, archK: 0.98, arcK: 0.92 },
-    { t: 1.0, wK: 0.95, thK: 0.82, archK: 1.0, arcK: 1.0 },
+  // 非对称背/掌厚度曲线：padK（掌心 -Y）严控 ≤ 1.0；backK（掌背 +Y）向指根平稳增厚至 ~1.34×halfT，
+  // 配合远端背侧更饱满的超椭圆指数 nBack，使四指根背侧顺滑融入掌背而非突兀凸起
+  const specs: Array<{
+    t: number;
+    wK: number;
+    padK: number;
+    backK: number;
+    nBack: number;
+    archK: number;
+    arcK: number;
+  }> = [
+    { t: 0.0, wK: shape.palmTaper * 0.88, padK: 0.78, backK: 0.88, nBack: 2.45, archK: 0.0, arcK: 0.0 },
+    { t: 0.05, wK: shape.palmTaper * 0.98, padK: 0.95, backK: 1.08, nBack: 2.55, archK: 0.05, arcK: 0.0 },
+    { t: 0.22, wK: shape.palmTaper + (1 - shape.palmTaper) * 0.34, padK: 1.0, backK: 1.18, nBack: 2.7, archK: 0.2, arcK: 0.0 },
+    { t: 0.55, wK: shape.palmTaper + (1 - shape.palmTaper) * 0.8, padK: 1.0, backK: 1.28, nBack: 2.95, archK: 0.55, arcK: 0.15 },
+    { t: 0.82, wK: 1.0, padK: 0.98, backK: 1.35, nBack: 3.2, archK: 0.88, arcK: 0.65 },
+    { t: 0.94, wK: 0.99, padK: 0.94, backK: 1.34, nBack: 3.3, archK: 0.98, arcK: 0.92 },
+    { t: 1.0, wK: 0.95, padK: 0.82, backK: 1.22, nBack: 3.15, archK: 1.0, arcK: 1.0 },
   ];
 
   const rings: Vec3[][] = specs.map((sp) => {
     const a = halfW * sp.wK;
-    const b = halfT * sp.thK;
+    const bPad = halfT * sp.padK;
+    const bBack = halfT * sp.backK;
     const cup = shape.palmCup * H * (sp.t * (1 - sp.t) * 4);
     const zBase = mcpZ - len * (1 - sp.t);
-    const ring = ringPoints(F, a, b, b, nShape, nShape, cup, zBase);
+    const ring = ringPoints(F, a, bPad, bBack, 2.45, sp.nBack, cup, zBase);
     return ring.map((p) => {
       const xData = (p[0] / H) * sideSign;
       const y = p[1] + frontArch(p[0] / H) * sp.archK;
@@ -786,7 +800,7 @@ function buildPalm(
   // 腕端柔穹顶封口 + 指根前缘微凸封口
   const firstRing = rings[0];
   const lastRing = rings[rings.length - 1];
-  const wristApex: Vec3 = [0, 0, mcpZ - len - 0.04 * H];
+  const wristApex: Vec3 = [0, 0.01 * H, mcpZ - len - 0.04 * H];
   const frontC = ringCentroid(lastRing);
   const frontApex: Vec3 = [frontC[0], frontC[1], frontC[2] + 0.025 * H];
   const geo = mergeGeometries([
@@ -917,7 +931,7 @@ function buildKnuckleCollar(
   const nPad = 2.05 + shape.padFlat * 0.25;
   const nBack = 2.25 + shape.padFlat * 0.35;
   const rx = Math.max(Math.min(wHalf * 1.04, rxMax), 0.1 * wHalf);
-  const rim = { a: rx, bPad: tHalf * 0.84, bBack: tHalf * 0.96, nP: 2.2, nB: 2.2 };
+  const rim = { a: rx, bPad: tHalf * 0.84, bBack: tHalf * 1.02, nP: 2.2, nB: 2.4 };
   const fing = {
     a: wHalf * 0.985,
     bPad: tHalf * 0.96 * 0.985,
@@ -926,10 +940,10 @@ function buildKnuckleCollar(
     nB: nBack,
   };
   const stations: Array<[number, number]> = [
-    [-0.62, 0.0],
-    [-0.22, 0.36],
-    [0.06, 0.72],
-    [0.28, 1.0],
+    [-0.7, 0.0],
+    [-0.25, 0.36],
+    [0.05, 0.72],
+    [0.26, 1.0],
   ];
   const rings: Vec3[][] = stations.map(([dz, k]) => {
     const lerp = (p: number, q: number): number => p + (q - p) * k;

@@ -435,6 +435,27 @@ check("samples: 示例手法可加载（60fps/三关键帧/终态 PIP 45）", ()
     auto.every((x) => x.stepMapping.length > 0 && x.stepMapping.every((m) => m.endFrame > m.startFrame)),
     "无关键帧手法应含合法 stepMapping",
   );
+  // 双手运动展示内置手法：关联已有公式、远离魔方、左右手非镜像同步独立运动
+  const showcase = SAMPLE_TECHNIQUES.find((x) => x.name === "双手运动展示（示例）");
+  expect(!!showcase, "应内置「双手运动展示（示例）」手法");
+  expect(
+    SAMPLE_FORMULAS.formulas.some((f) => f.id === showcase!.formulaId),
+    "双手运动展示手法应关联已有公式",
+  );
+  expect(showcase!.keyframes.length >= 10, `双手运动展示关键帧数不足：${showcase!.keyframes.length}`);
+  expect(
+    showcase!.keyframes.every(
+      (k) =>
+        Math.abs(k.left.palm.transform.position.x) >= 2.5 &&
+        Math.abs(k.right.palm.transform.position.x) >= 2.5,
+    ),
+    "双手运动展示应将双手拉远魔方（|x| >= 2.5）",
+  );
+  // 至少有若干帧左右手关节弯屈不同（体现双手独立同步运动，而非单纯镜像）
+  const hasAsymmetric = showcase!.keyframes.some(
+    (k) => Math.abs(k.left.bends.index[1] - k.right.bends.index[1]) >= 20,
+  );
+  expect(hasAsymmetric, "双手运动展示应包含左右手非镜像独立同步动作");
 });
 
 check("library: 合并与序列化往返", () => {
