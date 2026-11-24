@@ -6,10 +6,9 @@
 
 ## 当前状态
 
-- 版本 **0.4.2**（2026-11-23 bump，四处同步：package.json / package-lock.json /
-  tauri.conf.json / Cargo.toml+Cargo.lock；包含 Step 0 CI 门禁补齐 + Step 1 灰面板性能/
-  6 底预设/500ms 播放基准/Web Worker 求解/dispose 收口 + Step 2 ZBLL 100%/ZBLS 四槽 100%/
-  Roux EOLR 真生效）
+- 版本 **0.4.3**（2026-11-24 bump，四处同步：package.json / package-lock.json /
+  tauri.conf.json / Cargo.toml+Cargo.lock；包含 Step 3 A/B 编辑器瘦身与 Tauri 基建、
+  手部外观精修与大鱼际单轴下沉联动、以及开始页细腻像素圆角速拧魔方 + 物理旋转焦散 + 三层伪 3D 视差背景）
 - 求解器：CFOP / CFOP+（ZBLS+一步 ZBLL）/ Roux（分步 4a/4b/4c、合并 4b+4c、高级 EOLR+6E2C）五方法全绿；
   ZBLL 数据完整 **493/493** 且运行时查表经 post-AUF × y 共轭展开精确覆盖全空间 **7776/7776 = 100%**；
   ZBLS 有效全集 **302**（O 组 3 条全槽已解留档 docs/archived/），特征键 + `viewState` 四槽统一（真实态命中 **100%**，CFOP+ 均省 ~12 步、0 例变长）；
@@ -26,8 +25,8 @@
 
 ### 下一轮规划（2026-11-24 录入并落地两项；详见 `docs/plan-hand-thenar-and-startpage.md` 与 `docs/handoff-2026-11-24.md`）
 - ✅ **手部默认姿态 & 大鱼际单轴下沉简化**（方案 A 已落地 + 全套单测/浏览器 E&F 回归/真机截图通过）：移除静态虎口斜桥 `buildThumbWeb`；四指保持简化，大鱼际肌腹与拇指根共挂单轴 `thenarPivot` + `thumbAnchor`（`applyThumbPoseNodes` 统一驱动，`thenarFold ∈ [0°, 90°]`：90° 放松向掌心下沉、俯视五指完整可见、自动联动约 75° 对掌自转，0° 舒展转回与掌齐平）；`HandRigConfig.thenarFold` + `Pose.thumbCMC.thenarFold?`（可选向后兼容，`window.motionCubeHand` 零破坏）同步接入标定页滑块、编辑器关键帧面板、`Timeline` 插值、中英 i18n 与 `gen-samples.ts` 展示手法；`verify-hand-mesh` 补齐 0°/45°/90° 严格 X 镜像、P0-7 与俯视五指外露断言。
-- ✅ **开始页视觉升级（中量档，参考 `D:\P_rojects\caustic-gem`）**（已落地 + 明暗主题/窄屏真机截图 & CI Playtest 通过）：新增 `src/render/startCausticCube.ts` + `src/vue/components/CausticCube3D.vue` 替换开始页 `PseudoCube3D`（保留 WebGL 不可用无缝回退），实现 54 块 45° 宝石切角贴面 + 5 阶平涂折光色板 + 离散彩虹火彩 + 棱边描线 + 0.85s 入场抛光扫光，配套简化移植自 `caustic_ground.gdshader` 的硬边分层焦散平面；适配 1.5x `html.style.zoom` 高清渲染、明/暗主题实时切换、`<900px` 卸载与完整 `dispose()`、`prefers-reduced-motion` 及页面切后台暂停。
-- ⬜ **发版收口（待用户确认）**：`main` 当前领先 `origin/main` 4 个提交（含 Step 3 A/B + 手部外观两轮 + 示例手法，及本轮大鱼际下沉与开始页升级），视节奏决定提交、bump `0.4.3` 与推送。
+- ✅ **开始页视觉升级（参考 `D:\P_rojects\caustic-gem`）**（已落地 + 明暗主题/旋转同步/窄屏真机截图 & CI Playtest 通过）：新增 `src/render/startCausticCube.ts` + `src/vue/components/CausticCube3D.vue` 替换开始页 `PseudoCube3D`（保留 WebGL 不可用无缝回退），锁定 216px 细腻低逻辑像素缓冲与 Exact Rounded Box SDF（1/4 圆柱棱 + 1/8 球角）+ 标准 Florian 贴面（中心 4 大 R、棱块 2 大 2 小、角块 1 大 3 小）+ 26 块内外低透光隔离 + 鲜亮 4 阶色板/窄带 Bayer 抖动/1px 暗色外描边，底部同步为基于 `uInvModel` 弦厚门控的物理旋转 Bayer 抖动焦散盘；`StartPage.vue` 增配三层视差静态伪 3D 等轴淡彩背景并修复顶部视锥裁切。
+- ✅ **发版收口（2026-11-24）**：完成 bump `0.4.3` 四处版本同步并推送 `origin/main`。
 
 ### 重启执行计划（2026-11-22 简版路线图，按阶段逐步推进）
 - ✅ **Step 0｜基线与门面**：CI 补齐 5 条确定性 gate（`verify-solve-base` / `probe-solve-base-ui` / `verify-zbls-rounds` / `probe-locale-keys` 补 exitCode / `verify-notation`）、版本四处同步断言、`cargo check` Rust job、`permissions`/`concurrency`、去掉重复 `vue-tsc`；README/AGENTS/todo 文档去伪对齐；全套本地验证 + `cargo check` 全绿（`find-zbls-diff-3` 依赖 gitignored `reference/` 不进 CI，由 `verify-zbls-rounds` 覆盖）。
