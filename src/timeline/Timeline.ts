@@ -2,7 +2,7 @@
  * 层 D' 时间线工具（docs/params.md）：帧率 60fps、帧↔秒换算、
  * 关键帧校验/排序/插值区间、姿态插值（补帧）。
  */
-import type { Pose } from "../hand/HandRig";
+import { DEFAULT_THENAR_FOLD, type Pose } from "../hand/HandRig";
 
 export const DEFAULT_FRAME_RATE = 60;
 
@@ -154,6 +154,15 @@ export function interpolatePose(a: Pose, b: Pose, t: number): Pose {
       abduction: lerp(a.thumbCMC.abduction, b.thumbCMC.abduction, u),
       elevation: lerp(a.thumbCMC.elevation, b.thumbCMC.elevation, u),
       rotation: lerp(a.thumbCMC.rotation, b.thumbCMC.rotation, u),
+      ...(a.thumbCMC.thenarFold !== undefined || b.thumbCMC.thenarFold !== undefined
+        ? {
+            thenarFold: lerp(
+              a.thumbCMC.thenarFold ?? DEFAULT_THENAR_FOLD,
+              b.thumbCMC.thenarFold ?? DEFAULT_THENAR_FOLD,
+              u,
+            ),
+          }
+        : {}),
     },
     contacts: [],
   };

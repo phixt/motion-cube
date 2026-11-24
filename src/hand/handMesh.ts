@@ -6,10 +6,11 @@
  * - 手指/拇指：饱满超椭圆放样（严格 X 镜像对称采样，奇偶 facets 均对称）+ 椭球关节无缝衔接
  *   + 多环半球圆润指尖 + 贴背弧面指甲；
  * - 手掌：7 站圆润有机轮廓（腕缘微收倒角、掌中饱满、指根弧线自然顺滑、无方肩硬切）；
- * - 大鱼际与虎口：肌腹深度融入掌体并无缝承托拇指根 + 第一指蹼（虎口）柔滑过渡。
+ * - 大鱼际：肌腹与拇指根共挂单轴 thenarPivot（沿掌侧纵轴向掌心下沉 0°–90°），
+ *   0° 舒展与掌齐平、90° 放松自然下沉且俯视五指完整可见；移除静态虎口斜桥。
  *
  * ⚠ 兼容面冻结：
- * - 对外输出 HandMeshResult{root, fingers, thumbRoot, thumbDof} 及导出符号完全不变；
+ * - 对外输出 HandMeshResult 保留 {root, fingers, thumbRoot, thumbDof}（新增 thenarPivot/thumbAnchor）；
  * - 坐标系不变：数据单位 × handScale，+Z 指尖 / +Y 指背 / +X 拇指侧（右手，sideSign 镜像）。
  */
 import {
@@ -25,7 +26,7 @@ import {
   SphereGeometry,
   Vector3,
 } from "three";
-import type { FingerName, HandRig } from "./HandRig";
+import type { FingerName, HandRig, Transform } from "./HandRig";
 import type { HandRigConfig, HandShapeParams } from "./handRigStore";
 
 /** 肤色/标记/描边 */
@@ -51,9 +52,65 @@ export type FingerNodes = { root: Group; joints: Group[]; segments: SegmentNode[
 export type HandMeshResult = {
   root: Group;
   fingers: Record<FingerName, FingerNodes>;
+  /** 大鱼际单轴下沉枢轴（绕局部 Z 轴向掌心下沉 0°–90°；大鱼际网格与 thumbAnchor 共挂其下） */
+  thenarPivot: Group;
+  /** 拇指根锚点（挂在 thenarPivot 内随大鱼际沿圆弧下沉，并反旋对齐手掌参考系保持 CMC 轴向直观） */
+  thumbAnchor: Group;
   thumbRoot: Group;
   thumbDof: Group;
 };
+
+/** 大鱼际下沉角到自然对掌自转的比例：90° 放松下沉 → 约 75° 自然自转；0° 舒展 → 0° 与掌齐平 */
+export const THENAR_AUTO_ROLL_RATIO = 75 / 90;
+
+export function thenarAutoRollDeg(foldDeg: number): number {
+  return foldDeg * THENAR_AUTO_ROLL_RATIO;
+}
+
+/** 计算大鱼际单轴枢轴在手掌局部空间中的坐标（由掌宽推导，左右手严格 X 镜像） */
+export function thenarPivotLocalOrigin(cfg: HandRigConfig, sideSign: number): [number, number, number] {
+  const H = cfg.handScale;
+  const halfW = (cfg.palm.width / 2) * H;
+  return [sideSign * halfW * 0.86, 0.03 * H, 0];
+}
+
+/**
+ * 统一驱动大鱼际单轴下沉与拇指 CMC 节点（HandRigView / HandCalibView / HandOrbitView / HandLabPage 共用）。
+ * - thenarPivot.rotation.z = -sideSign * fold：大鱼际肌腹与拇指根沿单轴向掌心 (-Y) 下沉；
+ * - thumbAnchor.rotation.z = +sideSign * fold：保持 thumbDof 展收/抬离始终在手掌解剖参考系下生效；
+ * - thumbDof.rotation.z 叠加 thenarAutoRollDeg(fold) + rotation，实现放松态约 75° 自然自转、舒展态自动转平。
+ */
+export function applyThumbPoseNodes(
+  nodes: Pick<HandMeshResult, "thenarPivot" | "thumbAnchor" | "thumbRoot" | "thumbDof">,
+  sideSign: number,
+  cmc: { abduction: number; elevation: number; rotation: number; thenarFold?: number },
+  defaultFold: number,
+  thumbBase?: Transform,
+): void {
+  const rawFold = cmc.thenarFold ?? defaultFold;
+  const fold = Math.min(90, Math.max(0, Number.isFinite(rawFold) ? rawFold : defaultFold));
+  const foldRad = (fold * Math.PI) / 180;
+  nodes.thenarPivot.rotation.set(0, 0, -sideSign * foldRad);
+  nodes.thumbAnchor.rotation.set(0, 0, sideSign * foldRad);
+  if (thumbBase) {
+    nodes.thumbRoot.position.set(thumbBase.position.x, thumbBase.position.y, thumbBase.position.z);
+    nodes.thumbRoot.quaternion.set(
+      thumbBase.quaternion.x,
+      thumbBase.quaternion.y,
+      thumbBase.quaternion.z,
+      thumbBase.quaternion.w,
+    );
+  } else {
+    nodes.thumbRoot.position.set(0, 0, 0);
+    nodes.thumbRoot.quaternion.set(0, 0, 0, 1);
+  }
+  const totalRoll = thenarAutoRollDeg(fold) + cmc.rotation;
+  nodes.thumbDof.rotation.set(
+    (-cmc.elevation * Math.PI) / 180,
+    (cmc.abduction * sideSign * Math.PI) / 180,
+    (-totalRoll * sideSign * Math.PI) / 180,
+  );
+}
 
 export type BuildHandMeshOptions = {
   /** 腹/背标记球（编辑器开启；标定测量视图关闭） */
@@ -614,13 +671,17 @@ function buildFingerChain(
 }
 
 /**
- * 大鱼际肌腹：深度嵌入掌侧缘、平滑过渡到拇指根球窝，消除「外贴香肠块」割裂感。
+ * 大鱼际肌腹（构建在 thenarPivot 局部坐标系内）：
+ * 内缘包裹枢轴原点 (0,0) 深埋入掌缘，确保 thenarFold ∈ [0°, 90°] 全行程平滑折叠不露缝；
+ * 前段精准汇入 thumbAnchor 局部位置，与拇指根刚性随动（已移除静态虎口斜桥）。
  */
 function buildThenarRidge(
   cfg: HandRigConfig,
   shape: HandShapeParams,
   H: number,
   sideSign: number,
+  pivotX: number,
+  pivotY: number,
   thumbWHalf: number,
   linearOutput: boolean,
   addOutline: AddOutline,
@@ -630,35 +691,39 @@ function buildThenarRidge(
   const len = cfg.palm.length * H;
   const mcpZ = cfg.palm.mcpZ * H;
   const halfW = (cfg.palm.width / 2) * H;
-  const zHeel = mcpZ - len + 0.08 * H;
-  const tcX = cfg.thumbCorner.x * H * sideSign;
-  const tcY = cfg.thumbCorner.y * H;
-  const zCap = cfg.thumbCorner.z * H + 0.14 * H;
-  const zFront = Math.min(zHeel + len * Math.min(cfg.thenar.length, 1.05) * 0.9, zCap);
+  // 腕端略向前收进，避免在腕缘转角处凸出形成台阶
+  const zHeel = mcpZ - len + 0.18 * H;
+  const localTcX = cfg.thumbCorner.x * H * sideSign - pivotX;
+  const localTcY = cfg.thumbCorner.y * H - pivotY;
+  const localTcZ = cfg.thumbCorner.z * H;
+  const zCap = localTcZ + 0.14 * H;
+  const zFront = Math.min(zHeel + len * Math.min(cfg.thenar.length, 1.05) * 0.88, zCap);
 
-  const aMax = cfg.thenar.width * H * 0.56; // 更宽以自然沉入掌体，减少边界折痕
-  const b = cfg.thenar.height * H * 0.52;
-  const yC = -0.04 * H + cfg.thenar.y * H;
-  const wallAt = (t: number): number => halfW * (shape.palmTaper + (1 - shape.palmTaper) * t);
-  const bellyAt = (t: number): number => Math.sin(Math.PI * t) ** 0.72;
+  const aMax = cfg.thenar.width * H * 0.48;
+  const bMax = cfg.thenar.height * H * 0.48;
+  const yC = 0.01 * H + cfg.thenar.y * H - pivotY;
+  const pivotAbsX = Math.abs(pivotX);
+  const wallLocalAt = (t: number): number =>
+    halfW * (shape.palmTaper + (1 - shape.palmTaper) * t) - pivotAbsX;
+  const bellyAt = (t: number): number => Math.sin(Math.PI * t) ** 0.78;
 
   type RingSpec = { cx: number; cy: number; a: number; b: number; z: number };
   const spec = (t: number): RingSpec => {
-    const a = aMax * (0.42 + 0.58 * bellyAt(t));
-    // 圆心略内收，使大鱼际内侧深埋入掌内、外侧自然鼓出
+    const a = aMax * (0.4 + 0.6 * bellyAt(t));
+    // 截面内缘深埋掌体、包裹枢轴 (0,0)，0°–90° 全行程圆润过渡且腕侧不鼓包
     return {
-      cx: sideSign * (wallAt(t) * 0.86 + a * 0.34),
+      cx: sideSign * (wallLocalAt(t) * 0.45 + a * 0.12),
       cy: yC,
       a,
-      b: b * (0.72 + 0.28 * bellyAt(t)),
+      b: bMax * (0.68 + 0.32 * bellyAt(t)),
       z: zHeel + (zFront - zHeel) * t,
     };
   };
   const target: RingSpec = {
-    cx: tcX,
-    cy: tcY,
-    a: thumbWHalf * 1.1,
-    b: thumbWHalf * 0.98,
+    cx: localTcX,
+    cy: localTcY,
+    a: thumbWHalf * 1.06,
+    b: thumbWHalf * 0.95,
     z: zFront,
   };
   const toward = (s: RingSpec, k: number): RingSpec => ({
@@ -668,65 +733,24 @@ function buildThenarRidge(
     b: s.b + (target.b - s.b) * k,
     z: s.z + (target.z - s.z) * k,
   });
-  const s70 = spec(0.7);
+  const s68 = spec(0.68);
   const stations: RingSpec[] = [
-    { ...spec(0), a: aMax * 0.36, b: b * 0.55 },
-    spec(0.18),
-    spec(0.45),
-    s70,
-    toward(s70, 0.35),
-    toward(s70, 0.68),
-    toward(s70, 1),
+    { ...spec(0), cx: sideSign * (wallLocalAt(0) - aMax * 0.16), cy: yC * 0.6, a: aMax * 0.28, b: bMax * 0.44 },
+    { ...spec(0.2), cx: sideSign * (wallLocalAt(0.2) * 0.35 + aMax * 0.04) },
+    spec(0.46),
+    s68,
+    toward(s68, 0.35),
+    toward(s68, 0.68),
+    toward(s68, 1),
   ];
   const rings: Vec3[][] = stations.map((st) =>
-    ringPoints(F, st.a, st.b, st.b * 0.95, 2.2, 2.2, st.cy, st.z).map(
+    ringPoints(F, st.a, st.b, st.b * 0.96, 2.2, 2.2, st.cy, st.z).map(
       (p) => [p[0] + st.cx, p[1], p[2]] as Vec3,
     ),
   );
   const mesh = tintedMesh(
     shadeGeometry(loftGeometry(rings, true, true), SKIN, linearOutput, shape.facetJitter, rng),
     "thenar",
-  );
-  addOutline(mesh);
-  return mesh;
-}
-
-/**
- * 第一指蹼（虎口）：柔滑桥接食指掌侧缘与大鱼际前肩，内端沉入掌体、外缘贴合拇指根，
- * 不突出于食指根下方，消除拇指外展时的生硬 V 形缺口。
- */
-function buildThumbWeb(
-  cfg: HandRigConfig,
-  shape: HandShapeParams,
-  H: number,
-  sideSign: number,
-  linearOutput: boolean,
-  addOutline: AddOutline,
-  rng: () => number,
-): Mesh {
-  const F = Math.max(shape.facets, 12);
-  const halfW = (cfg.palm.width / 2) * H;
-  const mcpZ = cfg.palm.mcpZ * H;
-  const tcX = cfg.thumbCorner.x * H * sideSign;
-  const tcY = cfg.thumbCorner.y * H;
-  const tcZ = cfg.thumbCorner.z * H;
-  // 从大鱼际前段平滑斜入掌内（食指掌骨外缘内侧），截面圆润收束
-  const palmSideX = sideSign * (halfW * 0.78);
-  const palmSideY = 0.01 * H;
-  const zEnd = mcpZ - 0.26 * H;
-  const stations: Array<{ x: number; y: number; z: number; rx: number; ry: number }> = [
-    { x: tcX * 0.9, y: tcY + 0.01 * H, z: tcZ + 0.02 * H, rx: 0.14 * H, ry: 0.11 * H },
-    { x: tcX * 0.62 + palmSideX * 0.38, y: (tcY + palmSideY) * 0.5, z: tcZ + (zEnd - tcZ) * 0.48, rx: 0.14 * H, ry: 0.1 * H },
-    { x: palmSideX, y: palmSideY, z: zEnd, rx: 0.13 * H, ry: 0.11 * H },
-  ];
-  const rings: Vec3[][] = stations.map((st) =>
-    ringPoints(F, st.rx, st.ry, st.ry, 2.2, 2.2, st.y, st.z).map(
-      (p) => [p[0] + st.x, p[1], p[2]] as Vec3,
-    ),
-  );
-  const mesh = tintedMesh(
-    shadeGeometry(loftGeometry(rings, true, true), SKIN, linearOutput, shape.facetJitter, rng),
-    "thumb-web",
   );
   addOutline(mesh);
   return mesh;
@@ -999,12 +1023,26 @@ export function buildHandMesh(
   // 1) 手掌
   root.add(buildPalm(cfg, shape, H, sideSign, frontFaceZ, opts.linearOutput, addOutline, rng));
 
-  // 2) 大鱼际 + 虎口第一指蹼
+  // 2) 大鱼际单轴枢轴（thenarPivot）：大鱼际肌腹与拇指根共挂其下，绕局部 Z 轴向掌心下沉 0°–90°
+  const [pivotX, pivotY, pivotZ] = thenarPivotLocalOrigin(cfg, sideSign);
+  const thenarPivot = new Group();
+  thenarPivot.position.set(pivotX, pivotY, pivotZ);
   const thumbVisWHalf = (cfg.fingers.thumb[0].width * 1.15 * 0.5) * H;
-  root.add(
-    buildThenarRidge(cfg, shape, H, sideSign, thumbVisWHalf, opts.linearOutput, addOutline, rng),
+  thenarPivot.add(
+    buildThenarRidge(
+      cfg,
+      shape,
+      H,
+      sideSign,
+      pivotX,
+      pivotY,
+      thumbVisWHalf,
+      opts.linearOutput,
+      addOutline,
+      rng,
+    ),
   );
-  root.add(buildThumbWeb(cfg, shape, H, sideSign, opts.linearOutput, addOutline, rng));
+  root.add(thenarPivot);
 
   // 3) 四指根解剖弧线位置
   const FOUR = ["index", "middle", "ring", "pinky"] as const;
@@ -1103,16 +1141,27 @@ export function buildHandMesh(
     fingers[r.name] = nodes;
   }
 
-  // 9) 拇指链
+  // 9) 拇指链（挂在 thenarPivot → thumbAnchor 下随大鱼际单轴下沉）
+  const thumbAnchor = new Group();
+  const tc = cfg.thumbCorner;
+  thumbAnchor.position.set(tc.x * H * sideSign - pivotX, tc.y * H - pivotY, tc.z * H - pivotZ);
+  thenarPivot.add(thumbAnchor);
+
   const thumbRoot = new Group();
   const thumbDof = new Group();
   thumbRoot.add(thumbDof);
-  const tc = cfg.thumbCorner;
-  thumbRoot.position.set(tc.x * H * sideSign, tc.y * H, tc.z * H);
   const thumbNodes = buildFingerChain(rig, "thumb", H, shape, opts, addOutline, rng);
   thumbDof.add(thumbNodes.root);
-  root.add(thumbRoot);
+  thumbAnchor.add(thumbRoot);
   fingers.thumb = thumbNodes;
 
-  return { root, fingers, thumbRoot, thumbDof };
+  // 默认按配置 thenarFold 与 thumbCmc 置位，保证直接构造预览即呈目标自然形态
+  applyThumbPoseNodes(
+    { thenarPivot, thumbAnchor, thumbRoot, thumbDof },
+    sideSign,
+    cfg.thumbCmc,
+    cfg.thenarFold,
+  );
+
+  return { root, fingers, thenarPivot, thumbAnchor, thumbRoot, thumbDof };
 }

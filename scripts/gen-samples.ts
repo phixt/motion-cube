@@ -193,7 +193,7 @@ type ShowcasePoseOpts = {
   /** 叠加在「竖立掌心朝镜头」基准上的欧拉角（度：pitch=前后倾, yaw=转向掌背/掌心, roll=左右摆） */
   rot?: [number, number, number];
   thumb?: [number, number, number];
-  cmc?: { abduction: number; elevation: number; rotation: number };
+  cmc?: { abduction: number; elevation: number; rotation: number; thenarFold?: number };
   mcp?: [number, number, number, number];
   pip?: [number, number, number, number];
   dip?: [number, number, number, number];
@@ -228,7 +228,7 @@ const showcaseStartLeft = showcasePose("left", {
   pip: [174, 174, 174, 174],
   dip: [176, 176, 176, 176],
   thumb: [175, 174, 175],
-  cmc: { abduction: 18, elevation: 0, rotation: 18 },
+  cmc: { abduction: 22, elevation: 0, rotation: 8, thenarFold: 25 },
 });
 const showcaseStartRight = showcasePose("right", {
   pos: [4.3, -0.7, 0.2],
@@ -237,7 +237,7 @@ const showcaseStartRight = showcasePose("right", {
   pip: [174, 174, 174, 174],
   dip: [176, 176, 176, 176],
   thumb: [175, 174, 175],
-  cmc: { abduction: 18, elevation: 0, rotation: 18 },
+  cmc: { abduction: 22, elevation: 0, rotation: 8, thenarFold: 25 },
 });
 
 const dualHandShowcaseTechnique = createTechnique({
@@ -247,7 +247,7 @@ const dualHandShowcaseTechnique = createTechnique({
   keyframes: [
     // 0s：双手拉远魔方两侧竖立舒展
     { frame: 0, left: showcaseStartLeft, right: showcaseStartRight, easing: "easeInOut" },
-    // 1s：左手亮掌心+大展拇指 ｜ 右手翻向掌背 3/4 + 四指阶梯波浪
+    // 1s：左手亮掌心+大展拇指（大鱼际 0° 舒展齐平）｜ 右手翻向掌背 3/4 + 四指阶梯波浪（90° 下沉）
     {
       frame: 60,
       left: showcasePose("left", {
@@ -257,7 +257,7 @@ const dualHandShowcaseTechnique = createTechnique({
         pip: [178, 178, 178, 178],
         dip: [178, 178, 178, 178],
         thumb: [176, 176, 176],
-        cmc: { abduction: 44, elevation: -12, rotation: 22 },
+        cmc: { abduction: 40, elevation: -8, rotation: 10, thenarFold: 0 },
       }),
       right: showcasePose("right", {
         pos: [4.4, -0.8, 0.3],
@@ -266,11 +266,11 @@ const dualHandShowcaseTechnique = createTechnique({
         pip: [104, 126, 148, 168],
         dip: [122, 140, 158, 172],
         thumb: [166, 156, 124],
-        cmc: { abduction: 12, elevation: -8, rotation: 38 },
+        cmc: { abduction: 14, elevation: -8, rotation: 8, thenarFold: 90 },
       }),
       easing: "easeInOut",
     },
-    // 2s：角色互换——左手上抬握拳（拇指对掌横搭）｜ 右手翻回掌心前倾摊掌
+    // 2s：角色互换——左手上抬握拳（90° 下沉+拇指对掌横搭）｜ 右手翻回掌心前倾摊掌（0° 齐平）
     {
       frame: 120,
       left: showcasePose("left", {
@@ -280,7 +280,7 @@ const dualHandShowcaseTechnique = createTechnique({
         pip: [92, 90, 92, 94],
         dip: [110, 108, 110, 114],
         thumb: [148, 142, 116],
-        cmc: { abduction: 18, elevation: -24, rotation: 76 },
+        cmc: { abduction: 12, elevation: -22, rotation: 18, thenarFold: 90 },
       }),
       right: showcasePose("right", {
         pos: [4.5, -0.95, 0.45],
@@ -289,7 +289,7 @@ const dualHandShowcaseTechnique = createTechnique({
         pip: [180, 180, 180, 180],
         dip: [180, 180, 180, 180],
         thumb: [178, 178, 178],
-        cmc: { abduction: 38, elevation: 24, rotation: 10 },
+        cmc: { abduction: 36, elevation: 18, rotation: 5, thenarFold: 0 },
       }),
       easing: "easeInOut",
     },
@@ -303,7 +303,7 @@ const dualHandShowcaseTechnique = createTechnique({
         pip: [94, 174, 96, 174],
         dip: [116, 176, 118, 176],
         thumb: [168, 162, 150],
-        cmc: { abduction: 28, elevation: 6, rotation: 32 },
+        cmc: { abduction: 24, elevation: 4, rotation: 0, thenarFold: 75 },
       }),
       right: showcasePose("right", {
         pos: [4.15, -0.85, 0.55],
@@ -312,11 +312,11 @@ const dualHandShowcaseTechnique = createTechnique({
         pip: [174, 94, 174, 96],
         dip: [176, 116, 176, 118],
         thumb: [164, 156, 142],
-        cmc: { abduction: 24, elevation: -10, rotation: 48 },
+        cmc: { abduction: 22, elevation: -8, rotation: 6, thenarFold: 85 },
       }),
       easing: "easeInOut",
     },
-    // 4s：拇指三轴与 IP 专项展示——左手 OK 捏合（斜侧亮轮廓）｜ 右手拇指跨掌对小指
+    // 4s：拇指三轴与 IP 专项展示——左手 OK 捏合 ｜ 右手拇指跨掌对小指
     {
       frame: 240,
       left: showcasePose("left", {
@@ -326,7 +326,7 @@ const dualHandShowcaseTechnique = createTechnique({
         pip: [98, 170, 172, 174],
         dip: [116, 172, 174, 176],
         thumb: [148, 142, 110],
-        cmc: { abduction: 28, elevation: -28, rotation: 84 },
+        cmc: { abduction: 22, elevation: -24, rotation: 20, thenarFold: 90 },
       }),
       right: showcasePose("right", {
         pos: [4.25, -0.55, 0.5],
@@ -335,7 +335,7 @@ const dualHandShowcaseTechnique = createTechnique({
         pip: [174, 172, 166, 96],
         dip: [176, 174, 170, 116],
         thumb: [138, 134, 108],
-        cmc: { abduction: -14, elevation: -34, rotation: 102 },
+        cmc: { abduction: -12, elevation: -28, rotation: 30, thenarFold: 90 },
       }),
       easing: "easeInOut",
     },
@@ -349,7 +349,7 @@ const dualHandShowcaseTechnique = createTechnique({
         pip: [128, 124, 120, 116],
         dip: [142, 138, 136, 134],
         thumb: [166, 160, 152],
-        cmc: { abduction: 24, elevation: 12, rotation: 28 },
+        cmc: { abduction: 22, elevation: 10, rotation: 0, thenarFold: 80 },
       }),
       right: showcasePose("right", {
         pos: [4.6, -1.15, 0.6],
@@ -358,7 +358,7 @@ const dualHandShowcaseTechnique = createTechnique({
         pip: [158, 156, 154, 152],
         dip: [165, 164, 162, 160],
         thumb: [172, 168, 164],
-        cmc: { abduction: 36, elevation: -8, rotation: 22 },
+        cmc: { abduction: 32, elevation: -6, rotation: 5, thenarFold: 30 },
       }),
       easing: "easeInOut",
     },
@@ -372,7 +372,7 @@ const dualHandShowcaseTechnique = createTechnique({
         pip: [98, 96, 98, 102],
         dip: [114, 112, 114, 118],
         thumb: [156, 148, 120],
-        cmc: { abduction: 14, elevation: -16, rotation: 54 },
+        cmc: { abduction: 14, elevation: -14, rotation: 10, thenarFold: 90 },
       }),
       right: showcasePose("right", {
         pos: [4.45, 0.05, 0.0],
@@ -381,7 +381,7 @@ const dualHandShowcaseTechnique = createTechnique({
         pip: [172, 148, 122, 98],
         dip: [174, 156, 134, 114],
         thumb: [170, 162, 146],
-        cmc: { abduction: 32, elevation: 8, rotation: 30 },
+        cmc: { abduction: 28, elevation: 6, rotation: 0, thenarFold: 75 },
       }),
       easing: "easeInOut",
     },
@@ -395,7 +395,7 @@ const dualHandShowcaseTechnique = createTechnique({
         pip: [96, 94, 96, 98],
         dip: [104, 102, 104, 108],
         thumb: [168, 154, 100],
-        cmc: { abduction: 40, elevation: -14, rotation: 46 },
+        cmc: { abduction: 34, elevation: -12, rotation: 5, thenarFold: 85 },
       }),
       right: showcasePose("right", {
         pos: [4.2, -0.6, 0.45],
@@ -404,11 +404,11 @@ const dualHandShowcaseTechnique = createTechnique({
         pip: [96, 94, 96, 98],
         dip: [104, 102, 104, 108],
         thumb: [168, 154, 100],
-        cmc: { abduction: 40, elevation: -14, rotation: 46 },
+        cmc: { abduction: 34, elevation: -12, rotation: 5, thenarFold: 85 },
       }),
       easing: "easeInOut",
     },
-    // 8s：反向舒展波浪（左手外倾抬拇指 ｜ 右手回转亮掌心对掌）
+    // 8s：反向舒展波浪（左手 0° 舒展抬拇指 ｜ 右手 90° 下沉对掌）
     {
       frame: 480,
       left: showcasePose("left", {
@@ -418,7 +418,7 @@ const dualHandShowcaseTechnique = createTechnique({
         pip: [136, 154, 170, 178],
         dip: [150, 162, 174, 178],
         thumb: [176, 174, 174],
-        cmc: { abduction: 38, elevation: 28, rotation: 12 },
+        cmc: { abduction: 34, elevation: 20, rotation: 6, thenarFold: 0 },
       }),
       right: showcasePose("right", {
         pos: [4.5, -0.8, 0.4],
@@ -427,11 +427,11 @@ const dualHandShowcaseTechnique = createTechnique({
         pip: [178, 168, 150, 134],
         dip: [178, 172, 158, 146],
         thumb: [152, 146, 126],
-        cmc: { abduction: 12, elevation: -20, rotation: 68 },
+        cmc: { abduction: 12, elevation: -18, rotation: 16, thenarFold: 90 },
       }),
       easing: "easeInOut",
     },
-    // 9s：平缓收拢自然微曲
+    // 9s：平缓收拢自然放松态（thenarFold=90°）
     {
       frame: 540,
       left: showcasePose("left", {
@@ -441,7 +441,7 @@ const dualHandShowcaseTechnique = createTechnique({
         pip: [158, 154, 154, 158],
         dip: [166, 164, 164, 166],
         thumb: [172, 168, 168],
-        cmc: { abduction: 20, elevation: 2, rotation: 22 },
+        cmc: { abduction: 18, elevation: 0, rotation: 0, thenarFold: 90 },
       }),
       right: showcasePose("right", {
         pos: [4.3, -0.65, 0.3],
@@ -450,7 +450,7 @@ const dualHandShowcaseTechnique = createTechnique({
         pip: [158, 154, 154, 158],
         dip: [166, 164, 164, 166],
         thumb: [172, 168, 168],
-        cmc: { abduction: 20, elevation: 2, rotation: 22 },
+        cmc: { abduction: 18, elevation: 0, rotation: 0, thenarFold: 90 },
       }),
       easing: "easeInOut",
     },

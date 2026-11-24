@@ -26,6 +26,8 @@ export type JointDef = {
   elevation?: number;
   /** 对掌自转（度，绕拇指自身长轴，指腹转向掌/指侧）——目前仅拇指 CMC 使用 */
   rotation?: number;
+  /** 大鱼际单轴下沉角（度，0°=与掌齐平舒展，90°=向掌心自然下沉）——仅拇指 CMC 使用 */
+  thenarFold?: number;
 };
 
 export type SegmentDef = {
@@ -75,10 +77,11 @@ export type Pose = {
   /** 各指关节 bend（顺序与 rig.fingers[name].joints 一致） */
   bends: Record<FingerName, number[]>;
   /**
-   * 拇指 CMC 三自由度（解剖语义，见 DEFAULT_THUMB_CMC）：
-   * abduction 掌平面展收 / elevation 抬离掌面 / rotation 对掌自转
+   * 拇指 CMC 自由度（解剖语义，见 DEFAULT_THUMB_CMC）：
+   * abduction 掌平面展收 / elevation 抬离掌面 / rotation 附加对掌自转 /
+   * thenarFold 可选大鱼际单轴下沉角（0° 舒展齐平 – 90° 自然下沉，缺省回落标定配置）
    */
-  thumbCMC: { abduction: number; elevation: number; rotation: number };
+  thumbCMC: { abduction: number; elevation: number; rotation: number; thenarFold?: number };
   contacts: Contact[];
 }
 
@@ -122,14 +125,16 @@ export function mirrorPose(pose: Pose): Pose {
 
 export const DEFAULT_BEND_RANGE = { min: 90, max: 180 };
 
+/** 大鱼际单轴下沉默认角（度）：0° 舒展与掌齐平，90° 自然放松向掌心下沉 */
+export const DEFAULT_THENAR_FOLD = 90;
+
 /**
  * 拇指 CMC 默认角（度）。
- * 0.4.0 七轮扶正：展收/抬离归零 + 对掌扭转 45→15——45° 扭转让拇指弯屈方向偏出指
- * 平面，是「下撇不平行」观感的主因（轴本身与四指平行，被扭转的杆身读作斜杆）；
- * 对掌需求由姿态数据（thumbCMC.rotation）与标定滑块表达。
- * 渲染分解：rotation.x = -elevation，rotation.y = ±abduction，rotation.z = ∓rotation（按手型镜像）。
+ * 大鱼际下沉（thenarFold=90°）已自然带动拇指自转约 75°（0° 舒展时自动归 0° 与掌齐平），
+ * 故默认附加自转 rotation=0、适度展收 abduction=18 使俯视五指完整可见且无违和外撇。
+ * 渲染分解：rotation.x = -elevation，rotation.y = ±abduction，rotation.z = ∓(autoRoll + rotation)。
  */
-export const DEFAULT_THUMB_CMC = { abduction: 0, elevation: 0, rotation: 15 };
+export const DEFAULT_THUMB_CMC = { abduction: 18, elevation: 0, rotation: 0 };
 
 export function identityTransform(): Transform {
   return { position: { x: 0, y: 0, z: 0 }, quaternion: { w: 1, x: 0, y: 0, z: 0 } };
@@ -179,7 +184,7 @@ export function createDefaultRig(handType: HandType = "right"): HandRig {
         joints: [
           // 默认自然微曲（0.4.0 六轮定版 170/165/168——175/170/170 过直如枝，160/160/165
           // 基关节即 20° 弯+45° 扭转呈钩状下坠；CMC 外翻角取 DEFAULT_THUMB_CMC 0/0/45）
-          { name: "CMC", bend: 170, range: { min: 60, max: 180 }, ...DEFAULT_THUMB_CMC },
+          { name: "CMC", bend: 170, range: { min: 60, max: 180 }, ...DEFAULT_THUMB_CMC, thenarFold: DEFAULT_THENAR_FOLD },
           { name: "MCP", bend: 165 },
           { name: "IP", bend: 168 },
         ],
@@ -206,6 +211,7 @@ export function createDefaultPose(rig: HandRig): Pose {
       abduction: cmc.abduction ?? 0,
       elevation: cmc.elevation ?? 0,
       rotation: cmc.rotation ?? 0,
+      ...(cmc.thenarFold !== undefined ? { thenarFold: cmc.thenarFold } : {}),
     },
     contacts: [],
   };

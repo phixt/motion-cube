@@ -15,7 +15,7 @@ import {
 } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { createRigFromConfig, type HandRigConfig } from "./handRigStore";
-import { buildHandMesh } from "./handMesh";
+import { applyThumbPoseNodes, buildHandMesh } from "./handMesh";
 import { CUBE_UNIT_WORLD } from "./HandRigView";
 import { disposeObject } from "./HandCalibView";
 
@@ -100,13 +100,8 @@ export class HandOrbitView {
     if (!cfg) return;
     const rig = createRigFromConfig(cfg, "right");
     const built = buildHandMesh(cfg, rig, 1, { withMarks: true, linearOutput: false });
-    // 拇指自然外翻（CMC 三轴，轴语义同 HandCalibView/HandRigView.applyPose），手指伸直
-    const cmc = rig.fingers.thumb.joints[0];
-    built.thumbDof.rotation.set(
-      degToRad(-(cmc.elevation ?? 0)),
-      degToRad(cmc.abduction ?? 0),
-      degToRad(-(cmc.rotation ?? 0)),
-    );
+    // 拇指应用大鱼际下沉 + CMC 三轴（轴语义同 HandCalibView/HandRigView.applyPose），四指伸直
+    applyThumbPoseNodes(built, 1, cfg.thumbCmc, cfg.thenarFold);
     this.rootGroup.add(built.root);
     this.scene.updateMatrixWorld(true);
     this.handCenter = new Box3().setFromObject(built.root).getCenter(new Vector3());
@@ -144,5 +139,3 @@ export class HandOrbitView {
     this.renderer.render(this.scene, this.camera);
   }
 }
-
-const degToRad = (d: number) => (d * Math.PI) / 180;

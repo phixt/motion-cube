@@ -29,7 +29,7 @@
   ],
   "formulas": [
     {
-      "id": "5a61358d-5e0c-4a4a-8de5-383a7335f1d3",
+      "id": "f5ea329f-2db6-40c0-be73-48fbd5bb6fa5",
       "name": "V Perm",
       "moves": "(R' U R' U') (R D' R' D) R' UD' (R2 U' R2' D R2)",
       "tags": [
@@ -38,7 +38,7 @@
       "categoryId": "cat-pll"
     },
     {
-      "id": "d3ab8657-ef92-4bde-8514-4dfe3e47cce0",
+      "id": "38933e60-9828-40e9-b69f-bf5a0532879f",
       "name": "OLL 21",
       "moves": "R U2 R' U' R U' R'",
       "tags": [
@@ -47,7 +47,7 @@
       "categoryId": "cat-oll"
     },
     {
-      "id": "1a0ed471-df99-4862-b69c-1e2e9baa14f4",
+      "id": "e827b6cf-d073-42a4-bf95-dc41d9785be5",
       "name": "H Perm",
       "moves": "M2 U M2 U2 M2 U M2",
       "tags": [
@@ -56,7 +56,7 @@
       "categoryId": "cat-pll"
     },
     {
-      "id": "734833e4-a534-4286-81b1-3f2408c7ef39",
+      "id": "86e61a06-2465-4781-9af7-269a44459ddb",
       "name": "ZBLL（示例）",
       "moves": "R U R' U R U2 R'",
       "tags": [
@@ -66,7 +66,7 @@
       "categoryId": "cat-zbll"
     },
     {
-      "id": "894d580a-f9a4-4d76-a0c6-384591dc75b8",
+      "id": "64692de3-3b43-4497-a14d-5c1fd2b5c160",
       "name": "OLL 1（速拧参考）",
       "moves": "R U2 R2 F R F' U2 R' F R F'",
       "tags": [
@@ -76,7 +76,7 @@
       "categoryId": "cat-oll"
     },
     {
-      "id": "1e11c905-53f7-4169-b116-8199e2359380",
+      "id": "86f0a61d-54e4-4e99-bd5d-8fe93ffca5e7",
       "name": "PLL Aa（速拧参考）",
       "moves": "x (R' U R' D2) (R U' R' D2) R2 x'",
       "tags": [
@@ -86,7 +86,7 @@
       "categoryId": "cat-pll"
     },
     {
-      "id": "c4e3a865-fc98-4df1-8cca-31d5203a8ca5",
+      "id": "999c08de-6639-433f-ac93-f8049cbfe7bb",
       "name": "CMLL O Adjacent（速拧参考）",
       "moves": "R U R' F' R U R' U' R' F R2 U' R'",
       "tags": [
@@ -96,7 +96,7 @@
       "categoryId": "cat-cmll"
     },
     {
-      "id": "e889c5d0-22fb-4a2c-96af-6a3ec1c75ba7",
+      "id": "6f5468c2-c7f7-4f65-8df0-a02775b20c5b",
       "name": "ZBLL U 1（速拧参考）",
       "moves": "(R' U' R U' R' U2' R2) (U' L' U R' U' L)",
       "tags": [
@@ -106,7 +106,7 @@
       "categoryId": "cat-zbll"
     },
     {
-      "id": "d141e48c-71bd-4f13-aaff-1f8461a3bbbb",
+      "id": "cdf7eccd-3e3d-49ac-bceb-b192e1450e5e",
       "name": "1LLL 1 1（速拧参考）",
       "moves": "U' (F' U' L' U L F) (L' U' L U' L' U B' U B L)",
       "tags": [
@@ -116,7 +116,7 @@
       "categoryId": "cat-1lll"
     },
     {
-      "id": "2a925879-a87c-437d-8e8d-24f4b6d18b08",
+      "id": "61ddcd24-681d-49fd-b446-4a63a9f21545",
       "name": "单拨 U",
       "moves": "U",
       "tags": [
@@ -127,9 +127,9 @@
   ],
   "techniques": [
     {
-      "id": "bfec26d4-f48a-41ad-bc1d-4d768e2a131a",
+      "id": "28e174b8-817c-42d9-9bdc-7edb8708170b",
       "name": "单拨 U（示例）",
-      "formulaId": "2a925879-a87c-437d-8e8d-24f4b6d18b08",
+      "formulaId": "61ddcd24-681d-49fd-b446-4a63a9f21545",
       "frameRate": 60,
       "keyframes": [
         {
@@ -191,9 +191,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": 0,
+              "abduction": 18,
               "elevation": 0,
-              "rotation": 15
+              "rotation": 0,
+              "thenarFold": 90
             },
             "contacts": []
           },
@@ -254,9 +255,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": 0,
+              "abduction": 18,
               "elevation": 0,
-              "rotation": 15
+              "rotation": 0,
+              "thenarFold": 90
             },
             "contacts": []
           }
@@ -320,9 +322,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": 0,
+              "abduction": 18,
               "elevation": 0,
-              "rotation": 15
+              "rotation": 0,
+              "thenarFold": 90
             },
             "contacts": []
           },
@@ -383,9 +386,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": 0,
+              "abduction": 18,
               "elevation": 0,
-              "rotation": 15
+              "rotation": 0,
+              "thenarFold": 90
             },
             "contacts": []
           }
@@ -449,9 +453,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": 0,
+              "abduction": 18,
               "elevation": 0,
-              "rotation": 15
+              "rotation": 0,
+              "thenarFold": 90
             },
             "contacts": []
           },
@@ -512,9 +517,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": 0,
+              "abduction": 18,
               "elevation": 0,
-              "rotation": 15
+              "rotation": 0,
+              "thenarFold": 90
             },
             "contacts": []
           }
@@ -553,9 +559,9 @@
       ]
     },
     {
-      "id": "ebb0bdd0-584a-4f23-b2ba-3444fe5b7c6e",
+      "id": "218653c9-2f30-43f9-9717-ef3ebcfc2655",
       "name": "复杂运动演示（示例）",
-      "formulaId": "734833e4-a534-4286-81b1-3f2408c7ef39",
+      "formulaId": "86e61a06-2465-4781-9af7-269a44459ddb",
       "frameRate": 60,
       "keyframes": [
         {
@@ -2018,9 +2024,9 @@
       "contactTracks": []
     },
     {
-      "id": "5d0a81f5-2f92-469d-bdce-91b000d5fbc7",
+      "id": "f90215c1-2bc7-43dc-b42d-60366bc781ac",
       "name": "双手运动展示（示例）",
-      "formulaId": "d3ab8657-ef92-4bde-8514-4dfe3e47cce0",
+      "formulaId": "38933e60-9828-40e9-b69f-bf5a0532879f",
       "frameRate": 60,
       "keyframes": [
         {
@@ -2082,9 +2088,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": 18,
+              "abduction": 22,
               "elevation": 0,
-              "rotation": 18
+              "rotation": 8,
+              "thenarFold": 25
             },
             "contacts": []
           },
@@ -2145,9 +2152,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": 18,
+              "abduction": 22,
               "elevation": 0,
-              "rotation": 18
+              "rotation": 8,
+              "thenarFold": 25
             },
             "contacts": []
           },
@@ -2212,9 +2220,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": 44,
-              "elevation": -12,
-              "rotation": 22
+              "abduction": 40,
+              "elevation": -8,
+              "rotation": 10,
+              "thenarFold": 0
             },
             "contacts": []
           },
@@ -2275,9 +2284,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": 12,
+              "abduction": 14,
               "elevation": -8,
-              "rotation": 38
+              "rotation": 8,
+              "thenarFold": 90
             },
             "contacts": []
           },
@@ -2342,9 +2352,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": 18,
-              "elevation": -24,
-              "rotation": 76
+              "abduction": 12,
+              "elevation": -22,
+              "rotation": 18,
+              "thenarFold": 90
             },
             "contacts": []
           },
@@ -2405,9 +2416,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": 38,
-              "elevation": 24,
-              "rotation": 10
+              "abduction": 36,
+              "elevation": 18,
+              "rotation": 5,
+              "thenarFold": 0
             },
             "contacts": []
           },
@@ -2472,9 +2484,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": 28,
-              "elevation": 6,
-              "rotation": 32
+              "abduction": 24,
+              "elevation": 4,
+              "rotation": 0,
+              "thenarFold": 75
             },
             "contacts": []
           },
@@ -2535,9 +2548,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": 24,
-              "elevation": -10,
-              "rotation": 48
+              "abduction": 22,
+              "elevation": -8,
+              "rotation": 6,
+              "thenarFold": 85
             },
             "contacts": []
           },
@@ -2602,9 +2616,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": 28,
-              "elevation": -28,
-              "rotation": 84
+              "abduction": 22,
+              "elevation": -24,
+              "rotation": 20,
+              "thenarFold": 90
             },
             "contacts": []
           },
@@ -2665,9 +2680,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": -14,
-              "elevation": -34,
-              "rotation": 102
+              "abduction": -12,
+              "elevation": -28,
+              "rotation": 30,
+              "thenarFold": 90
             },
             "contacts": []
           },
@@ -2732,9 +2748,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": 24,
-              "elevation": 12,
-              "rotation": 28
+              "abduction": 22,
+              "elevation": 10,
+              "rotation": 0,
+              "thenarFold": 80
             },
             "contacts": []
           },
@@ -2795,9 +2812,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": 36,
-              "elevation": -8,
-              "rotation": 22
+              "abduction": 32,
+              "elevation": -6,
+              "rotation": 5,
+              "thenarFold": 30
             },
             "contacts": []
           },
@@ -2863,8 +2881,9 @@
             },
             "thumbCMC": {
               "abduction": 14,
-              "elevation": -16,
-              "rotation": 54
+              "elevation": -14,
+              "rotation": 10,
+              "thenarFold": 90
             },
             "contacts": []
           },
@@ -2925,9 +2944,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": 32,
-              "elevation": 8,
-              "rotation": 30
+              "abduction": 28,
+              "elevation": 6,
+              "rotation": 0,
+              "thenarFold": 75
             },
             "contacts": []
           },
@@ -2992,9 +3012,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": 40,
-              "elevation": -14,
-              "rotation": 46
+              "abduction": 34,
+              "elevation": -12,
+              "rotation": 5,
+              "thenarFold": 85
             },
             "contacts": []
           },
@@ -3055,9 +3076,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": 40,
-              "elevation": -14,
-              "rotation": 46
+              "abduction": 34,
+              "elevation": -12,
+              "rotation": 5,
+              "thenarFold": 85
             },
             "contacts": []
           },
@@ -3122,9 +3144,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": 38,
-              "elevation": 28,
-              "rotation": 12
+              "abduction": 34,
+              "elevation": 20,
+              "rotation": 6,
+              "thenarFold": 0
             },
             "contacts": []
           },
@@ -3186,8 +3209,9 @@
             },
             "thumbCMC": {
               "abduction": 12,
-              "elevation": -20,
-              "rotation": 68
+              "elevation": -18,
+              "rotation": 16,
+              "thenarFold": 90
             },
             "contacts": []
           },
@@ -3252,9 +3276,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": 20,
-              "elevation": 2,
-              "rotation": 22
+              "abduction": 18,
+              "elevation": 0,
+              "rotation": 0,
+              "thenarFold": 90
             },
             "contacts": []
           },
@@ -3315,9 +3340,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": 20,
-              "elevation": 2,
-              "rotation": 22
+              "abduction": 18,
+              "elevation": 0,
+              "rotation": 0,
+              "thenarFold": 90
             },
             "contacts": []
           },
@@ -3382,9 +3408,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": 18,
+              "abduction": 22,
               "elevation": 0,
-              "rotation": 18
+              "rotation": 8,
+              "thenarFold": 25
             },
             "contacts": []
           },
@@ -3445,9 +3472,10 @@
               ]
             },
             "thumbCMC": {
-              "abduction": 18,
+              "abduction": 22,
               "elevation": 0,
-              "rotation": 18
+              "rotation": 8,
+              "thenarFold": 25
             },
             "contacts": []
           },
@@ -3494,9 +3522,9 @@
       "contactTracks": []
     },
     {
-      "id": "77c75868-b5d8-4f76-9404-fa788e560f53",
+      "id": "0b94f31c-90ec-4d27-920f-2fd1a053f4f2",
       "name": "V Perm（手法）",
-      "formulaId": "5a61358d-5e0c-4a4a-8de5-383a7335f1d3",
+      "formulaId": "f5ea329f-2db6-40c0-be73-48fbd5bb6fa5",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
@@ -3584,9 +3612,9 @@
       "contactTracks": []
     },
     {
-      "id": "5e43c1ea-1615-4c46-b1a3-f6db995a513b",
+      "id": "fead6467-5174-4274-99ab-573eb6f0a127",
       "name": "OLL 21（手法）",
-      "formulaId": "d3ab8657-ef92-4bde-8514-4dfe3e47cce0",
+      "formulaId": "38933e60-9828-40e9-b69f-bf5a0532879f",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
@@ -3629,9 +3657,9 @@
       "contactTracks": []
     },
     {
-      "id": "2fa0fa06-3c35-456c-8d1c-7c5bcfc813b7",
+      "id": "60127815-5907-4e53-a069-1c5a9ffb7bc5",
       "name": "H Perm（手法）",
-      "formulaId": "1a0ed471-df99-4862-b69c-1e2e9baa14f4",
+      "formulaId": "e827b6cf-d073-42a4-bf95-dc41d9785be5",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
@@ -3674,9 +3702,9 @@
       "contactTracks": []
     },
     {
-      "id": "0871373b-346f-4ebc-8d15-e50a3ddd484f",
+      "id": "972e2f93-c73e-4074-b828-58131331fbd0",
       "name": "ZBLL（示例）（手法）",
-      "formulaId": "734833e4-a534-4286-81b1-3f2408c7ef39",
+      "formulaId": "86e61a06-2465-4781-9af7-269a44459ddb",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
@@ -3719,9 +3747,9 @@
       "contactTracks": []
     },
     {
-      "id": "600714cf-61ae-46e6-b692-a165c9c5c167",
+      "id": "56d99b56-6324-4383-ab2f-0bc8cab4d8c3",
       "name": "OLL 1（速拧参考）（手法）",
-      "formulaId": "894d580a-f9a4-4d76-a0c6-384591dc75b8",
+      "formulaId": "64692de3-3b43-4497-a14d-5c1fd2b5c160",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
@@ -3784,9 +3812,9 @@
       "contactTracks": []
     },
     {
-      "id": "e1833468-dfdc-4a50-bd90-7a0598919c34",
+      "id": "8dc1c59b-7c40-4f5c-88ac-c6c59f1c0859",
       "name": "PLL Aa（速拧参考）（手法）",
-      "formulaId": "1e11c905-53f7-4169-b116-8199e2359380",
+      "formulaId": "86f0a61d-54e4-4e99-bd5d-8fe93ffca5e7",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
@@ -3849,9 +3877,9 @@
       "contactTracks": []
     },
     {
-      "id": "3a99f1e9-9567-44c3-b8c8-988333a2d32c",
+      "id": "25a0b574-7402-40c5-81ce-7c725beac425",
       "name": "CMLL O Adjacent（速拧参考）（手法）",
-      "formulaId": "c4e3a865-fc98-4df1-8cca-31d5203a8ca5",
+      "formulaId": "999c08de-6639-433f-ac93-f8049cbfe7bb",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
@@ -3924,9 +3952,9 @@
       "contactTracks": []
     },
     {
-      "id": "fa4a4367-ad2b-4625-a674-ac9fbdf77577",
+      "id": "e2501c2c-9e5e-4e4b-9c52-b43a431d8934",
       "name": "ZBLL U 1（速拧参考）（手法）",
-      "formulaId": "e889c5d0-22fb-4a2c-96af-6a3ec1c75ba7",
+      "formulaId": "6f5468c2-c7f7-4f65-8df0-a02775b20c5b",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [
@@ -3999,9 +4027,9 @@
       "contactTracks": []
     },
     {
-      "id": "994501cd-2c3d-4a3e-9394-334030e40915",
+      "id": "9b085b93-888d-4e1c-96c2-2e476c20f5a9",
       "name": "1LLL 1 1（速拧参考）（手法）",
-      "formulaId": "d141e48c-71bd-4f13-aaff-1f8461a3bbbb",
+      "formulaId": "cdf7eccd-3e3d-49ac-bceb-b192e1450e5e",
       "frameRate": 60,
       "keyframes": [],
       "stepMapping": [

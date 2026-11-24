@@ -37,6 +37,7 @@ import {
   STEP_DEFAULT_SEC,
 } from "../../editor/timelineOps";
 import {
+  DEFAULT_THENAR_FOLD,
   defaultHandPose,
   FINGER_ORDER,
   mirrorPose,
@@ -84,12 +85,13 @@ const FINGER_JOINT_RANGE: Record<FingerName, [number, number]> = {
   ring: [90, 180],
   pinky: [90, 180],
 };
-const CMC_RANGE: Record<keyof Pose["thumbCMC"], [number, number]> = {
+const CMC_KEYS = ["abduction", "elevation", "rotation", "thenarFold"] as const;
+const CMC_RANGE: Record<(typeof CMC_KEYS)[number], [number, number]> = {
   abduction: [-90, 90],
   elevation: [-45, 90],
   rotation: [-180, 180],
+  thenarFold: [0, 90],
 };
-const CMC_KEYS = ["abduction", "elevation", "rotation"] as const;
 
 /** 时间线像素/帧（Ctrl+滚轮在 0.5~16 缩放） */
 const pxPerFrame = ref(6);
@@ -299,7 +301,8 @@ function syncPoseInputs(pose: Pose | null, respectFocus: boolean): void {
   }
   const cmc = pose?.thumbCMC;
   for (const key of CMC_KEYS) {
-    setVal(cmcInputEls.get(key), cmc ? String(Math.round(cmc[key])) : "");
+    const val = key === "thenarFold" ? (cmc?.thenarFold ?? DEFAULT_THENAR_FOLD) : cmc?.[key];
+    setVal(cmcInputEls.get(key), cmc && val !== undefined ? String(Math.round(val)) : "");
   }
 }
 
@@ -1551,6 +1554,18 @@ onBeforeUnmount(() => {
                   max="180"
                   class="native-input num-input"
                   @input="onThumbCmcInput($event, 'rotation')" />
+              </label>
+              <label class="pose-axis">
+                {{ t("hand.thenarFold") }}
+                <input
+                  id="kf-cmc-thenarFold"
+                  :ref="(el) => setCmcRef('thenarFold', el)"
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="90"
+                  class="native-input num-input"
+                  @input="onThumbCmcInput($event, 'thenarFold')" />
               </label>
             </div>
             <div class="finger-joints">

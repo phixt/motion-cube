@@ -408,8 +408,11 @@ check("timeline: 缓动与姿态插值", () => {
   const b = createDefaultPose(rig);
   a.bends.index[1] = 90;
   b.bends.index[1] = 180;
+  a.thumbCMC.thenarFold = 0;
+  b.thumbCMC.thenarFold = 90;
   const mid = interpolatePose(a, b, 0.5);
   expect(mid.bends.index[1] === 135, `中点 bend 应为 135：${mid.bends.index[1]}`);
+  expect(mid.thumbCMC.thenarFold === 45, `中点 thenarFold 应为 45：${mid.thumbCMC.thenarFold}`);
   const q = mid.palm.transform.quaternion;
   const len = Math.hypot(q.w, q.x, q.y, q.z);
   expect(Math.abs(len - 1) < 1e-9, `四元数应单位化：${len}`);

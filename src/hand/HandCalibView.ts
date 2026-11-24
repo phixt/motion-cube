@@ -17,7 +17,7 @@ import {
   type Object3D,
 } from "three";
 import { createRigFromConfig, type HandRigConfig } from "./handRigStore";
-import { buildHandMesh } from "./handMesh";
+import { applyThumbPoseNodes, buildHandMesh } from "./handMesh";
 import { CUBE_UNIT_WORLD } from "./HandRigView";
 
 // 标尺范围（单位：块边长；场景坐标 = 块边长 × EDGE）
@@ -271,13 +271,8 @@ export class HandCalibView {
       linearOutput: false,
       withOutline: this.view === "left",
     });
-    // 拇指应用自然外翻（CMC 三轴：抬离/展收/对掌，轴语义同 HandRigView.applyPose），手指保持伸直（测量用途）
-    const cmc = rig.fingers.thumb.joints[0];
-    built.thumbDof.rotation.set(
-      degToRad(-(cmc.elevation ?? 0)),
-      degToRad(cmc.abduction ?? 0),
-      degToRad(-(cmc.rotation ?? 0)), // 标定用右手（sideSign=1）
-    );
+    // 拇指应用大鱼际下沉 + CMC 三轴（轴语义同 HandRigView.applyPose），四指保持伸直（测量用途）
+    applyThumbPoseNodes(built, 1, this.cfg.thumbCmc, this.cfg.thenarFold);
     this.rootGroup.add(built.root);
     this.scene.updateMatrixWorld(true);
     this.handBox = new Box3().setFromObject(built.root);
@@ -561,5 +556,3 @@ export function disposeObject(obj: Object3D): void {
   });
   materials.forEach((m) => m.dispose());
 }
-
-const degToRad = (d: number) => (d * Math.PI) / 180;

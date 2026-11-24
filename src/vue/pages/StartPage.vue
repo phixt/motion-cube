@@ -5,7 +5,7 @@ import WinButton from "../../vendor/winui-on-web/components/WinButton.vue";
 import WinTextBlock from "../../vendor/winui-on-web/components/WinTextBlock.vue";
 import { useI18n } from "../i18n";
 import { useParallax } from "../composables/useParallax";
-import PseudoCube3D from "../components/PseudoCube3D.vue";
+import CausticCube3D from "../components/CausticCube3D.vue";
 
 const { t } = useI18n();
 const router = useRouter();
@@ -46,7 +46,7 @@ onBeforeUnmount(() => cubeMq.removeEventListener("change", onCubeMq));
         <WinButton class="start-play" :Content="t('start.play')" Style="AccentButtonStyle" MinWidth="220" @Click="play" />
       </div>
       <aside v-if="showCube" class="startpage-cube" aria-hidden="true">
-        <PseudoCube3D />
+        <CausticCube3D :parallax-host="rootRef" />
       </aside>
     </div>
   </div>
@@ -99,7 +99,7 @@ onBeforeUnmount(() => cubeMq.removeEventListener("change", onCubeMq));
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 40px;
+  margin-right: 12px;
 }
 
 .startpage-background {
@@ -222,6 +222,16 @@ onBeforeUnmount(() => cubeMq.removeEventListener("change", onCubeMq));
   }
   to {
     transform: translate3d(20px, 36px, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bg-drift-a,
+  .bg-drift-b,
+  .bg-drift-c,
+  .bg-drift-d,
+  .bg-drift-e {
+    animation: none;
   }
 }
 

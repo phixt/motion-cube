@@ -234,17 +234,23 @@ export function parsePose(v: unknown): Pose {
   if (!isFiniteNum(thumbCMC.abduction) || !isFiniteNum(thumbCMC.rotation)) {
     throw new TechniqueError("关键帧姿态非法：thumbCMC.abduction/rotation 必须为数字");
   }
+  if (thumbCMC.thenarFold !== undefined && !isFiniteNum(thumbCMC.thenarFold)) {
+    throw new TechniqueError("关键帧姿态非法：thumbCMC.thenarFold 必须为有限数字");
+  }
   return {
     palm: {
       transform: parseTransform(palm.transform, "palm.transform"),
       thumbBase: parseTransform(palm.thumbBase, "palm.thumbBase"),
     },
     bends: bendsOut,
-    // elevation（抬离掌面）为 v3 新增字段：旧数据缺省按 0（平贴掌面）处理
+    // elevation（抬离掌面）与 thenarFold（大鱼际下沉）均向后兼容旧数据：缺省保持默认/省略
     thumbCMC: {
       abduction: thumbCMC.abduction,
       elevation: isFiniteNum(thumbCMC.elevation) ? thumbCMC.elevation : 0,
       rotation: thumbCMC.rotation,
+      ...(isFiniteNum(thumbCMC.thenarFold)
+        ? { thenarFold: Math.min(90, Math.max(0, thumbCMC.thenarFold)) }
+        : {}),
     },
     contacts: parseContacts(o.contacts),
   };

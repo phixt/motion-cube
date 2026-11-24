@@ -32,7 +32,7 @@ import {
   type CubeCollisionHit,
   type HandSegmentBox,
 } from "./handCollision";
-import { buildHandMesh, meshSurfaceOffset, type FingerNodes } from "./handMesh";
+import { applyThumbPoseNodes, buildHandMesh, meshSurfaceOffset, type FingerNodes } from "./handMesh";
 import { createRigFromConfig, loadHandRigConfig, type HandRigConfig } from "./handRigStore";
 
 /** 1 魔方单位（块边长）≈ cubing 世界单位（sticker 面内间距 ±0.33 ↔ 规范 ±1 推出） */
@@ -46,8 +46,10 @@ export class HandRigView {
   private config: HandRigConfig;
   private handType: HandType;
   private root!: Group; // 手掌根（palm.transform）
+  private thenarPivot!: Group; // 大鱼际单轴下沉枢轴（0°–90°）
+  private thumbAnchor!: Group; // 拇指根锚点（随 thenarPivot 移动并保持手掌参考系轴向）
   private thumbRoot!: Group; // 拇指根（thumbBase）
-  private thumbDof!: Group; // CMC 展收/对掌旋转
+  private thumbDof!: Group; // CMC 展收/抬离/对掌旋转
   private fingers = {} as Record<FingerName, FingerNodes>;
   private contactPool: Mesh[] = [];
   private contactGeo = new SphereGeometry(0.045, 8, 8);
@@ -170,22 +172,17 @@ export class HandRigView {
       palm.quaternion.w,
     );
 
-    const tb = pose.palm.thumbBase;
-    const tc = this.config.thumbCorner;
-    this.thumbRoot.position.set(
-      tb.position.x + tc.x * H * this.sideSign,
-      tb.position.y + tc.y * H,
-      tb.position.z + tc.z * H,
-    );
-    this.thumbRoot.quaternion.set(tb.quaternion.x, tb.quaternion.y, tb.quaternion.z, tb.quaternion.w);
-    // CMC 三轴（欧拉 XYZ 序：对掌自转最内层 → 掌内展收 → 抬离最外层；按手型镜像保证对称）：
-    // rotation.x = -elevation  抬离掌面，向指背 +Y（Y 轴镜像不变，双手同号）
-    // rotation.y = +abduction  掌平面内展收，向拇指侧 +X（x 已镜像，角度取反）
-    // rotation.z = -rotation   对掌自转，指腹从朝掌面转向掌/指侧（镜像取反）
-    this.thumbDof.rotation.set(
-      degToRad(-pose.thumbCMC.elevation),
-      degToRad(pose.thumbCMC.abduction * this.sideSign),
-      degToRad(-pose.thumbCMC.rotation * this.sideSign),
+    applyThumbPoseNodes(
+      {
+        thenarPivot: this.thenarPivot,
+        thumbAnchor: this.thumbAnchor,
+        thumbRoot: this.thumbRoot,
+        thumbDof: this.thumbDof,
+      },
+      this.sideSign,
+      pose.thumbCMC,
+      this.config.thenarFold,
+      pose.palm.thumbBase,
     );
 
     for (const name of FINGER_ORDER) {
@@ -237,6 +234,8 @@ export class HandRigView {
     });
     this.root = built.root;
     this.fingers = built.fingers;
+    this.thenarPivot = built.thenarPivot;
+    this.thumbAnchor = built.thumbAnchor;
     this.thumbRoot = built.thumbRoot;
     this.thumbDof = built.thumbDof;
     this.group.add(this.root);

@@ -38,6 +38,7 @@ export function plainPose(p: Pose): Pose {
       abduction: p.thumbCMC.abduction,
       elevation: p.thumbCMC.elevation,
       rotation: p.thumbCMC.rotation,
+      ...(p.thumbCMC.thenarFold !== undefined ? { thenarFold: p.thumbCMC.thenarFold } : {}),
     },
     contacts: (p.contacts ?? []).map((c) => ({ ...c })),
   };

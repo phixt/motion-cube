@@ -14,6 +14,7 @@
  */
 import {
   createDefaultRig,
+  DEFAULT_THENAR_FOLD,
   DEFAULT_THUMB_CMC,
   FINGER_ORDER,
   type FingerName,
@@ -95,6 +96,8 @@ export type HandRigConfig = {
   thumbCorner: { x: number; y: number; z: number };
   /** 大鱼际（thenar eminence）凸块：椭球尺寸与位置（相对手掌中心，数据单位） */
   thenar: { width: number; height: number; length: number; x: number; y: number; z: number };
+  /** 大鱼际单轴下沉角（度，0°=与掌齐平舒展，90°=自然放松向掌心下沉） */
+  thenarFold: number;
   /** 拇指 CMC 自然外翻（度）：掌平面展收 / 抬离掌面 / 对掌自转（默认值语义见 DEFAULT_THUMB_CMC） */
   thumbCmc: { abduction: number; elevation: number; rotation: number };
   /** 标尺角度（度，0=水平，90=竖直；标定视图可 Ctrl+拖拽旋转，与其他数值一同固化） */
@@ -131,13 +134,13 @@ export const DEFAULT_HAND_CONFIG: HandRigConfig = deepFreeze({
     ring: { x: -0.17, y: 0.1 },
     pinky: { x: -0.52, y: 0.06 },
   },
-  // 拇指根：锚在大鱼际纵脊前段（0.4.0 二轮）+ 三轮收紧（x 0.92→0.82）+
-  // 七轮固化用户实测 z=-0.33（0.12 太靠掌指缘，-0.33 略后退握感更稳）
-  thumbCorner: { x: 0.82, y: -0.08, z: -0.33 },
-  // 大鱼际纵脊：width=外突量 / height=竖向鼓起 / length=前伸比例（1.05≈达掌指缘）；
-  // 三轮收敛：width 0.9→0.55（外凸 0.55→0.33，真机反馈太突出）；x/z 自 0.4.0 二轮起
-  // 几何不再消费（脊位由掌形推导），字段保留兼容
-  thenar: { width: 0.55, height: 0.42, length: 1.05, x: 0, y: -0.03, z: 0 },
+  // 拇指根：挂在 thenarPivot 内随大鱼际单轴下沉；0° 舒展态与食指根（y=0.10）齐平，
+  // 90° 放松态绕掌侧纵轴下沉至掌心侧（y≈-0.21, x≈0.67），俯视五指完整可见且贴面不穿魔方
+  thumbCorner: { x: 0.82, y: 0.11, z: -0.28 },
+  // 大鱼际纵脊：width=外突量 / height=竖向鼓起 / length=前伸比例（1.02≈达掌指缘）；
+  // 在 thenarPivot 局部坐标系中绕掌缘纵轴整体下沉，与拇指根刚性随动
+  thenar: { width: 0.5, height: 0.42, length: 1.02, x: 0, y: 0, z: 0 },
+  thenarFold: DEFAULT_THENAR_FOLD,
   thumbCmc: { ...DEFAULT_THUMB_CMC },
   rulerAngle: 0,
   fingers: defaultFingers(),
@@ -240,6 +243,7 @@ export function normalizeHandRigConfig(input: unknown): HandRigConfig | null {
           y: clampNum(th.y, -1, 1, DEFAULT_HAND_CONFIG.thenar.y),
           z: clampNum(th.z, -2, 3, DEFAULT_HAND_CONFIG.thenar.z),
         },
+    thenarFold: clampNum(obj.thenarFold, 0, 90, DEFAULT_HAND_CONFIG.thenarFold),
     thumbCmc: {
       abduction: clampNum(cmc.abduction, -90, 90, DEFAULT_HAND_CONFIG.thumbCmc.abduction),
       elevation: clampNum(cmc.elevation, -45, 90, DEFAULT_HAND_CONFIG.thumbCmc.elevation),
@@ -303,7 +307,7 @@ export function createRigFromConfig(cfg: HandRigConfig, handType: HandType = "ri
   fingers.thumb = {
     ...fingers.thumb,
     joints: fingers.thumb.joints.map((j, i) =>
-      i === 0 ? { ...j, ...cfg.thumbCmc } : j,
+      i === 0 ? { ...j, ...cfg.thumbCmc, thenarFold: cfg.thenarFold } : j,
     ),
   };
   return { ...base, fingers };

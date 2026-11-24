@@ -126,11 +126,12 @@ const inlineFields: { id: string; label: string; get: () => number; set: (v: num
   { id: "hand-scale", label: "", get: () => cfg.value.handScale, set: (v) => (cfg.value.handScale = v), min: 0.3 },
 ];
 
-/** 拇指区字段：CMC 外翻三轴（度，整数位）+ 大鱼际椭球（数据单位，两位小数） */
-const thumbFields: { id: string; label: string; get: () => number; set: (v: number) => void; min: number; fix: number }[] = [
-  { id: "cmc-abduction", label: t("hand.cmcAbduction"), get: () => cfg.value.thumbCmc.abduction, set: (v) => (cfg.value.thumbCmc.abduction = v), min: -90, fix: 0 },
-  { id: "cmc-elevation", label: t("hand.cmcElevation"), get: () => cfg.value.thumbCmc.elevation, set: (v) => (cfg.value.thumbCmc.elevation = v), min: -45, fix: 0 },
-  { id: "cmc-rotation", label: t("hand.cmcRotation"), get: () => cfg.value.thumbCmc.rotation, set: (v) => (cfg.value.thumbCmc.rotation = v), min: -180, fix: 0 },
+/** 拇指区字段：大鱼际下沉 (0–90°) + CMC 外翻三轴（度，整数位）+ 大鱼际尺寸（数据单位，两位小数） */
+const thumbFields: { id: string; label: string; get: () => number; set: (v: number) => void; min: number; max?: number; fix: number }[] = [
+  { id: "thenar-fold", label: t("hand.thenarFold"), get: () => cfg.value.thenarFold, set: (v) => (cfg.value.thenarFold = Math.min(90, Math.max(0, v))), min: 0, max: 90, fix: 0 },
+  { id: "cmc-abduction", label: t("hand.cmcAbduction"), get: () => cfg.value.thumbCmc.abduction, set: (v) => (cfg.value.thumbCmc.abduction = v), min: -90, max: 90, fix: 0 },
+  { id: "cmc-elevation", label: t("hand.cmcElevation"), get: () => cfg.value.thumbCmc.elevation, set: (v) => (cfg.value.thumbCmc.elevation = v), min: -45, max: 90, fix: 0 },
+  { id: "cmc-rotation", label: t("hand.cmcRotation"), get: () => cfg.value.thumbCmc.rotation, set: (v) => (cfg.value.thumbCmc.rotation = v), min: -180, max: 180, fix: 0 },
   { id: "thenar-width", label: `${t("hand.thenar")}${t("hand.thenarWidth")}`, get: () => cfg.value.thenar.width, set: (v) => (cfg.value.thenar.width = v), min: 0.1, fix: 2 },
   { id: "thenar-height", label: `${t("hand.thenar")}${t("hand.thenarHeight")}`, get: () => cfg.value.thenar.height, set: (v) => (cfg.value.thenar.height = v), min: 0.05, fix: 2 },
   { id: "thenar-length", label: `${t("hand.thenar")}${t("hand.thenarLength")}`, get: () => cfg.value.thenar.length, set: (v) => (cfg.value.thenar.length = v), min: 0.1, fix: 2 },
@@ -197,6 +198,15 @@ const onFieldInput = (e: Event): void => {
   // 按字段 min 放行（thumb-x/y/z 允许负值）；NaN/空串被挡
   const min = el.min !== "" ? Number(el.min) : 0;
   if (Number.isFinite(v) && v >= min) set(v);
+};
+
+const onThenarFoldRange = (e: Event): void => {
+  const v = Number((e.target as HTMLInputElement).value);
+  if (!Number.isFinite(v)) return;
+  cfg.value.thenarFold = Math.min(90, Math.max(0, v));
+  const numEl = document.getElementById("thenar-fold") as HTMLInputElement | null;
+  if (numEl) numEl.value = cfg.value.thenarFold.toFixed(0);
+  refresh();
 };
 
 const syncInputs = (): void => {
@@ -369,13 +379,33 @@ onBeforeUnmount(() => {
           </div>
         </section>
 
-        <!-- 拇指（CMC 外翻 + 大鱼际） -->
+        <!-- 拇指（大鱼际下沉 + CMC 外翻 + 大鱼际尺寸） -->
         <section class="hand-section">
           <WinTextBlock class="hand-h3" :Text="t('hand.thumb')" FontSize="16" FontWeight="SemiBold" />
+          <div class="hand-inline hand-fold-slider">
+            <label class="hand-inline-item">
+              {{ t("hand.thenarFold") }} ({{ Math.round(cfg.thenarFold) }}°)
+              <input
+                id="thenar-fold-range"
+                type="range"
+                min="0"
+                max="90"
+                step="1"
+                :value="cfg.thenarFold"
+                @input="onThenarFoldRange" />
+            </label>
+          </div>
           <div class="hand-inline">
             <label v-for="f in thumbFields" :key="f.id" class="hand-inline-item">
               {{ f.label }}
-              <input :id="f.id" type="number" :step="f.fix === 0 ? '1' : '0.01'" :min="String(f.min)" class="native-num" @input="onFieldInput" />
+              <input
+                :id="f.id"
+                type="number"
+                :step="f.fix === 0 ? '1' : '0.01'"
+                :min="String(f.min)"
+                :max="f.max !== undefined ? String(f.max) : undefined"
+                class="native-num"
+                @input="onFieldInput" />
             </label>
           </div>
           <WinTextBlock class="page-note" :Text="t('hand.cmcHint')" FontSize="12" />

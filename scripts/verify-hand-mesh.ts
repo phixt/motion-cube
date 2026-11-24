@@ -20,7 +20,7 @@ import {
   DEFAULT_HAND_CONFIG,
   normalizeHandRigConfig,
 } from "../src/hand/handRigStore.ts";
-import { buildHandMesh, type HandMeshResult } from "../src/hand/handMesh.ts";
+import { buildHandMesh, thenarAutoRollDeg, type HandMeshResult } from "../src/hand/handMesh.ts";
 import { checkHandCubeCollision, computeHandSegmentBoxes } from "../src/hand/handCollision.ts";
 
 let failed = 0;
@@ -121,11 +121,19 @@ for (const side of [1, -1] as const) {
       expect(s.len > 0 && s.radius > 0 && s.thickness > 0, `${label}: ${name} 段尺寸应为正`);
     }
   }
-  // 拇指根镜像
+  // 拇指根与大鱼际枢轴镜像
   if (side === -1) {
     const r = buildHandMesh(DEFAULT_HAND_CONFIG, createDefaultRig("right"), 1);
     const br = bbox(r);
     expect(Math.abs(br.min.x + b.max.x) < 1e-5 && Math.abs(br.max.x + b.min.x) < 1e-5, "左右手 X 包围盒应严格镜像（含奇数 facets=15）");
+    expect(
+      Math.abs(r.thenarPivot.position.x + res.thenarPivot.position.x) < 1e-6,
+      "大鱼际枢轴 X 应镜像",
+    );
+    expect(
+      Math.abs(r.thumbAnchor.position.x + res.thumbAnchor.position.x) < 1e-6,
+      "拇指锚点局部 X 应镜像",
+    );
     expect(
       Math.abs(r.thumbRoot.position.x + res.thumbRoot.position.x) < 1e-6,
       "拇指根 X 应镜像",
@@ -234,6 +242,7 @@ function partsOf(res: HandMeshResult): string[] {
   const left = buildHandMesh(DEFAULT_HAND_CONFIG, createRigFromConfig(DEFAULT_HAND_CONFIG, "left"), -1);
   const pr = partsOf(right);
   const pl = partsOf(left);
+  expect(!pr.includes("thumb-web"), "已移除静态虎口斜桥 thumb-web");
   expect(pr.join(",") === pl.join(","), `左右手部件集合应一致（右 ${pr.length} / 左 ${pl.length}）`);
   const H = DEFAULT_HAND_CONFIG.handScale;
   const detail: string[] = [];
@@ -258,18 +267,18 @@ function partsOf(res: HandMeshResult): string[] {
 
 // ---- 5) mirrorPose → 左手拇指世界方向应为右手方向的 X 镜像（REVIEW-2026-10 P0-7 回归） ----
 /**
- * 复刻 HandRigView.applyPose（src/hand/HandRigView.ts:132-158）的拇指变换链，用 three.js
- * 真实计算世界方向（不是只比原始参数）：
+ * 复刻 HandRigView.applyPose（src/hand/HandRigView.ts + handMesh.applyThumbPoseNodes）的拇指变换链，
+ * 用 three.js 真实计算世界方向、位置与四元数（不是只比原始参数）：
  *   root ← palm.transform 的 position/quaternion；
- *   thumbRoot ← thumbBase 的 position/quaternion，位置再加 thumbCorner×sideSign；
- *   thumbDof ← CMC 三轴：x=−elevation（Y 镜像不变）、y=+abduction×sideSign、z=−rotation×sideSign。
- * 取 thumbDof 的世界 +Z 作为拇指根方向（两侧同一算法；手掌 group 的均匀缩放不影响方向）。
- * ⚠ 与 applyPose 同步维护：上面这条顺序若改，本函数必须同步。
+ *   thenarPivot ← 绕 Z 轴向掌心下沉：rotation.z = -sideSign * fold；
+ *   thumbAnchor ← 挂在 thenarPivot 下随圆弧下沉，反旋 +sideSign * fold 保持手掌参考系；
+ *   thumbRoot ← thumbBase 的 position/quaternion；
+ *   thumbDof ← CMC 三轴：x=−elevation、y=+abduction×sideSign、z=−(autoRoll(fold)+rotation)×sideSign。
+ * ⚠ 与 applyPose / applyThumbPoseNodes 同步维护：上面这条顺序若改，本函数必须同步。
  */
 const degToRad = (d: number) => (d * Math.PI) / 180;
-function thumbWorldFrame(handType: HandType, pose: Pose): { dir: Vector3; quat: Quaternion } {
+function thumbWorldFrame(handType: HandType, pose: Pose): { pos: Vector3; dir: Vector3; quat: Quaternion } {
   const sideSign = handType === "right" ? 1 : -1;
-  const H = DEFAULT_HAND_CONFIG.handScale;
   const res = buildHandMesh(
     DEFAULT_HAND_CONFIG,
     createRigFromConfig(DEFAULT_HAND_CONFIG, handType),
@@ -279,39 +288,48 @@ function thumbWorldFrame(handType: HandType, pose: Pose): { dir: Vector3; quat: 
   const palm = pose.palm.transform;
   res.root.position.set(palm.position.x, palm.position.y, palm.position.z);
   res.root.quaternion.set(palm.quaternion.x, palm.quaternion.y, palm.quaternion.z, palm.quaternion.w);
+  const rawFold = pose.thumbCMC.thenarFold ?? DEFAULT_HAND_CONFIG.thenarFold;
+  const fold = Math.min(90, Math.max(0, rawFold));
+  const foldRad = degToRad(fold);
+  res.thenarPivot.rotation.set(0, 0, -sideSign * foldRad);
+  res.thumbAnchor.rotation.set(0, 0, sideSign * foldRad);
   const tb = pose.palm.thumbBase;
-  const tc = DEFAULT_HAND_CONFIG.thumbCorner;
-  res.thumbRoot.position.set(
-    tb.position.x + tc.x * H * sideSign,
-    tb.position.y + tc.y * H,
-    tb.position.z + tc.z * H,
-  );
+  res.thumbRoot.position.set(tb.position.x, tb.position.y, tb.position.z);
   res.thumbRoot.quaternion.set(tb.quaternion.x, tb.quaternion.y, tb.quaternion.z, tb.quaternion.w);
+  const totalRoll = thenarAutoRollDeg(fold) + pose.thumbCMC.rotation;
   res.thumbDof.rotation.set(
     degToRad(-pose.thumbCMC.elevation),
     degToRad(pose.thumbCMC.abduction * sideSign),
-    degToRad(-pose.thumbCMC.rotation * sideSign),
+    degToRad(-totalRoll * sideSign),
   );
   res.thumbDof.updateWorldMatrix(true, false);
   return {
+    pos: res.thumbDof.getWorldPosition(new Vector3()),
     dir: res.thumbDof.getWorldDirection(new Vector3()),
     quat: res.thumbDof.getWorldQuaternion(new Quaternion()),
   };
 }
 
 {
-  const cmcPose = (): Pose => {
+  const cmcPose = (thenarFold?: number): Pose => {
     const p = defaultHandPose("right");
-    p.thumbCMC = { abduction: 25, elevation: 18, rotation: 40 };
+    p.thumbCMC = { abduction: 25, elevation: 18, rotation: 40, ...(thenarFold !== undefined ? { thenarFold } : {}) };
     return p;
   };
   const cases: Array<{ name: string; pose: Pose }> = [
-    { name: "编辑器默认手位", pose: defaultHandPose("right") },
-    { name: "CMC 三轴非零", pose: cmcPose() },
+    { name: "编辑器默认手位（90°下沉）", pose: defaultHandPose("right") },
+    { name: "CMC 三轴非零 + 90°下沉", pose: cmcPose(90) },
+    { name: "CMC 三轴非零 + 45°半沉", pose: cmcPose(45) },
+    { name: "CMC 三轴非零 + 0°舒展", pose: cmcPose(0) },
   ];
   for (const { name, pose } of cases) {
     const rightFrame = thumbWorldFrame("right", pose);
     const leftFrame = thumbWorldFrame("left", mirrorPose(pose));
+    const wantPos = new Vector3(-rightFrame.pos.x, rightFrame.pos.y, rightFrame.pos.z);
+    expect(
+      leftFrame.pos.distanceTo(wantPos) < 1e-4,
+      `P0-7 ${name}: 左手拇指根世界位置应为右手 X 镜像（偏差 ${leftFrame.pos.distanceTo(wantPos).toFixed(5)}）`,
+    );
     const want = new Vector3(-rightFrame.dir.x, rightFrame.dir.y, rightFrame.dir.z);
     expect(Math.abs(rightFrame.dir.length() - 1) < 1e-9, `P0-7 ${name}: 右手拇指方向应为单位向量`);
     expect(Math.abs(leftFrame.dir.length() - 1) < 1e-9, `P0-7 ${name}: 左手拇指方向应为单位向量`);
@@ -320,16 +338,46 @@ function thumbWorldFrame(handType: HandType, pose: Pose): { dir: Vector3; quat: 
       dev < 1e-3,
       `P0-7 ${name}: mirrorPose 后左手拇指世界方向应为右手方向的 X 镜像（偏差 ${dev.toFixed(4)}；左手 ${leftFrame.dir.toArray().map((v) => v.toFixed(3)).join(",")} vs 期望 ${want.toArray().map((v) => v.toFixed(3)).join(",")}）`,
     );
-    // 整帧镜像（额外把「对掌自转」也纳入：绕自身长轴的旋转不改变 +Z 方向，单靠方向抓不到）：
-    // 左手 CMC 世界朝向应 = Mx·右手朝向·Mx（Mx=diag(−1,1,1)，det=−1 → 轴取 −Mx·n，
-    // 四元数即 negate y/z = mirrorPose 的取反形式），±q 同解。
-    const qWant = new Quaternion(rightFrame.quat.x, -rightFrame.quat.y, -rightFrame.quat.z, rightFrame.quat.w); // 构造序 (x,y,z,w)
+    const qWant = new Quaternion(rightFrame.quat.x, -rightFrame.quat.y, -rightFrame.quat.z, rightFrame.quat.w);
     const qDot = Math.abs(leftFrame.quat.dot(qWant));
     expect(
       qDot > 1 - 1e-6,
       `P0-7 ${name}: 左手 CMC 世界朝向应为右手朝向的 X 镜像（|cos 偏差|=${(1 - qDot).toExponential(2)}）`,
     );
   }
+}
+
+// ---- 5b) 大鱼际单轴下沉：0° 舒展齐平 vs 90° 放松下沉 + 俯视五指外露 + 0°/90° 双手严格镜像 ----
+{
+  const cfg0 = { ...DEFAULT_HAND_CONFIG, thenarFold: 0 };
+  const cfg90 = { ...DEFAULT_HAND_CONFIG, thenarFold: 90 };
+  const r0 = buildHandMesh(cfg0, createRigFromConfig(cfg0, "right"), 1);
+  const l0 = buildHandMesh(cfg0, createRigFromConfig(cfg0, "left"), -1);
+  const r90 = buildHandMesh(cfg90, createRigFromConfig(cfg90, "right"), 1);
+  const l90 = buildHandMesh(cfg90, createRigFromConfig(cfg90, "left"), -1);
+  const bR0 = bbox(r0), bL0 = bbox(l0);
+  const bR90 = bbox(r90), bL90 = bbox(l90);
+  expect(
+    Math.abs(bR0.min.x + bL0.max.x) < 1e-5 && Math.abs(bR0.max.x + bL0.min.x) < 1e-5,
+    "thenarFold=0° 左右手 X 包围盒应严格镜像",
+  );
+  expect(
+    Math.abs(bR90.min.x + bL90.max.x) < 1e-5 && Math.abs(bR90.max.x + bL90.min.x) < 1e-5,
+    "thenarFold=90° 左右手 X 包围盒应严格镜像",
+  );
+  const H = DEFAULT_HAND_CONFIG.handScale;
+  expect(
+    bR90.min.y < bR0.min.y - 0.12 * H,
+    `thenarFold=90° 应相对 0° 明显向掌心(-Y)下沉（90° minY=${bR90.min.y.toFixed(3)}, 0° minY=${bR0.min.y.toFixed(3)}）`,
+  );
+  // 俯视(+Y)五指完整可见：右手 90° 放松态下拇指末端 X 应显著位于食指外侧
+  r90.root.updateMatrixWorld(true);
+  const thumbBox = new Box3().setFromObject(r90.fingers.thumb.root);
+  const indexBox = new Box3().setFromObject(r90.fingers.index.root);
+  expect(
+    thumbBox.max.x > indexBox.max.x + 0.1 * H,
+    `90° 放松态俯视拇指应外露于食指外侧（thumb maxX=${thumbBox.max.x.toFixed(3)} vs index maxX=${indexBox.max.x.toFixed(3)}）`,
+  );
 }
 
 // ---- 6) Step 3A：shape.web 接入 / 拇指 IP 非空 / 退化 bases 防 NaN / 碰撞箱代理 ----

@@ -155,6 +155,7 @@ check("v3 旧档迁移缺 palm.width → 兜底 1.35（旧 bug 为被污染的 5
   expect(migrated.version === 4, `迁移后 version 应为 4（实得 ${migrated.version}）`);
   near(migrated.palm.width, DESIGN_PALM_WIDTH, "v3 迁移 palm.width");
   near(migrated.shape.fingerWidth, DEFAULT_SHAPE.fingerWidth, "v3 迁移 shape.fingerWidth 应回 DEFAULT_SHAPE");
+  near(migrated.thenarFold, DEFAULT_HAND_CONFIG.thenarFold, "v3 迁移缺 thenarFold 应回默认值");
   expect(migrated !== DEFAULT_HAND_CONFIG, "迁移结果也不应等于常量本体");
 });
 

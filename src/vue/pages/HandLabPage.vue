@@ -7,18 +7,10 @@
  */
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { Group, PerspectiveCamera, Scene, WebGLRenderer } from "three";
-import { defaultHandPose, FINGER_ORDER, type FingerName, type HandRig, type Pose } from "../../hand/HandRig";
+import { defaultHandPose, FINGER_ORDER, type HandRig, type Pose } from "../../hand/HandRig";
 import { createRigFromConfig, loadHandRigConfig, type HandRigConfig } from "../../hand/handRigStore";
-import { buildHandMesh } from "../../hand/handMesh";
+import { applyThumbPoseNodes, buildHandMesh, type HandMeshResult } from "../../hand/handMesh";
 import { CUBE_UNIT_WORLD } from "../../hand/HandRigView";
-
-type FingerJoints = { joints: { rotation: { x: number } }[] };
-type HandLike = {
-  root: Group;
-  fingers: Record<FingerName, FingerJoints>;
-  thumbRoot: { position: { set: (x: number, y: number, z: number) => void }; quaternion: { set: (x: number, y: number, z: number, w: number) => void } };
-  thumbDof: { rotation: { set: (x: number, y: number, z: number) => void } };
-};
 
 const DEG = Math.PI / 180;
 
@@ -27,37 +19,29 @@ const DEG = Math.PI / 180;
  *  用于诊断拇指轴朝向） */
 const poseMode = ref<"rest" | "editor">("rest");
 
-/** 测量直姿：各关节 bend 级联 + 拇指 CMC 三轴（语义同 HandRigView.applyPose） */
-function applyRestPose(hand: HandLike, rig: HandRig, cfg: HandRigConfig): void {
+/** 测量直姿：各关节 bend 级联 + 大鱼际下沉 + 拇指 CMC 三轴（语义同 HandRigView.applyPose） */
+function applyRestPose(hand: HandMeshResult, rig: HandRig, cfg: HandRigConfig): void {
   for (const name of FINGER_ORDER) {
     const bends = rig.fingers[name].joints.map((j) => j.bend);
     hand.fingers[name].joints.forEach((jt, i) => {
       jt.rotation.x = (180 - (bends[i] ?? 180)) * DEG;
     });
   }
-  const cmc = cfg.thumbCmc;
-  hand.thumbDof.rotation.set(-cmc.elevation * DEG, cmc.abduction * DEG, -cmc.rotation * DEG);
+  applyThumbPoseNodes(hand, 1, cfg.thumbCmc, cfg.thenarFold);
 }
 
-/** 编辑器默认姿态：defaultHandPose 的掌部位姿 + 关节弯度 + 拇指 CMC */
-function applyEditorPose(hand: HandLike, pose: Pose): void {
+/** 编辑器默认姿态：defaultHandPose 的掌部位姿 + 关节弯度 + 大鱼际下沉 + 拇指 CMC */
+function applyEditorPose(hand: HandMeshResult, pose: Pose, cfg: HandRigConfig): void {
   const t = pose.palm.transform;
   hand.root.position.set(t.position.x, t.position.y, t.position.z);
   hand.root.quaternion.set(t.quaternion.x, t.quaternion.y, t.quaternion.z, t.quaternion.w);
-  const tb = pose.palm.thumbBase;
-  hand.thumbRoot.position.set(tb.position.x, tb.position.y, tb.position.z);
-  hand.thumbRoot.quaternion.set(tb.quaternion.x, tb.quaternion.y, tb.quaternion.z, tb.quaternion.w);
   for (const name of FINGER_ORDER) {
     const bends = pose.bends[name];
     hand.fingers[name].joints.forEach((jt, i) => {
       jt.rotation.x = (180 - (bends[i] ?? 180)) * DEG;
     });
   }
-  hand.thumbDof.rotation.set(
-    -pose.thumbCMC.elevation * DEG,
-    pose.thumbCMC.abduction * DEG,
-    -pose.thumbCMC.rotation * DEG,
-  );
+  applyThumbPoseNodes(hand, 1, pose.thumbCMC, cfg.thenarFold, pose.palm.thumbBase);
 }
 
 class HandLabView {
@@ -120,12 +104,12 @@ function buildHands(): void {
   const cfg = loadHandRigConfig();
   const editorPose = defaultHandPose("right");
   const apply = poseMode.value === "editor"
-    ? (h: HandLike) => applyEditorPose(h, editorPose)
-    : (h: HandLike, rig: HandRig) => applyRestPose(h, rig, cfg);
+    ? (h: HandMeshResult) => applyEditorPose(h, editorPose, cfg)
+    : (h: HandMeshResult, rig: HandRig) => applyRestPose(h, rig, cfg);
   // 新 low-poly 放样方案（handMesh.ts）
   const rigB = createRigFromConfig(cfg, "right");
   const newHand = buildHandMesh(cfg, rigB, 1, { withMarks: true, linearOutput: false });
-  apply(newHand as unknown as HandLike, rigB);
+  apply(newHand, rigB);
   viewNew = new HandLabView(newRef.value, newHand.root);
   (globalThis as { __motionCubeHandLab?: unknown }).__motionCubeHandLab = { view: viewNew };
 }
