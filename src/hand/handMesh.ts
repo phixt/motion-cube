@@ -71,7 +71,7 @@ export function thenarAutoRollDeg(foldDeg: number): number {
 export function thenarPivotLocalOrigin(cfg: HandRigConfig, sideSign: number): [number, number, number] {
   const H = cfg.handScale;
   const halfW = (cfg.palm.width / 2) * H;
-  return [sideSign * halfW * 0.86, 0.03 * H, 0];
+  return [sideSign * halfW * 0.86, 0.01 * H, 0];
 }
 
 /**
@@ -672,8 +672,9 @@ function buildFingerChain(
 
 /**
  * 大鱼际肌腹（构建在 thenarPivot 局部坐标系内）：
- * 内缘包裹枢轴原点 (0,0) 深埋入掌缘，确保 thenarFold ∈ [0°, 90°] 全行程平滑折叠不露缝；
- * 前段精准汇入 thumbAnchor 局部位置，与拇指根刚性随动（已移除静态虎口斜桥）。
+ * - 肌腹沿局部 +X 充分饱满外延（折至 90° 时整体向掌心 -Y 自然下沉，与拇指根齐平而非高悬在掌缘）；
+ * - 腕端圆润埋入掌腕转角（俯视无台阶），前段精准收束并同轴汇入 thumbAnchor 关节球中心（不越界探出），
+ *   使 0°–90° 全行程大鱼际与拇指根无缝衔接、无斜坡折痕。
  */
 function buildThenarRidge(
   cfg: HandRigConfig,
@@ -690,59 +691,59 @@ function buildThenarRidge(
   const F = Math.max(shape.facets, 12);
   const len = cfg.palm.length * H;
   const mcpZ = cfg.palm.mcpZ * H;
-  const halfW = (cfg.palm.width / 2) * H;
-  // 腕端略向前收进，避免在腕缘转角处凸出形成台阶
-  const zHeel = mcpZ - len + 0.18 * H;
+  // 腕端深埋入掌腕轮廓消除台阶，前端恰好同轴汇入拇指根关节球中心（绝不前突成喙）
+  const zHeel = mcpZ - len + 0.08 * H;
   const localTcX = cfg.thumbCorner.x * H * sideSign - pivotX;
   const localTcY = cfg.thumbCorner.y * H - pivotY;
   const localTcZ = cfg.thumbCorner.z * H;
-  const zCap = localTcZ + 0.14 * H;
-  const zFront = Math.min(zHeel + len * Math.min(cfg.thenar.length, 1.05) * 0.88, zCap);
+  const lenRatio = Math.min(1.15, Math.max(0.5, cfg.thenar.length));
+  const zFront = localTcZ + 0.01 * H + cfg.thenar.z * H * 0.35;
+  const zStart = Math.min(zHeel, zFront - len * 0.42 * lenRatio);
 
   const aMax = cfg.thenar.width * H * 0.48;
   const bMax = cfg.thenar.height * H * 0.48;
-  const yC = 0.01 * H + cfg.thenar.y * H - pivotY;
-  const pivotAbsX = Math.abs(pivotX);
-  const wallLocalAt = (t: number): number =>
-    halfW * (shape.palmTaper + (1 - shape.palmTaper) * t) - pivotAbsX;
-  const bellyAt = (t: number): number => Math.sin(Math.PI * t) ** 0.78;
+  const tcAbsX = Math.abs(localTcX);
+  const offX = cfg.thenar.x * H * sideSign;
+  const offY = cfg.thenar.y * H;
 
   type RingSpec = { cx: number; cy: number; a: number; b: number; z: number };
-  const spec = (t: number): RingSpec => {
-    const a = aMax * (0.4 + 0.6 * bellyAt(t));
-    // 截面内缘深埋掌体、包裹枢轴 (0,0)，0°–90° 全行程圆润过渡且腕侧不鼓包
-    return {
-      cx: sideSign * (wallLocalAt(t) * 0.45 + a * 0.12),
-      cy: yC,
-      a,
-      b: bMax * (0.68 + 0.32 * bellyAt(t)),
-      z: zHeel + (zFront - zHeel) * t,
-    };
-  };
-  const target: RingSpec = {
-    cx: localTcX,
-    cy: localTcY,
-    a: thumbWHalf * 1.06,
-    b: thumbWHalf * 0.95,
-    z: zFront,
-  };
-  const toward = (s: RingSpec, k: number): RingSpec => ({
-    cx: s.cx + (target.cx - s.cx) * k,
-    cy: s.cy + (target.cy - s.cy) * k,
-    a: s.a + (target.a - s.a) * k,
-    b: s.b + (target.b - s.b) * k,
-    z: s.z + (target.z - s.z) * k,
-  });
-  const s68 = spec(0.68);
-  const stations: RingSpec[] = [
-    { ...spec(0), cx: sideSign * (wallLocalAt(0) - aMax * 0.16), cy: yC * 0.6, a: aMax * 0.28, b: bMax * 0.44 },
-    { ...spec(0.2), cx: sideSign * (wallLocalAt(0.2) * 0.35 + aMax * 0.04) },
-    spec(0.46),
-    s68,
-    toward(s68, 0.35),
-    toward(s68, 0.68),
-    toward(s68, 1),
+  // 9 站圆润有机水滴曲线：腕跟隐形埋入 → 掌心侧平滑圆弧下沉肌腹（无尖底折角） → 同轴无缝汇入拇指根球
+  const stationDefs: Array<{
+    t: number;
+    xK: number;
+    yMix: number;
+    yBias: number;
+    aK: number;
+    bK: number;
+    offK: number;
+    matchThumb?: number;
+  }> = [
+    { t: 0.0, xK: 0.0, yMix: 0.0, yBias: -0.045, aK: 0.24, bK: 0.34, offK: 0.1 },
+    { t: 0.1, xK: 0.28, yMix: 0.12, yBias: -0.032, aK: 0.52, bK: 0.62, offK: 0.35 },
+    { t: 0.22, xK: 0.62, yMix: 0.28, yBias: -0.018, aK: 0.78, bK: 0.84, offK: 0.7 },
+    { t: 0.38, xK: 0.92, yMix: 0.48, yBias: -0.008, aK: 0.93, bK: 0.94, offK: 1.0 },
+    { t: 0.55, xK: 1.04, yMix: 0.66, yBias: -0.002, aK: 0.92, bK: 0.93, offK: 0.95 },
+    { t: 0.72, xK: 1.03, yMix: 0.82, yBias: 0.0, aK: 0.85, bK: 0.88, offK: 0.6, matchThumb: 0.25 },
+    { t: 0.85, xK: 1.0, yMix: 0.92, yBias: 0.0, aK: 0.78, bK: 0.82, offK: 0.25, matchThumb: 0.65 },
+    { t: 0.94, xK: 1.0, yMix: 0.98, yBias: 0.0, aK: 0.72, bK: 0.78, offK: 0.08, matchThumb: 0.92 },
+    { t: 1.0, xK: 1.0, yMix: 1.0, yBias: 0.0, aK: 0.68, bK: 0.74, offK: 0.0, matchThumb: 1.0 },
   ];
+
+  const stations: RingSpec[] = stationDefs.map((d) => {
+    const bellyA = aMax * d.aK;
+    const bellyB = bMax * d.bK;
+    const mt = d.matchThumb ?? 0;
+    const targetA = thumbWHalf * (d.t >= 0.99 ? 0.97 : 1.02);
+    const targetB = thumbWHalf * (d.t >= 0.99 ? 0.91 : 0.96);
+    return {
+      cx: sideSign * (tcAbsX * d.xK) + offX * d.offK,
+      cy: localTcY * d.yMix + d.yBias * H + offY * d.offK,
+      a: bellyA + (targetA - bellyA) * mt,
+      b: bellyB + (targetB - bellyB) * mt,
+      z: zStart + (zFront - zStart) * d.t,
+    };
+  });
+
   const rings: Vec3[][] = stations.map((st) =>
     ringPoints(F, st.a, st.b, st.b * 0.96, 2.2, 2.2, st.cy, st.z).map(
       (p) => [p[0] + st.cx, p[1], p[2]] as Vec3,
