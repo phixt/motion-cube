@@ -83,8 +83,10 @@ onBeforeUnmount(() => {
 <style scoped>
 .caustic-cube-stage {
   position: relative;
-  width: clamp(240px, 32vmin, 340px);
-  height: clamp(255px, 34vmin, 360px);
+  width: clamp(310px, 44vmin, 420px);
+  height: clamp(335px, 48vmin, 450px);
+  max-height: 100%;
+  aspect-ratio: 420 / 450;
   pointer-events: none;
 }
 </style>
