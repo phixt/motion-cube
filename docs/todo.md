@@ -1,14 +1,13 @@
 # 项目 TODO 与进度（motion-cube）
 
-> 更新：2026-11-24　✅ 已完成 ｜ 🚧 进行中 ｜ ⬜ 待办
+> 更新：2026-11-27　✅ 已完成 ｜ 🚧 进行中 ｜ ⬜ 待办
 > 唯一进度/待办文档；已完成内容只留版本级摘要，轮次明细看 git log（提交信息承载）。
 > 2026-10-27 新增「代码审计轮」一节（全面代码审查结论，详见 docs/audit/REVIEW-2026-10.md）。
 
 ## 当前状态
 
-- 版本 **0.4.3**（2026-11-24 bump，四处同步：package.json / package-lock.json /
-  tauri.conf.json / Cargo.toml+Cargo.lock；包含 Step 3 A/B 编辑器瘦身与 Tauri 基建、
-  手部外观精修与大鱼际单轴下沉联动、以及开始页细腻像素圆角速拧魔方 + 物理旋转焦散 + 三层伪 3D 视差背景）
+- 版本 **0.4.4-rc.1**（2026-11-27 RC 小版本 bump，四处同步：package.json / package-lock.json /
+  tauri.conf.json / Cargo.toml+Cargo.lock；开始页重构为轻量真实 3D 外露半透贴片 + 浅冰透微雾内挖球腔壳体 + 真实 6 轴核心魔方，Tauri 图标更新为方案 B 硬朗光影 3×3 实底版，待后续导入外部音频资产后收口 0.4.4）
 - 求解器：CFOP / CFOP+（ZBLS+一步 ZBLL）/ Roux（分步 4a/4b/4c、合并 4b+4c、高级 EOLR+6E2C）五方法全绿；
   ZBLL 数据完整 **493/493** 且运行时查表经 post-AUF × y 共轭展开精确覆盖全空间 **7776/7776 = 100%**；
   ZBLS 有效全集 **302**（O 组 3 条全槽已解留档 docs/archived/），特征键 + `viewState` 四槽统一（真实态命中 **100%**，CFOP+ 均省 ~12 步、0 例变长）；
