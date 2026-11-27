@@ -1,11 +1,14 @@
 /**
- * 生成 motion-cube 全套高质感 Tauri 应用图标（暗底折光拧转 3×3 速拧魔方）：
- * - 严格三维等轴投影 + 顶层 28° 优雅拧转（呼应 Motion 主题）
- * - 层间错缝透出内挖球面空腔弧光与清透棱镜色散光带（与开始页新魔方视觉同源）
- * - 自动导出全套 PNG（32..512 + Windows Store 磁贴）与多分辨率 icon.ico / uninstaller.ico
+ * 生成 motion-cube 全套低饱和硬朗光影 3×3 Tauri 应用图标（方案 B）：
+ * - 视觉减负：保留三阶 3×3 秩序与顶层 23° 拧转，彻底隐藏内部结构与缝内细节（深邃阴影收束块缝与层间）；
+ * - 标准西洋配色：左红 / 右蓝 / 上白，无星芒；
+ * - 硬朗虚拟摄影棚打光：左上方明确斜射主光 + 2048px 真实层间投影 + 贴片 45° 切面硬朗高光 + 右后冷色轮廓补光；
+ * - 低调深灰靛 WinUI 圆角底板（左上受光微亮、右下顺光落影、左上高光内描边）；
+ * - 自动导出全套 15 张 PNG（30..512px）与多分辨率 icon.ico / uninstaller.ico。
  */
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { build } from "esbuild";
 import { launchBrowser } from "./_browser.mjs";
 
 const ICON_DIR = resolve("src-tauri/icons");
@@ -35,8 +38,8 @@ function packIco(entries) {
   const headerSize = 6 + entries.length * 16;
   let offset = headerSize;
   const header = Buffer.alloc(headerSize);
-  header.writeUInt16LE(0, 0); // reserved
-  header.writeUInt16LE(1, 2); // type = ICO
+  header.writeUInt16LE(0, 0);
+  header.writeUInt16LE(1, 2);
   header.writeUInt16LE(entries.length, 4);
 
   for (let i = 0; i < entries.length; i++) {
@@ -55,6 +58,362 @@ function packIco(entries) {
   return Buffer.concat([header, ...entries.map((e) => e.png)]);
 }
 
+/** 用 esbuild 在内存中打包 Three.js 离线硬朗光影 3×3 实底渲染器 */
+async function buildIconRendererBundle() {
+  const entrySource = /* ts */ `
+    import {
+      ACESFilmicToneMapping,
+      BoxGeometry,
+      BufferAttribute,
+      BufferGeometry,
+      Color,
+      CylinderGeometry,
+      DirectionalLight,
+      Group,
+      HemisphereLight,
+      Mesh,
+      MeshBasicMaterial,
+      MeshStandardMaterial,
+      PCFShadowMap,
+      PerspectiveCamera,
+      Scene,
+      SRGBColorSpace,
+      WebGLRenderer,
+    } from "three";
+
+    // 标准西洋克制亚克力色板（0:+Y 冰白, 1:-Y 黄, 2:+Z 绿, 3:-Z 蔚蓝, 4:+X 竞速红, 5:-X 橙）
+    const FACE_HEX = [
+      0xf8fbff, // U 白（迎光纯净冰白）
+      0xe6bd38, // D 黄
+      0x27b575, // F 绿
+      0x2d86f6, // B 蓝（右侧背光沉稳钴蓝，暗部不糊成黑）
+      0xe63d4d, // R 红（左侧迎光饱满克制红）
+      0xe87b2e, // L 橙
+    ];
+
+    type OuterFaceSpec = {
+      faceIdx: number;
+      n: [number, number, number];
+      u: [number, number, number];
+      v: [number, number, number];
+      matchAxis: 0 | 1 | 2;
+      matchVal: -1 | 1;
+    };
+
+    const OUTER_FACES: OuterFaceSpec[] = [
+      { faceIdx: 0, n: [0, 1, 0], u: [1, 0, 0], v: [0, 0, -1], matchAxis: 1, matchVal: 1 },
+      { faceIdx: 1, n: [0, -1, 0], u: [1, 0, 0], v: [0, 0, 1], matchAxis: 1, matchVal: -1 },
+      { faceIdx: 2, n: [0, 0, 1], u: [1, 0, 0], v: [0, 1, 0], matchAxis: 2, matchVal: 1 },
+      { faceIdx: 3, n: [0, 0, -1], u: [-1, 0, 0], v: [0, 1, 0], matchAxis: 2, matchVal: -1 },
+      { faceIdx: 4, n: [1, 0, 0], u: [0, 0, -1], v: [0, 1, 0], matchAxis: 0, matchVal: 1 },
+      { faceIdx: 5, n: [-1, 0, 0], u: [0, 0, 1], v: [0, 1, 0], matchAxis: 0, matchVal: -1 },
+    ];
+
+    function axisSpan(i: -1 | 0 | 1): [number, number] {
+      const innerHalf = 0.324;
+      const innerStart = 0.342;
+      const outerBody = 0.968;
+      if (i === -1) return [-outerBody, -innerStart];
+      if (i === 1) return [innerStart, outerBody];
+      return [-innerHalf, innerHalf];
+    }
+
+    function sampleRoundedRect(
+      u0: number,
+      u1: number,
+      v0: number,
+      v1: number,
+      r: number,
+      arcSteps = 4,
+    ): Array<[number, number, number, number]> {
+      const pts: Array<[number, number, number, number]> = [];
+      const defs = [
+        { cx: u1 - r, cy: v1 - r, a0: 0, a1: Math.PI * 0.5 },
+        { cx: u0 + r, cy: v1 - r, a0: Math.PI * 0.5, a1: Math.PI },
+        { cx: u0 + r, cy: v0 + r, a0: Math.PI, a1: Math.PI * 1.5 },
+        { cx: u1 - r, cy: v0 + r, a0: Math.PI * 1.5, a1: Math.PI * 2.0 },
+      ];
+      for (const d of defs) {
+        for (let s = 0; s <= arcSteps; s++) {
+          const ang = d.a0 + ((d.a1 - d.a0) * s) / arcSteps;
+          const ca = Math.cos(ang);
+          const sa = Math.sin(ang);
+          pts.push([d.cx + ca * r, d.cy + sa * r, ca, sa]);
+        }
+      }
+      return pts;
+    }
+
+    /** 构建单个带 45° 硬朗倒角切面的外露贴片（顶面与倒角裙边分离法线，光暗切面极利落） */
+    function buildCrispCapGeo(
+      spec: OuterFaceSpec,
+      ix: -1 | 0 | 1,
+      iy: -1 | 0 | 1,
+      iz: -1 | 0 | 1,
+    ): BufferGeometry {
+      const coord: [number, number, number] = [ix, iy, iz];
+      const cu = (coord[0] * spec.u[0] + coord[1] * spec.u[1] + coord[2] * spec.u[2]) as -1 | 0 | 1;
+      const cv = (coord[0] * spec.v[0] + coord[1] * spec.v[1] + coord[2] * spec.v[2]) as -1 | 0 | 1;
+
+      function tileSpan(c: -1 | 0 | 1): [number, number] {
+        const [a0, a1] = axisSpan(c);
+        // 紧实饱满的 3×3 贴片占比，32px 缩略依然干脆清晰
+        const insetLo = c === -1 ? 0.015 : 0.012;
+        const insetHi = c === 1 ? 0.015 : 0.012;
+        return [a0 + insetLo, a1 - insetHi];
+      }
+
+      const [u0, u1] = tileSpan(cu);
+      const [v0, v1] = tileSpan(cv);
+
+      // 统一干脆圆角（减少花哨细节，突出 3×3 秩序）
+      const rOuter = 0.064;
+      const bevelIn = 0.022;
+      const outerRing = sampleRoundedRect(u0, u1, v0, v1, rOuter, 4);
+      const innerRing = sampleRoundedRect(
+        u0 + bevelIn,
+        u1 - bevelIn,
+        v0 + bevelIn,
+        v1 - bevelIn,
+        Math.max(0.022, rOuter - bevelIn),
+        4,
+      );
+
+      const M = outerRing.length;
+      const [nx, ny, nz] = spec.n;
+      const [ux, uy, uz] = spec.u;
+      const [vx, vy, vz] = spec.v;
+      const hBase = 0.962;
+      const hTop = 1.000;
+
+      const toW = (u: number, v: number, h: number): [number, number, number] => [
+        nx * h + ux * u + vx * v,
+        ny * h + uy * u + vy * v,
+        nz * h + uz * u + vz * v,
+      ];
+
+      const pos: number[] = [];
+      const norm: number[] = [];
+      const idx: number[] = [];
+
+      // 1) 硬朗 45° 倒角切面裙边（独立法线，迎光棱拉出利落高光线、背光棱收深）
+      const slope = 0.7071;
+      const up = 0.7071;
+      for (let i = 0; i < M; i++) {
+        const [ou, ov, dux, dvy] = outerRing[i];
+        const [iu, iv] = innerRing[i];
+        const bnx = nx * up + (ux * dux + vx * dvy) * slope;
+        const bny = ny * up + (uy * dux + vy * dvy) * slope;
+        const bnz = nz * up + (uz * dux + vz * dvy) * slope;
+
+        const pOut = toW(ou, ov, hBase);
+        const pIn = toW(iu, iv, hTop);
+        pos.push(pOut[0], pOut[1], pOut[2], pIn[0], pIn[1], pIn[2]);
+        norm.push(bnx, bny, bnz, bnx, bny, bnz);
+      }
+      for (let i = 0; i < M; i++) {
+        const j = (i + 1) % M;
+        const o0 = i * 2;
+        const i0 = o0 + 1;
+        const o1 = j * 2;
+        const i1 = o1 + 1;
+        idx.push(o0, o1, i1, o0, i1, i0);
+      }
+
+      // 2) 平整硬朗顶面（纯平法线，让每一片在主光下形成干净切面）
+      const topBase = pos.length / 3;
+      const pMid = toW((u0 + u1) * 0.5, (v0 + v1) * 0.5, hTop);
+      pos.push(pMid[0], pMid[1], pMid[2]);
+      norm.push(nx, ny, nz);
+      for (let i = 0; i < M; i++) {
+        const [iu, iv] = innerRing[i];
+        const p = toW(iu, iv, hTop);
+        pos.push(p[0], p[1], p[2]);
+        norm.push(nx, ny, nz);
+      }
+      for (let i = 0; i < M; i++) {
+        const j = (i + 1) % M;
+        idx.push(topBase, topBase + 1 + i, topBase + 1 + j);
+      }
+
+      const geo = new BufferGeometry();
+      geo.setAttribute("position", new BufferAttribute(new Float32Array(pos), 3));
+      geo.setAttribute("normal", new BufferAttribute(new Float32Array(norm), 3));
+      geo.setIndex(idx);
+      return geo;
+    }
+
+    /** 构建一个微倒角实心小块体（深雾冰炭壳，彻底隐藏缝内细节） */
+    function buildSolidCubieGeo(ix: -1 | 0 | 1, iy: -1 | 0 | 1, iz: -1 | 0 | 1): BufferGeometry {
+      const [x0, x1] = axisSpan(ix);
+      const [y0, y1] = axisSpan(iy);
+      const [z0, z1] = axisSpan(iz);
+      const geo = new BoxGeometry(x1 - x0, y1 - y0, z1 - z0);
+      geo.translate((x0 + x1) * 0.5, (y0 + y1) * 0.5, (z0 + z1) * 0.5);
+      return geo;
+    }
+
+    /** 对标准材质注入轻量硬朗光暗阶梯与受光提纯（保持真实 PCF 投影，但光暗切面更干脆利落） */
+    function createCrispTileMaterial(hex: number, isWhite: boolean): MeshStandardMaterial {
+      const mat = new MeshStandardMaterial({
+        color: new Color(hex),
+        roughness: isWhite ? 0.34 : 0.30,
+        metalness: 0.04,
+      });
+      mat.onBeforeCompile = (shader) => {
+        // 将主光漫反射略微向硬朗阶梯拉拢，同时压实背光暗面层次，让三面切面更干脆
+        shader.fragmentShader = shader.fragmentShader.replace(
+          "float dotNL = saturate( dot( geometryNormal, directLight.direction ) );",
+          "float rawNL = dot( geometryNormal, directLight.direction ); float dotNL = mix(saturate(rawNL), smoothstep(0.02, 0.72, rawNL), 0.58);",
+        );
+      };
+      return mat;
+    }
+
+    (window as any).renderCube3DLayer = (size: number): HTMLCanvasElement => {
+      const glCanvas = document.createElement("canvas");
+      glCanvas.width = size;
+      glCanvas.height = size;
+      const renderer = new WebGLRenderer({
+        canvas: glCanvas,
+        antialias: true,
+        alpha: true,
+        preserveDrawingBuffer: true,
+      });
+      renderer.setPixelRatio(1);
+      renderer.setSize(size, size, false);
+      renderer.setClearColor(0x000000, 0);
+      renderer.outputColorSpace = SRGBColorSpace;
+      renderer.toneMapping = ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.12;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = PCFShadowMap;
+
+      const scene = new Scene();
+      const camera = new PerspectiveCamera(26, 1, 0.1, 30);
+      camera.position.set(0, 2.02, 8.55);
+      camera.lookAt(0, -0.04, 0);
+
+      // === 明确虚拟摄影棚硬朗布光（左上斜射主光 + 真实层间投影 + 右侧克制冷补光） ===
+      // 1) 左上方主光源：照亮白顶面与左红面，对右蓝面形成硬朗背光切面，并在层间投下干脆阴影
+      const keyLight = new DirectionalLight(0xfffcf7, 2.75);
+      keyLight.position.set(-5.4, 7.6, 3.8);
+      keyLight.castShadow = true;
+      keyLight.shadow.mapSize.set(2048, 2048);
+      keyLight.shadow.camera.near = 2.0;
+      keyLight.shadow.camera.far = 18.0;
+      keyLight.shadow.camera.left = -2.2;
+      keyLight.shadow.camera.right = 2.2;
+      keyLight.shadow.camera.top = 2.2;
+      keyLight.shadow.camera.bottom = -2.2;
+      keyLight.shadow.bias = -0.00035;
+      keyLight.shadow.normalBias = 0.012;
+      keyLight.shadow.radius = 1.4; // 偏硬朗的干净投影边缘
+      scene.add(keyLight);
+
+      // 2) 右前侧极克制冷色副补光：托住右蓝暗面层次（明显暗于主光，既保持硬朗背光切面，又在 32px 不发黑）
+      const fillLight = new DirectionalLight(0x90c6ff, 0.78);
+      fillLight.position.set(4.6, 2.0, 4.4);
+      scene.add(fillLight);
+
+      // 3) 右后极弱轮廓光：勾勒右蓝面最外缘倒角棱线
+      const rimLight = new DirectionalLight(0xa8d4ff, 0.55);
+      rimLight.position.set(5.4, 1.8, -3.4);
+      scene.add(rimLight);
+
+      // 4) 克制环境半球光：保持高光暗比（暗部沉稳、块缝深邃）
+      const hemi = new HemisphereLight(0xd2e2ff, 0x0d121d, 0.44);
+      scene.add(hemi);
+
+      // === 方案 B：3×3 实底深雾壳体 + 阴影遮挡缝内 + 54 片硬朗倒角贴片 ===
+      const bodyMat = new MeshStandardMaterial({
+        color: 0x1b2230, // 深冷雾灰实体壳，克制不抢色
+        roughness: 0.68,
+        metalness: 0.08,
+      });
+
+      // 缝隙深处与层间错缝纯暗影遮挡芯：彻底藏起缝内细节、不漏光、不露内部构件
+      const voidShadowMat = new MeshBasicMaterial({ color: 0x090c12 });
+
+      const capMats = FACE_HEX.map((hex, i) => createCrispTileMaterial(hex, i === 0));
+
+      const cubeGroup = new Group();
+      const lowerGroup = new Group();
+      const upperGroup = new Group();
+      cubeGroup.add(lowerGroup, upperGroup);
+
+      // 底层 2 层内部暗影阻光块（完全填实块缝深处）
+      const lowerCore = new Mesh(new BoxGeometry(1.88, 1.24, 1.88), voidShadowMat);
+      lowerCore.position.set(0, -0.32, 0);
+      lowerGroup.add(lowerCore);
+
+      // 顶层内部暗影阻光块
+      const upperCore = new Mesh(new BoxGeometry(1.88, 0.58, 1.88), voidShadowMat);
+      upperCore.position.set(0, 0.65, 0);
+      upperGroup.add(upperCore);
+
+      // 层间旋转暗影衔接柱（藏于拧开层缝内，纯深影过渡，绝不显露杂乱轴体）
+      const seamBridge = new Mesh(new CylinderGeometry(0.84, 0.84, 0.14, 32), voidShadowMat);
+      seamBridge.position.set(0, 0.34, 0);
+      cubeGroup.add(seamBridge);
+
+      const coords: Array<-1 | 0 | 1> = [-1, 0, 1];
+      for (const ix of coords) {
+        for (const iy of coords) {
+          for (const iz of coords) {
+            if (ix === 0 && iy === 0 && iz === 0) continue;
+            const target = iy === 1 ? upperGroup : lowerGroup;
+
+            const bodyMesh = new Mesh(buildSolidCubieGeo(ix, iy, iz), bodyMat);
+            bodyMesh.castShadow = true;
+            bodyMesh.receiveShadow = true;
+            target.add(bodyMesh);
+
+            const c = [ix, iy, iz];
+            for (const spec of OUTER_FACES) {
+              if (c[spec.matchAxis] === spec.matchVal) {
+                const capMesh = new Mesh(buildCrispCapGeo(spec, ix, iy, iz), capMats[spec.faceIdx]);
+                capMesh.castShadow = true;
+                capMesh.receiveShadow = true;
+                target.add(capMesh);
+              }
+            }
+          }
+        }
+      }
+
+      // 顶层 U 顺势拧转 21°（悬空角在下层投出干脆利落的硬朗阴影，且完全不露背面杂色边缘）
+      upperGroup.rotation.set(0, 0.36, 0);
+
+      // 标准「左红 (+X) / 右蓝 (-Z) / 上白 (+Y)」均衡三面视角
+      cubeGroup.rotation.set(0.18, -2.38, 0.0);
+      cubeGroup.position.set(0, 0.10, 0);
+      scene.add(cubeGroup);
+
+      renderer.clear();
+      renderer.render(scene, camera);
+      return glCanvas;
+    };
+  `;
+
+  const result = await build({
+    stdin: {
+      contents: entrySource,
+      resolveDir: process.cwd(),
+      loader: "ts",
+    },
+    bundle: true,
+    write: false,
+    format: "iife",
+    target: "es2022",
+    platform: "browser",
+  });
+
+  return result.outputFiles[0].text;
+}
+
+const bundleJs = await buildIconRendererBundle();
+
 const ICON_HTML = /* html */ `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><style>
@@ -62,321 +421,129 @@ const ICON_HTML = /* html */ `<!DOCTYPE html>
   canvas { display: block; }
 </style></head>
 <body>
-<canvas id="c" width="1024" height="1024"></canvas>
+<canvas id="master" width="1024" height="1024"></canvas>
+<script>${bundleJs}</script>
 <script>
-const canvas = document.getElementById("c");
-const ctx = canvas.getContext("2d");
+const master = document.getElementById("master");
+const ctx = master.getContext("2d");
 
-function renderMaster(size) {
-  canvas.width = size;
-  canvas.height = size;
-  ctx.clearRect(0, 0, size, size);
-  ctx.save();
-  const S = size / 1024;
-  ctx.scale(S, S);
+function traceSquircle(c, x, y, ww, hh, r) {
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.lineTo(x + ww - r, y);
+  c.quadraticCurveTo(x + ww, y, x + ww, y + r);
+  c.lineTo(x + ww, y + hh - r);
+  c.quadraticCurveTo(x + ww, y + hh, x + ww - r, y + hh);
+  c.lineTo(x + r, y + hh);
+  c.quadraticCurveTo(x, y + hh, x, y + hh - r);
+  c.lineTo(x, y + r);
+  c.quadraticCurveTo(x, y, x + r, y);
+  c.closePath();
+}
 
-  // 1) 深邃午夜靛蓝圆角底板（Squircle，16px~512px 全尺寸高对比辨识）
+function buildMaster1024() {
+  const S = 1024;
+  ctx.clearRect(0, 0, S, S);
+
   const pad = 28;
-  const w = 1024 - pad * 2;
+  const w = S - pad * 2;
   const rad = 224;
-  function traceSquircle(x, y, ww, hh, r) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + ww - r, y);
-    ctx.quadraticCurveTo(x + ww, y, x + ww, y + r);
-    ctx.lineTo(x + ww, y + hh - r);
-    ctx.quadraticCurveTo(x + ww, y + hh, x + ww - r, y + hh);
-    ctx.lineTo(x + r, y + hh);
-    ctx.quadraticCurveTo(x, y + hh, x, y + hh - r);
-    ctx.lineTo(x, y + r);
-    ctx.quadraticCurveTo(x, y, x + r, y);
-    ctx.closePath();
-  }
 
-  traceSquircle(pad, pad, w, w, rad);
-  const bgGrad = ctx.createLinearGradient(120, 60, 900, 960);
-  bgGrad.addColorStop(0.0, "#17233D");
-  bgGrad.addColorStop(0.52, "#0E1629");
-  bgGrad.addColorStop(1.0, "#080D1A");
+  // 1) 低调深灰靛 WinUI 圆角底板（顺应左上方虚拟主光方向形成明暗斜坡）
+  traceSquircle(ctx, pad, pad, w, w, rad);
+  const bgGrad = ctx.createLinearGradient(90, 70, 920, 950);
+  bgGrad.addColorStop(0.0, "#2A3240");
+  bgGrad.addColorStop(0.45, "#191E28");
+  bgGrad.addColorStop(1.0, "#0E121A");
   ctx.fillStyle = bgGrad;
   ctx.fill();
 
-  // 裁剪在底板内绘制环境微光与折光魔方
   ctx.save();
-  traceSquircle(pad, pad, w, w, rad);
+  traceSquircle(ctx, pad, pad, w, w, rad);
   ctx.clip();
 
-  // 魔方背后克制的棱镜微光场
-  const glowA = ctx.createRadialGradient(520, 490, 40, 520, 490, 430);
-  glowA.addColorStop(0.0, "rgba(72, 186, 255, 0.28)");
-  glowA.addColorStop(0.45, "rgba(92, 128, 255, 0.11)");
-  glowA.addColorStop(1.0, "rgba(10, 16, 30, 0)");
-  ctx.fillStyle = glowA;
-  ctx.fillRect(0, 0, 1024, 1024);
+  // 2) 左上方虚拟主光源斜射光场（明确交代光从左上打过来，克制不抢主体）
+  const keyGlow = ctx.createRadialGradient(170, 140, 20, 220, 200, 620);
+  keyGlow.addColorStop(0.0, "rgba(220, 232, 255, 0.16)");
+  keyGlow.addColorStop(0.42, "rgba(154, 182, 226, 0.06)");
+  keyGlow.addColorStop(1.0, "rgba(14, 18, 26, 0)");
+  ctx.fillStyle = keyGlow;
+  ctx.fillRect(0, 0, S, S);
 
-  // 右下暖金/青紫微弱焦散光弧
-  const glowB = ctx.createRadialGradient(640, 770, 16, 620, 770, 220);
-  glowB.addColorStop(0.0, "rgba(128, 232, 255, 0.34)");
-  glowB.addColorStop(0.5, "rgba(130, 114, 255, 0.12)");
-  glowB.addColorStop(1.0, "rgba(0, 0, 0, 0)");
-  ctx.fillStyle = glowB;
-  ctx.fillRect(0, 0, 1024, 1024);
-
-  // 底部柔影
+  // 3) 顺着左上主光方向往右下方投出的干净偏硬落地影（零花哨彩虹光圈）
   ctx.save();
-  ctx.translate(512, 816);
-  ctx.scale(1.0, 0.34);
-  const shGrad = ctx.createRadialGradient(0, 0, 24, 0, 0, 290);
-  shGrad.addColorStop(0.0, "rgba(2, 5, 12, 0.65)");
-  shGrad.addColorStop(1.0, "rgba(2, 5, 12, 0)");
-  ctx.fillStyle = shGrad;
+  ctx.translate(566, 804);
+  ctx.rotate(0.10);
+  ctx.scale(1.0, 0.33);
+  const castGrad = ctx.createRadialGradient(0, 0, 35, 0, 0, 295);
+  castGrad.addColorStop(0.0, "rgba(3, 5, 10, 0.72)");
+  castGrad.addColorStop(0.55, "rgba(4, 7, 13, 0.34)");
+  castGrad.addColorStop(1.0, "rgba(4, 7, 13, 0)");
+  ctx.fillStyle = castGrad;
   ctx.beginPath();
-  ctx.arc(0, 0, 290, 0, Math.PI * 2);
+  ctx.arc(0, 0, 295, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
-  // === 严格 3D 透视投影引擎（绘制真实 28° 拧转倒角魔方） ===
-  const yaw = 0.64;    // 36.7°
-  const pitch = 0.44;  // 25.2°
-  const cy = Math.cos(yaw), sy = Math.sin(yaw);
-  const cp = Math.cos(pitch), sp = Math.sin(pitch);
-
-  function rotY(p, a) {
-    const c = Math.cos(a), s = Math.sin(a);
-    return [p[0] * c - p[2] * s, p[1], p[0] * s + p[2] * c];
-  }
-  function toCam(p) {
-    const x1 = p[0] * cy - p[2] * sy;
-    const z1 = p[0] * sy + p[2] * cy;
-    const y2 = p[1] * cp - z1 * sp;
-    const z2 = p[1] * sp + z1 * cp;
-    return [x1, y2, z2];
-  }
-  function project(p) {
-    const c = toCam(p);
-    const camZ = 9.0;
-    const f = 1720 / (camZ - c[2]);
-    return [512 + c[0] * f, 506 - c[1] * f, c[2]];
-  }
-
-  // 绘制带圆角的 3D 投影四边形（用于每个立体小面贴片）
-  function drawQuad3D(pts3, fillStyle, strokeStyle, lineWidth, cornerShrink = 0.14) {
-    const pts = pts3.map(project);
-    ctx.beginPath();
-    for (let i = 0; i < 4; i++) {
-      const prev = pts[(i + 3) % 4];
-      const cur = pts[i];
-      const next = pts[(i + 1) % 4];
-      const ax = cur[0] + (prev[0] - cur[0]) * cornerShrink;
-      const ay = cur[1] + (prev[1] - cur[1]) * cornerShrink;
-      const bx = cur[0] + (next[0] - cur[0]) * cornerShrink;
-      const by = cur[1] + (next[1] - cur[1]) * cornerShrink;
-      if (i === 0) ctx.moveTo(ax, ay);
-      else ctx.lineTo(ax, ay);
-      ctx.quadraticCurveTo(cur[0], cur[1], bx, by);
-    }
-    ctx.closePath();
-    if (fillStyle) {
-      ctx.fillStyle = fillStyle;
-      ctx.fill();
-    }
-    if (strokeStyle) {
-      ctx.strokeStyle = strokeStyle;
-      ctx.lineWidth = lineWidth;
-      ctx.stroke();
-    }
-  }
-
-  // 生成单层（y0..y1）的 3D 块体与全部可见贴片
-  function buildLayerFaces(y0, y1, twistRad, isTopLayer) {
-    const S1 = 1.18;
-    const faces = [];
-
-    function pushBox(x0, x1, yy0, yy1, z0, z1, isTile, colA, colB, strokeCol, rim) {
-      const quads = [
-        { n: [0, 1, 0], pts: [[x0, yy1, z0], [x1, yy1, z0], [x1, yy1, z1], [x0, yy1, z1]], f: "U" },
-        { n: [0, -1, 0], pts: [[x0, yy0, z1], [x1, yy0, z1], [x1, yy0, z0], [x0, yy0, z0]], f: "D" },
-        { n: [0, 0, 1], pts: [[x0, yy0, z1], [x1, yy0, z1], [x1, yy1, z1], [x0, yy1, z1]], f: "F" },
-        { n: [0, 0, -1], pts: [[x1, yy0, z0], [x0, yy0, z0], [x0, yy1, z0], [x1, yy1, z0]], f: "B" },
-        { n: [1, 0, 0], pts: [[x1, yy0, z1], [x1, yy0, z0], [x1, yy1, z0], [x1, yy1, z1]], f: "R" },
-        { n: [-1, 0, 0], pts: [[x0, yy0, z0], [x0, yy0, z1], [x0, yy1, z1], [x0, yy1, z0]], f: "L" },
-      ];
-      for (const q of quads) {
-        const nr = rotY(q.n, twistRad);
-        const nc = toCam(nr);
-        if (nc[2] <= -0.02) continue; // 背面剔除
-        const rPts = q.pts.map((p) => rotY(p, twistRad));
-        const depth = rPts.reduce((acc, p) => acc + toCam(p)[2], 0) / 4;
-        faces.push({
-          pts: rPts,
-          depth,
-          face: q.f,
-          isTile,
-          colA,
-          colB,
-          strokeCol,
-          rim,
-          nCam: nc,
-          isTopLayer,
-        });
-      }
-    }
-
-    // 层内暗靛色骨架盒（衬托 3×3 块缝）
-    pushBox(-S1, S1, y0, y1, -S1, S1, false, "#111C34", "#0A1224", "rgba(148, 206, 255, 0.28)", 0.08);
-
-    // 9 列网格贴片（根据层高划分 1 行或 2 行）
-    const rows = isTopLayer ? [0] : [0, 1];
-    const rowH = (y1 - y0) / rows.length;
-    const cellW = (S1 * 2) / 3;
-    const padT = 0.058;
-    const lift = 0.014;
-
-    const palette = {
-      U: ["#F8FCFF", "#C4E2FF", "rgba(255,255,255,0.85)"],
-      F: ["#38B0FF", "#1662E0", "rgba(170,230,255,0.55)"],
-      R: ["#32E4A4", "#0C966C", "rgba(176,255,228,0.52)"],
-      L: ["#FFB046", "#E85B32", "rgba(255,228,176,0.58)"],
-      B: ["#6E78FF", "#3A3EC8", "rgba(198,204,255,0.48)"],
-      D: ["#FFD84D", "#E09A18", "rgba(255,242,186,0.45)"],
-    };
-
-    // 侧壁 4 面小块贴片
-    for (const r of rows) {
-      const ry0 = y0 + r * rowH + padT;
-      const ry1 = y0 + (r + 1) * rowH - padT;
-      for (let c = 0; c < 3; c++) {
-        const c0 = -S1 + c * cellW + padT;
-        const c1 = -S1 + (c + 1) * cellW - padT;
-        const sideDefs = [
-          { f: "F", n: [0, 0, 1], pts: [[c0, ry0, S1 + lift], [c1, ry0, S1 + lift], [c1, ry1, S1 + lift], [c0, ry1, S1 + lift]] },
-          { f: "B", n: [0, 0, -1], pts: [[c1, ry0, -S1 - lift], [c0, ry0, -S1 - lift], [c0, ry1, -S1 - lift], [c1, ry1, -S1 - lift]] },
-          { f: "R", n: [1, 0, 0], pts: [[S1 + lift, ry0, c1], [S1 + lift, ry0, c0], [S1 + lift, ry1, c0], [S1 + lift, ry1, c1]] },
-          { f: "L", n: [-1, 0, 0], pts: [[-S1 - lift, ry0, c0], [-S1 - lift, ry0, c1], [-S1 - lift, ry1, c1], [-S1 - lift, ry1, c0]] },
-        ];
-        for (const sd of sideDefs) {
-          const nr = rotY(sd.n, twistRad);
-          const nc = toCam(nr);
-          if (nc[2] <= 0.02) continue;
-          const rPts = sd.pts.map((p) => rotY(p, twistRad));
-          const depth = rPts.reduce((acc, p) => acc + toCam(p)[2], 0) / 4 + 0.03;
-          const [ca, cb, st] = palette[sd.f];
-          faces.push({ pts: rPts, depth, face: sd.f, isTile: true, colA: ca, colB: cb, strokeCol: st, rim: 0.22, nCam: nc, isTopLayer });
-        }
-      }
-    }
-
-    // 顶面 3×3 冰白晶格贴片（仅顶层可见）
-    if (isTopLayer) {
-      for (let ix = 0; ix < 3; ix++) {
-        for (let iz = 0; iz < 3; iz++) {
-          const x0 = -S1 + ix * cellW + padT;
-          const x1 = -S1 + (ix + 1) * cellW - padT;
-          const z0 = -S1 + iz * cellW + padT;
-          const z1 = -S1 + (iz + 1) * cellW - padT;
-          const rPts = [[x0, y1 + lift, z0], [x1, y1 + lift, z0], [x1, y1 + lift, z1], [x0, y1 + lift, z1]].map((p) => rotY(p, twistRad));
-          const depth = rPts.reduce((acc, p) => acc + toCam(p)[2], 0) / 4 + 0.04;
-          const [ca, cb, st] = palette.U;
-          faces.push({
-            pts: rPts,
-            depth,
-            face: "U",
-            isTile: true,
-            colA: ca,
-            colB: cb,
-            strokeCol: st,
-            rim: (ix === 1 && iz === 1) ? 0.30 : 0.21,
-            nCam: toCam([0, 1, 0]),
-            isTopLayer,
-          });
-        }
-      }
-    }
-    return faces;
-  }
-
-  function paintFaceList(faces) {
-    // 先绘深靛色层体骨架，再按深度从远到近绘制全部 3×3 彩色圆角贴片（杜绝骨架遮挡后排贴片）
-    const bodyFaces = faces.filter((f) => !f.isTile).sort((a, b) => a.depth - b.depth);
-    const tileFaces = faces.filter((f) => f.isTile).sort((a, b) => a.depth - b.depth);
-    for (const f of [...bodyFaces, ...tileFaces]) {
-      const p2 = f.pts.map(project);
-      const grad = ctx.createLinearGradient(p2[0][0], p2[0][1], p2[2][0], p2[2][1]);
-      grad.addColorStop(0.0, f.colA);
-      grad.addColorStop(1.0, f.colB);
-      drawQuad3D(f.pts, grad, f.strokeCol, f.isTile ? 3.2 : 3.6, f.rim);
-    }
-  }
-
-  // 先绘下两层（未拧转）
-  const bottomFaces = buildLayerFaces(-1.18, 0.36, 0.0, false);
-  paintFaceList(bottomFaces);
-
-  // 层间错缝中露出【内挖球面空腔辉光 + 棱镜色散光带】！
+  // 魔方正下方紧贴的短接触影
   ctx.save();
-  const gapCenter = project([0.0, 0.39, 0.0]);
-  const cavGlow = ctx.createRadialGradient(gapCenter[0], gapCenter[1], 14, gapCenter[0], gapCenter[1], 210);
-  cavGlow.addColorStop(0.0, "rgba(235, 252, 255, 0.92)");
-  cavGlow.addColorStop(0.32, "rgba(92, 224, 255, 0.62)");
-  cavGlow.addColorStop(0.65, "rgba(148, 122, 255, 0.26)");
-  cavGlow.addColorStop(1.0, "rgba(0, 0, 0, 0)");
-  ctx.fillStyle = cavGlow;
+  ctx.translate(514, 796);
+  ctx.scale(1.0, 0.28);
+  const contactGrad = ctx.createRadialGradient(0, 0, 12, 0, 0, 195);
+  contactGrad.addColorStop(0.0, "rgba(2, 4, 8, 0.78)");
+  contactGrad.addColorStop(1.0, "rgba(2, 4, 8, 0)");
+  ctx.fillStyle = contactGrad;
   ctx.beginPath();
-  ctx.ellipse(gapCenter[0], gapCenter[1], 235, 118, -0.06, 0, Math.PI * 2);
+  ctx.arc(0, 0, 195, 0, Math.PI * 2);
   ctx.fill();
-
-  // 精致旋转轨迹微弧（点题 Motion）
-  ctx.strokeStyle = "rgba(180, 238, 255, 0.52)";
-  ctx.lineWidth = 4.2;
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.ellipse(gapCenter[0], gapCenter[1] - 4, 295, 138, 0, 0.16 * Math.PI, 0.44 * Math.PI);
-  ctx.stroke();
   ctx.restore();
 
-  // 再绘顶层（顺势拧转 28°！）
-  const topFaces = buildLayerFaces(0.42, 1.18, 0.49, true);
-  paintFaceList(topFaces);
-
-  // 顶层与主棱边的一缕高光星芒（干净点睛，不杂乱）
-  const glintPt = project(rotY([1.14, 1.16, 1.14], 0.49));
-  ctx.save();
-  ctx.translate(glintPt[0], glintPt[1]);
-  const starG = ctx.createRadialGradient(0, 0, 2, 0, 0, 56);
-  starG.addColorStop(0.0, "rgba(255, 255, 255, 0.96)");
-  starG.addColorStop(0.35, "rgba(166, 234, 255, 0.45)");
-  starG.addColorStop(1.0, "rgba(255, 255, 255, 0)");
-  ctx.fillStyle = starG;
-  ctx.beginPath();
-  ctx.arc(0, 0, 56, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = "#FFFFFF";
-  ctx.beginPath();
-  ctx.moveTo(0, -34); ctx.lineTo(5.5, -5.5); ctx.lineTo(34, 0); ctx.lineTo(5.5, 5.5);
-  ctx.lineTo(0, 34); ctx.lineTo(-5.5, 5.5); ctx.lineTo(-34, 0); ctx.lineTo(-5.5, -5.5);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
+  // 4) 叠加真实 3D 硬朗光影方案 B 魔方
+  const cubeCanvas = window.renderCube3DLayer(1024);
+  ctx.drawImage(cubeCanvas, 0, -10, 1024, 1024);
 
   ctx.restore(); // end clip
 
-  // 外缘极细玻璃高光边框
-  traceSquircle(pad + 1.5, pad + 1.5, w - 3, w - 3, rad - 1.5);
-  const rimGrad = ctx.createLinearGradient(0, pad, 1024, 1024 - pad);
-  rimGrad.addColorStop(0.0, "rgba(176, 222, 255, 0.36)");
-  rimGrad.addColorStop(0.5, "rgba(110, 152, 224, 0.14)");
-  rimGrad.addColorStop(1.0, "rgba(148, 220, 255, 0.24)");
+  // 5) 响应左上主光的极细冷银玻璃内描边（左上迎光亮、右下背光沉）
+  traceSquircle(ctx, pad + 1.5, pad + 1.5, w - 3, w - 3, rad - 1.5);
+  const rimGrad = ctx.createLinearGradient(80, 60, 940, 960);
+  rimGrad.addColorStop(0.0, "rgba(232, 240, 255, 0.34)");
+  rimGrad.addColorStop(0.40, "rgba(168, 186, 218, 0.12)");
+  rimGrad.addColorStop(1.0, "rgba(110, 128, 160, 0.08)");
   ctx.strokeStyle = rimGrad;
-  ctx.lineWidth = 4;
+  ctx.lineWidth = 3.5;
   ctx.stroke();
-
-  ctx.restore();
 }
 
-window.renderIconDataUrl = (size) => {
-  renderMaster(size);
-  return canvas.toDataURL("image/png");
+buildMaster1024();
+
+// 逐级 0.5x 渐进缩采样，保证 16px/32px 小尺寸图标也保持硬朗清晰
+window.exportSizedPng = (size) => {
+  let src = master;
+  let cur = 1024;
+  while (cur * 0.5 >= size && cur > size) {
+    const next = Math.max(size, Math.floor(cur * 0.5));
+    const tmp = document.createElement("canvas");
+    tmp.width = next;
+    tmp.height = next;
+    const tc = tmp.getContext("2d");
+    tc.imageSmoothingEnabled = true;
+    tc.imageSmoothingQuality = "high";
+    tc.drawImage(src, 0, 0, next, next);
+    src = tmp;
+    cur = next;
+  }
+  if (cur !== size) {
+    const out = document.createElement("canvas");
+    out.width = size;
+    out.height = size;
+    const oc = out.getContext("2d");
+    oc.imageSmoothingEnabled = true;
+    oc.imageSmoothingQuality = "high";
+    oc.drawImage(src, 0, 0, size, size);
+    src = out;
+  }
+  return src.toDataURL("image/png");
 };
 </script>
 </body>
@@ -385,12 +552,18 @@ window.renderIconDataUrl = (size) => {
 const browser = await launchBrowser({ prefix: "mc-icon-", width: 1024, height: 1024 });
 try {
   const page = await browser.newPage();
+  const errs = [];
+  page.on("pageerror", (e) => errs.push(e.message));
+  page.on("console", (m) => {
+    if (m.type() === "error") errs.push(m.text());
+  });
   await page.setContent(ICON_HTML, { waitUntil: "load" });
+  if (errs.length) throw new Error("Icon render errors: " + errs.join("; "));
 
   const cache = new Map();
   async function getPng(size) {
     if (cache.has(size)) return cache.get(size);
-    const dataUrl = await page.evaluate((s) => window.renderIconDataUrl(s), size);
+    const dataUrl = await page.evaluate((s) => window.exportSizedPng(s), size);
     const buf = Buffer.from(dataUrl.replace(/^data:image\/png;base64,/, ""), "base64");
     cache.set(size, buf);
     return buf;
