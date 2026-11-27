@@ -6,8 +6,8 @@
 
 ## 当前状态
 
-- 版本 **0.4.4-rc.1**（2026-11-27 RC 小版本 bump，四处同步：package.json / package-lock.json /
-  tauri.conf.json / Cargo.toml+Cargo.lock；开始页重构为轻量真实 3D 外露半透贴片 + 浅冰透微雾内挖球腔壳体 + 真实 6 轴核心魔方，Tauri 图标更新为方案 B 硬朗光影 3×3 实底版，待后续导入外部音频资产后收口 0.4.4）
+- 版本 **0.4.4**（2026-11-27 正式发版准备就绪，四处同步：package.json / package-lock.json /
+  tauri.conf.json / Cargo.toml+Cargo.lock；发布说明见 `docs/release-notes-v0.4.4.md`。包含开始页轻量真实 3D 外露半透贴片魔方与浅冰透微雾内挖球腔/6 轴核心重构、方案 B 硬朗光影 3×3 Tauri 图标、官方双轨 BGM + 3 节点 SFX 音频资产、Nmoku 风格「音乐与音效」浏览中心 `#/audio`、音乐/音效独立开关与全局 `M`/`Alt+M` 静音）
 - 求解器：CFOP / CFOP+（ZBLS+一步 ZBLL）/ Roux（分步 4a/4b/4c、合并 4b+4c、高级 EOLR+6E2C）五方法全绿；
   ZBLL 数据完整 **493/493** 且运行时查表经 post-AUF × y 共轭展开精确覆盖全空间 **7776/7776 = 100%**；
   ZBLS 有效全集 **302**（O 组 3 条全槽已解留档 docs/archived/），特征键 + `viewState` 四槽统一（真实态命中 **100%**，CFOP+ 均省 ~12 步、0 例变长）；
