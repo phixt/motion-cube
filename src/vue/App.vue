@@ -6,13 +6,19 @@ import WinNavigationView from "../vendor/winui-on-web/components/WinNavigationVi
 import WinTitleBar from "../vendor/winui-on-web/components/WinTitleBar.vue";
 import WinToolTipService from "../vendor/winui-on-web/components/WinToolTipService.vue";
 import { isLocale } from "../i18n";
+import { isTextEntryTarget } from "../input/textEntry";
+import { bindingKey } from "../input/keymap";
 import {
+  audioMutedRef,
+  loadKeymap,
   loadSettings,
   parallaxIntensityRef,
   saveParallaxIntensity,
   saveSettings,
+  toggleAudioMuted,
   type ParallaxIntensity,
 } from "../settings";
+import { disposeAudio, initAudio, setAudioRoute } from "../audio/audioManager";
 import { localeRef, setMotionCubeLocale, useI18n } from "./i18n";
 import { APP_ROUTES } from "./router";
 import {
@@ -115,6 +121,51 @@ const cycleParallax = () => {
   saveParallaxIntensity(next);
 };
 
+const audioLabel = computed(
+  () => `${t("audio.label")}: ${audioMutedRef.value ? t("audio.off") : t("audio.on")}`,
+);
+const toggleAudioMute = () => {
+  toggleAudioMuted();
+};
+
+/** 判断游戏页当前键位是否把裸 M 键占作魔方动作（默认 KeyM = 中层 M 转） */
+function isPlainMBoundInGame(): boolean {
+  const cfg = loadKeymap();
+  const target = bindingKey({ code: "KeyM", shift: false, space: false });
+  for (const b of Object.values(cfg.moves)) {
+    if (bindingKey(b) === target) return true;
+  }
+  for (const b of Object.values(cfg.specials)) {
+    if (bindingKey(b) === target) return true;
+  }
+  return false;
+}
+
+/** 全局 M 静音快捷键（输入框打字/按键改绑捕获期不抢键；游戏页若 M 已绑中层转则让行，并用 Alt+M 兜底） */
+const onGlobalAudioKeyDown = (e: KeyboardEvent): void => {
+  if (e.code !== "KeyM" || e.repeat) return;
+  if (document.body.dataset.mcKeyCapture === "1") return;
+  if (isTextEntryTarget(e.target)) return;
+
+  if (e.altKey && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault();
+    toggleAudioMuted();
+    return;
+  }
+  if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+  if (route.name === "game" && isPlainMBoundInGame()) return;
+
+  e.preventDefault();
+  toggleAudioMuted();
+};
+
+watch(
+  () => route.name,
+  (name) => {
+    setAudioRoute(name);
+  },
+);
+
 // ---- Tauri 无边框自绘标题栏窗口控制（decorations: false，仅桌面端启用） ----
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 const isMaximized = ref(false);
@@ -150,6 +201,8 @@ const onTitlebarMouseDown = (e: MouseEvent) => {
 };
 
 onMounted(() => {
+  initAudio(route.name);
+  window.addEventListener("keydown", onGlobalAudioKeyDown);
   if (!isTauri) return;
   void withTauriWindow(async (w) => {
     isMaximized.value = await w.isMaximized();
@@ -160,6 +213,8 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener("keydown", onGlobalAudioKeyDown);
+  disposeAudio();
   unlistenResize?.();
   unlistenResize = null;
 });
@@ -186,6 +241,7 @@ onBeforeUnmount(() => {
       <WinButton :Content="`${t('material.label')}: ${materialLabel}`" @Click="cycleMaterial" />
       <WinButton :Content="uiScaleLabel" @Click="cycleUiScale" />
       <WinButton :Content="parallaxLabel" @Click="cycleParallax" />
+      <WinButton id="btn-audio-mute" :Content="audioLabel" @Click="toggleAudioMute" />
       <div v-if="isTauri" class="win-caption-controls" role="group" aria-label="Window controls">
         <button type="button" class="win-caption-btn" aria-label="Minimize" @click="onWinMinimize">&#xE921;</button>
         <button type="button" class="win-caption-btn" :aria-label="isMaximized ? 'Restore' : 'Maximize'" @click="onWinToggleMaximize">

@@ -8,7 +8,8 @@ import { createGameSession, type GameSession } from "../../game/session";
 import { clearSnapshot, loadSnapshot, saveSnapshot } from "../../data/snapshot";
 import { parseMoves } from "../../notation/alg";
 import { useI18n } from "../i18n";
-import { applyAlg as applyAlgState, randomScramble, solvedState } from "../../cube/solver";
+import { applyAlg as applyAlgState, isUniform, randomScramble, solvedState } from "../../cube/solver";
+import { playSfx } from "../../audio/audioManager";
 import type { SolveResult } from "../../cube/solver";
 import {
   disposeSolverWorker,
@@ -102,7 +103,9 @@ const copyText = async (text: string): Promise<boolean> => {
 
 const copyScramble = async (): Promise<void> => {
   if (!scrambleAlg.value) return;
-  status.value = (await copyText(scrambleAlg.value)) ? t("hud.copied") : t("hud.copyFail");
+  const ok = await copyText(scrambleAlg.value);
+  status.value = ok ? t("hud.copied") : t("hud.copyFail");
+  if (ok) playSfx("save");
 };
 
 const copySolve = async (): Promise<void> => {
@@ -115,7 +118,9 @@ const copySolve = async (): Promise<void> => {
     .map((part) => part.trim())
     .filter(Boolean)
     .join(" ");
-  status.value = (await copyText(full)) ? t("hud.copied") : t("hud.copyFail");
+  const ok = await copyText(full);
+  status.value = ok ? t("hud.copied") : t("hud.copyFail");
+  if (ok) playSfx("save");
 };
 
 // 解法演示：从当前打乱态逐步施加解法（不重放打乱）
@@ -145,6 +150,8 @@ const cancelSolve = (): void => {
 };
 
 let session: GameSession | null = null;
+/** 追踪上一次已知的魔方是否已还原：仅在「非还原 → 还原」跃迁时触发 sfx_solved，避免初始/重置误响 */
+let wasSolved = true;
 
 /** 显示日志：只留最近 LOG_LIMIT 步；快照走 progressAlg（完整序列），两者互不影响 */
 const logMove = (move: string): void => {
@@ -163,10 +170,29 @@ const syncProgress = (): void => {
 onMounted(() => {
   if (!stageEl.value || !grayPanelEl.value) return;
   session = createGameSession(stageEl.value, grayPanelEl.value, {
-    onMove: (m) => { cancelDemo(); logMove(m); syncProgress(); },
+    onMove: (m) => {
+      cancelDemo();
+      logMove(m);
+      syncProgress();
+      const nowSolved = isUniform(currentState());
+      if (!wasSolved && nowSolved) playSfx("solved");
+      wasSolved = nowSolved;
+    },
     // session 的 undo/reset 先回调 hook、再改 player 序列 → nextTick 读「改之后」的完整序列
-    onUndo: () => { cancelDemo(); moves.value.pop(); void nextTick(syncProgress); },
-    onReset: () => { cancelDemo(); moves.value = []; void nextTick(syncProgress); },
+    onUndo: () => {
+      cancelDemo();
+      moves.value.pop();
+      void nextTick(() => {
+        syncProgress();
+        wasSolved = isUniform(currentState());
+      });
+    },
+    onReset: () => {
+      cancelDemo();
+      moves.value = [];
+      wasSolved = true;
+      void nextTick(syncProgress);
+    },
     onStatus: (s) => (status.value = s),
     onPlaying: (p) => (playing.value = p),
   });
@@ -183,6 +209,7 @@ onMounted(() => {
     void session.player.requestRender();
     progressAlg.value = restored;
     moves.value = restored.split(/\s+/).filter(Boolean).slice(-LOG_LIMIT);
+    wasSolved = isUniform(currentState());
     status.value = t("hud.statusRestored");
   }
 });
@@ -202,6 +229,7 @@ const applyAlg = (): void => {
   if (normalized !== null && normalized !== undefined) {
     algText.value = normalized;
     syncProgress(); // 应用公式后完整序列 = 新公式（快照随之更新，不再停留在旧进度）
+    wasSolved = isUniform(currentState());
   }
 };
 const togglePlay = (): void => {
@@ -216,6 +244,7 @@ const reset = (): void => {
   session?.player.reset();
   moves.value = [];
   scrambleAlg.value = "";
+  wasSolved = true;
   syncProgress();
   status.value = t("hud.statusReset");
 };
@@ -243,6 +272,7 @@ const clearProgress = (): void => {
   session?.player.reset();
   moves.value = [];
   scrambleAlg.value = "";
+  wasSolved = true;
   syncProgress();
 };
 
@@ -252,6 +282,8 @@ const clearProgress = (): void => {
 const scrambleCube = async (): Promise<void> => {
   if (!session || demoRunning.value) return;
   cancelDemo();
+  playSfx("scramble");
+  wasSolved = false;
   const scr = randomScramble(20).join(" ");
   scrambleAlg.value = scr;
   status.value = t("hud.scrambled", { n: 20 });
@@ -309,6 +341,7 @@ const doSolve = async (): Promise<void> => {
     if (activeSolveCancel !== cancel) return;
     solveResult.value = chosen;
     status.value = chosen.moves.length ? t("solve.total", { n: chosen.moves.length }) : t("solve.empty");
+    if (chosen.moves.length) playSfx("solved");
   } catch (e) {
     if (e instanceof SolveCancelledError) return;
     solveError.value = (e as Error).message;
@@ -366,6 +399,8 @@ const demoSolve = async (): Promise<void> => {
   activeDemoKind = "none";
   demoRunning.value = false;
   scrambleAlg.value = "";
+  wasSolved = isUniform(currentState());
+  if (wasSolved) playSfx("solved");
   status.value = t("solve.done");
 };
 </script>

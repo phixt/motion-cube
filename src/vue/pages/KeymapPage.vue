@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from "vue";
+import { useRouter } from "vue-router";
 import WinButton from "../../vendor/winui-on-web/components/WinButton.vue";
 import WinInfoBar from "../../vendor/winui-on-web/components/WinInfoBar.vue";
 import WinSlider from "../../vendor/winui-on-web/components/WinSlider.vue";
@@ -20,16 +21,27 @@ import {
   type SpecialAction,
 } from "../../input/keymap";
 import {
+  audioMutedRef,
+  bgmMutedRef,
+  bgmVolumeRef,
   loadEditorActionKeys,
   loadKeymap,
   loadSettings,
   saveEditorActionKeys,
   saveKeymap,
   saveSettings,
+  setAudioMuted,
+  setBgmMuted,
+  setBgmVolume,
+  setSfxMuted,
+  setSfxVolume,
+  sfxMutedRef,
+  sfxVolumeRef,
 } from "../../settings";
 import { useI18n } from "../i18n";
 
 const { t } = useI18n();
+const router = useRouter();
 
 /** 游戏 / 编辑器两个作用域：游戏 = 公式键；编辑器 = 功能键（播放/显隐/步进） */
 const scope = ref<"game" | "editor">("game");
@@ -143,11 +155,13 @@ const stopCapture = (): void => {
   captureCleanup?.();
   captureCleanup = null;
   capturing.value = null;
+  delete document.body.dataset.mcKeyCapture;
 };
 
 const startCapture = (row: Row): void => {
   stopCapture();
   capturing.value = row.action;
+  document.body.dataset.mcKeyCapture = "1";
   savedFlash.value = false;
   let spaceHeld = false;
   const onKeyUp = (e: KeyboardEvent) => {
@@ -164,6 +178,7 @@ const startCapture = (row: Row): void => {
     captureCleanup?.();
     captureCleanup = null;
     capturing.value = null;
+    delete document.body.dataset.mcKeyCapture;
     if (e.code === "Escape") return;
     const nb: KeyBinding = { code: e.code, shift: e.shiftKey, space: spaceHeld };
     if (scope.value === "editor") {
@@ -218,6 +233,35 @@ const sixColorBase = computed({
     settings.value.sixColorBase = v;
     saveSettings(settings.value);
   },
+});
+
+const audioEnabled = computed({
+  get: () => !audioMutedRef.value,
+  set: (v: boolean) => setAudioMuted(!v),
+});
+
+const bgmEnabled = computed({
+  get: () => !bgmMutedRef.value,
+  set: (v: boolean) => setBgmMuted(!v),
+});
+
+const sfxEnabled = computed({
+  get: () => !sfxMutedRef.value,
+  set: (v: boolean) => setSfxMuted(!v),
+});
+
+const openAudioHub = (): void => {
+  void router.push({ name: "audio" });
+};
+
+const bgmPct = computed({
+  get: () => Math.round(bgmVolumeRef.value * 100),
+  set: (v: number) => setBgmVolume(v / 100),
+});
+
+const sfxPct = computed({
+  get: () => Math.round(sfxVolumeRef.value * 100),
+  set: (v: number) => setSfxVolume(v / 100),
 });
 
 onBeforeUnmount(stopCapture);
@@ -327,6 +371,31 @@ onBeforeUnmount(stopCapture);
       <WinTextBlock class="cooldown-label" :Text="t('keymap.rulerEnabled')" FontSize="14" />
       <WinToggleSwitch v-model:IsOn="rulerEnabled" :OnContent="t('hand.rulerOn')" :OffContent="t('hand.rulerOff')" />
     </div>
+
+    <WinTextBlock class="page-title base-title" :Text="t('audio.sectionTitle')" FontSize="20" FontWeight="SemiBold" />
+    <div class="settings-box">
+      <WinTextBlock class="cooldown-label" :Text="t('audio.enabled')" FontSize="14" />
+      <WinToggleSwitch id="audio-enabled-toggle" v-model:IsOn="audioEnabled" :OnContent="t('hand.rulerOn')" :OffContent="t('hand.rulerOff')" />
+    </div>
+    <div class="settings-box">
+      <WinTextBlock class="cooldown-label" :Text="t('audio.bgmToggle')" FontSize="14" />
+      <WinToggleSwitch id="audio-bgm-toggle" v-model:IsOn="bgmEnabled" :OnContent="t('hand.rulerOn')" :OffContent="t('hand.rulerOff')" />
+      <WinTextBlock class="cooldown-label" :Text="t('audio.sfxToggle')" FontSize="14" />
+      <WinToggleSwitch id="audio-sfx-toggle" v-model:IsOn="sfxEnabled" :OnContent="t('hand.rulerOn')" :OffContent="t('hand.rulerOff')" />
+    </div>
+    <div class="settings-box">
+      <WinTextBlock class="cooldown-label" :Text="t('audio.bgmVolume', { pct: bgmPct })" FontSize="14" />
+      <WinSlider id="audio-bgm-slider" class="cooldown-slider" v-model:Value="bgmPct" :Minimum="0" :Maximum="100" StepFrequency="5" />
+    </div>
+    <div class="settings-box">
+      <WinTextBlock class="cooldown-label" :Text="t('audio.sfxVolume', { pct: sfxPct })" FontSize="14" />
+      <WinSlider id="audio-sfx-slider" class="cooldown-slider" v-model:Value="sfxPct" :Minimum="0" :Maximum="100" StepFrequency="5" />
+    </div>
+    <div class="settings-box">
+      <WinButton id="btn-open-audio-hub" :Content="t('audio.openHub')" @Click="openAudioHub" />
+    </div>
+    <WinTextBlock class="page-note" :Text="t('audio.note')" />
+
     <WinTextBlock class="page-note" :Text="t('keymap.note')" />
     <WinTextBlock class="page-note" :Text="t('keymap.scopeNote')" />
   </div>

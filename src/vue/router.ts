@@ -15,6 +15,7 @@ const pages = {
   LibraryPage: () => import("./pages/LibraryPage.vue"),
   EditorPage: () => import("./pages/EditorPage.vue"),
   HandCalibPage: () => import("./pages/HandCalibPage.vue"),
+  AudioHubPage: () => import("./pages/AudioHubPage.vue"),
   RenderDemoPage: () => import("./pages/RenderDemoPage.vue"), // R1 阶段1 渲染宿主调试验证页（不进侧栏）
   HandLabPage: () => import("./pages/HandLabPage.vue"), // 手部 low-poly A/B 对照调试页（不进侧栏）
 };
@@ -25,6 +26,7 @@ export const APP_ROUTES: { name: Route; titleKey: string; icon: string }[] = [
   { name: "library", titleKey: "nav.library", icon: "\uE8A5" },
   { name: "editor", titleKey: "nav.editor", icon: "\uE70F" },
   { name: "hand", titleKey: "nav.hand", icon: "\uE7EF" },
+  { name: "audio", titleKey: "nav.audio", icon: "\uE8D6" },
   { name: "keymap", titleKey: "nav.keymap", icon: "\uE713" },
   { name: "help", titleKey: "nav.help", icon: "\uE897" },
 ];
@@ -35,6 +37,7 @@ const router = createRouter({
     { path: "/", redirect: "/start" },
     { path: "/start", name: "start", component: pages.StartPage },
     { path: "/game", name: "game", component: pages.GamePage },
+    { path: "/audio", name: "audio", component: pages.AudioHubPage },
     { path: "/keymap", name: "keymap", component: pages.KeymapPage },
     { path: "/help", name: "help", component: pages.HelpPage },
     { path: "/library", name: "library", component: pages.LibraryPage },

@@ -1,6 +1,6 @@
-/** 轻量 hash 路由：#/start | #/game | #/library | #/editor | #/hand | #/keymap | #/help */
+/** 轻量 hash 路由：#/start | #/game | #/library | #/editor | #/hand | #/audio | #/keymap | #/help */
 
-export const ROUTES = ["start", "game", "library", "editor", "hand", "keymap", "help"] as const;
+export const ROUTES = ["start", "game", "library", "editor", "hand", "audio", "keymap", "help"] as const;
 export type Route = (typeof ROUTES)[number];
 
 function parseHash(hash: string): Route {

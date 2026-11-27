@@ -35,6 +35,7 @@ import {
 } from "../../data/libraryStore";
 import { SAMPLE_LIBRARY } from "../../data/samples";
 import { BUILTIN_LIBRARY, BUILTIN_LIBRARY_REJECTED } from "../../data/algDb";
+import { playSfx } from "../../audio/audioManager";
 import { useI18n } from "../i18n";
 
 const { t } = useI18n();
@@ -163,7 +164,7 @@ const submitFormula = (): void => {
       categoryId: selectedCatId.value,
     });
     lib.value = upsertFormulaInLib(lib.value, formula);
-    persist();
+    if (persist()) playSfx("save");
     resetForm();
     setStatus(t("library.addOk"));
   } catch (e) {
@@ -207,7 +208,7 @@ const addCategory = (): void => {
     const cat = createCategory({ name: catName.value, parentId }, lib.value.categories);
     lib.value = { ...lib.value, categories: [...lib.value.categories, cat] };
     catName.value = "";
-    persist();
+    if (persist()) playSfx("save");
     setStatus(t("library.addOk"));
   } catch (e) {
     setStatus(t("library.categoryFail", { error: e instanceof CategoryError ? e.message : String(e) }));

@@ -14,6 +14,7 @@ import { GrayOverlay } from "../../cube/GrayOverlay";
 import { createGrayState, presetGrayState, type GrayPreset, type GrayState } from "../../cube/stickering";
 import { buildCategoryTree, flattenCategoryTree } from "../../data/category";
 import { loadLibrary, saveLibrary, upsertTechniqueInLib } from "../../data/libraryStore";
+import { playSfx } from "../../audio/audioManager";
 import {
   createTechnique,
   removeKeyframe,
@@ -931,6 +932,7 @@ const onNewAdd = (): void => {
   if (newNameEl.value) newNameEl.value.value = "";
   selectTech(created.id);
   statusText.value = t("editor.saved");
+  playSfx("save");
 };
 
 const onKfFrameChange = (e: Event): void => {
@@ -1182,6 +1184,7 @@ const onSave = (): void => {
     isDirty.value = false;
     statusText.value = t("editor.saved");
     saveFailed.value = false;
+    playSfx("save");
   } catch (e) {
     statusText.value = t("editor.saveFail", { error: e instanceof Error ? e.message : String(e) });
     saveFailed.value = true;
